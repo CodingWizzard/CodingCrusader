@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Coding Crusader's</title>
+
+    <script src="vendors/babylon.js"></script>
+    <script src="vendors/havokPhysics_umd.js"></script>
+
+    <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+
+
+    <script src="classes/discoSphere.js"></script>
+
+    <script src="moduls/pluginBase.js"></script>
+    <script src="moduls/helper.js"></script>
+    <script src="moduls/hemisphere.js"></script>
+    <script src="moduls/hemisphereNight.js"></script>
+    <script src="moduls/city.js"></script>
+    <script src="moduls/birds.js"></script>
+    <script src="moduls/fluid.js"></script>
+    <script src="moduls/portal.js"></script>
+    <script src="moduls/apollo.js"></script>
+    <script src="moduls/balloons.js"></script>
+    <script src="moduls/bubbles.js"></script>
+    <script src="moduls/chineseDisciplin.js"></script>
+    <script src="moduls/clouds.js"></script>
+    <script src="moduls/decalImpression.js"></script>
+    <script src="moduls/marilyn.js"></script>
+    <script src="moduls/monalisa.js"></script>
+    <script src="moduls/smokeSparks.js"></script>
+    <script src="moduls/sunGravitation.js"></script>
+    <script src="moduls/terrainPainterMarchingCubes.js"></script>
+    <script src="moduls/tunnel.js"></script>
+    <script src="moduls/tube.js"></script>
+    <script src="moduls/twoFaceImage.js"></script>
+    <script src="moduls/shadow.js"></script>
+
+
+
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        let createScene = async function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = BABYLON.Color3.Black();
+
+            // scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR;
+            // // scene.fogColor = bgcolor;
+            // scene.fogDensity = 0.03;
+            // scene.fogStart = 60.0;
+            // scene.fogEnd = 170.0;
+
+
+            const havokInstance = await HavokPhysics();
+            const hk = new BABYLON.HavokPlugin(true, havokInstance);
+            scene.enablePhysics(new BABYLON.Vector3(0, 0, 0), hk);
+
+
+            let camera = new BABYLON.ArcRotateCamera("",
+                BABYLON.Tools.ToRadians(90),
+                BABYLON.Tools.ToRadians(80),
+                50,
+                new BABYLON.Vector3(0, 0, 0),
+                scene);
+            // camera.upperBetaLimit = null;
+            // camera.lowerBetaLimit = null;
+
+            // // camera.lowerAlphaLimit = BABYLON.Tools.ToRadians(-90);
+            // // camera.upperAlphaLimit = BABYLON.Tools.ToRadians(-90);
+            // // camera.lowerBetaLimit = BABYLON.Tools.ToRadians(-10);
+            // // camera.upperBetaLimit = BABYLON.Tools.ToRadians(0);
+            camera.attachControl(canvas, true);
+
+
+            // scene.createDefaultCameraOrLight(1, 1, 1)
+            // scene.createDefaultEnvironment({ createGround: false, createSkybox: false })
+            // scene.activeCamera.radius = 50;
+
+
+
+            let plugins = [
+                // new Helper(scene),
+
+                new Tube(scene),
+
+                // new City(scene),
+
+                // new Portal(scene),
+                // new Apollo(scene, camera),
+
+
+                // new Fluid(scene),        // physics
+                // new Birds(scene),        // physics
+                new Marilyn(scene),         // physics
+
+
+                new Hemisphere(scene),
+                // new HemisphereNight(scene),
+                // new Shadow(scene),
+            ];
+
+
+            plugins.forEach((plugin) => plugin.activate());
+
+            scene.registerBeforeRender(() => {
+                plugins.forEach((plugin) => plugin.update());
+            });
+
+            return scene;
+        };
+
+
+        const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, disableWebGL2Support: false });
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(function () {
+                if (scene) {
+                    scene.render();
+                }
+            });
+        });
+
+
+        // let engine = new BABYLON.Engine(canvas, true, {
+        //     preserveDrawingBuffer: true,
+        //     stencil: true
+        // });
+        // let scene = createScene();
+
+        // engine.runRenderLoop(function () {
+        //     if (scene) {
+        //         scene.render();
+        //     }
+        // });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>
