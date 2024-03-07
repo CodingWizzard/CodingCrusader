@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Coding Crusader's</title>
+
+    <script src="vendors/babylon.js"></script>
+    <script src="vendors/havokPhysics_umd.js"></script>
+
+    <!-- 
+    <script src="vendors/babylonjs.materials.min.js"></script>
+    <script src="vendors/babylon-htmlmesh.min.js"></script> -->
+
+    <script src="classes/plane.js"></script>
+
+    <script src="moduls/pluginBase.js"></script>
+    <script src="moduls/apollo.js"></script>
+    <script src="moduls/tubeSpaceShip.js"></script>
+    <script src="moduls/hemisphereTubeSpaceShip.js"></script>
+    <script src="moduls/shadow.js"></script>
+
+
+    <!-- <script src="preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script> -->
+    <!-- <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.min.js"></script> -->
+
+
+
+    <!-- "https://cdn.babylonjs.com/timestamp.js?t=" + Date.now(),
+    "https://preview.babylonjs.com/babylon.js",
+    "https://preview.babylonjs.com/gui/babylon.gui.min.js",
+    "https://preview.babylonjs.com/inspector/babylon.inspector.bundle.js",
+    "https://preview.babylonjs.com/nodeEditor/babylon.nodeEditor.js",
+    "https://preview.babylonjs.com/nodeGeometryEditor/babylon.nodeGeometryEditor.js",
+    "https://preview.babylonjs.com/guiEditor/babylon.guiEditor.js",
+    "https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js",
+    "https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js",
+    "https://preview.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js",
+    "https://preview.babylonjs.com/loaders/babylonjs.loaders.min.js",
+    "https://preview.babylonjs.com/serializers/babylonjs.serializers.min.js",
+    "https://preview.babylonjs.com/accessibility/babylon.accessibility.js",
+    "https://rawcdn.githack.com/BabylonJS/Extensions/f43ab677b4bca0a6ab77132d3f785be300382760/ClonerSystem/src/babylonx.cloner.js",
+    "https://rawcdn.githack.com/BabylonJS/Extensions/785013ec55b210d12263c91f3f0a2ae70cf0bc8a/CompoundShader/src/babylonx.CompoundShader.js", -->
+
+
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        // Inspiration: https://www.youtube.com/watch?v=YW3XxAcLNY8&t=3s&ab_channel=StefeligaFlavius
+        // Tools: 
+        //  https://github.com/satelllte/JSPlacementWeb/
+
+        // https://cpetry.github.io/NormalMap-Online/
+
+        let canvas = document.getElementById("renderCanvas");
+
+        let createScene = async function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = BABYLON.Color3.Black();
+
+            // scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR;
+            // // scene.fogColor = bgcolor;
+            // scene.fogDensity = 0.03;
+            // scene.fogStart = 60.0;
+            // scene.fogEnd = 170.0;
+
+
+            // const havokInstance = await HavokPhysics();
+            // const hk = new BABYLON.HavokPlugin(true, havokInstance);
+            // scene.enablePhysics(new BABYLON.Vector3(0, 0, 0), hk);
+
+
+            let camera = new BABYLON.ArcRotateCamera("",
+                BABYLON.Tools.ToRadians(90),
+                BABYLON.Tools.ToRadians(80),
+                500,
+                new BABYLON.Vector3(0, 0, 0),
+                scene);
+            // camera.upperBetaLimit = null;
+            // camera.lowerBetaLimit = null;
+
+            // // camera.lowerAlphaLimit = BABYLON.Tools.ToRadians(-90);
+            // // camera.upperAlphaLimit = BABYLON.Tools.ToRadians(-90);
+            // // camera.lowerBetaLimit = BABYLON.Tools.ToRadians(-10);
+            // // camera.upperBetaLimit = BABYLON.Tools.ToRadians(0);
+            camera.attachControl(canvas, true);
+
+            // let light = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            // light.intensity = 0.7;
+            // // light.diffuse = BABYLON.Color3.FromHexString('#ff9944');
+
+            let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+            sky.intensity = 0.5;
+            // sky.diffuse = bgcolor;
+
+            let light = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            light.intensity = 0.7;
+            light.diffuse = BABYLON.Color3.FromHexString("#ff9944");
+            light.position.y = 1;
+
+            // let light = new BABYLON.SpotLight("", new BABYLON.Vector3(0, 0, 0), new BABYLON.Vector3(0, 0, 1), Math.PI / 3, 2, scene);
+            // light.intensity = 0.3;
+            // light.diffuse = BABYLON.Color3.FromHexString('#999999');
+            // light.range = 100;
+            // light.angle = Math.PI * 0.25;;
+            // // light.radius = Math.PI * 0.5;
+            // // light.parent = camera;
+
+
+            // scene.createDefaultCameraOrLight(1, 1, 1)
+            // scene.createDefaultEnvironment({ createGround: false, createSkybox: false })
+            // scene.activeCamera.radius = 50;
+
+
+            // scene.createDefaultCameraOrLight(1, 1, 1)
+            // scene.createDefaultEnvironment({ createGround: false, createSkybox: false })
+            // scene.activeCamera.radius = 50;
+
+            let a1 = 0.5;
+            let a2 = 2 * a1;
+            let max = 1000;
+            let f = 35;
+            let planes = [];
+            for (let i = 0; i < max; i++) {
+                let plane = new Plane(scene, false); // Math.floor(Math.random() - 0.5));
+
+                let t = 2 * Math.PI / max;
+                plane.points[1].x = -a1 - 2 * a1 * Math.sin(t);
+                plane.points[2].x = 0.5 * a1 * Math.sin(t);
+                plane.points[5].x = plane.points[1].x
+                plane.points[6].x = plane.points[2].x;
+
+
+                plane.points[1].y = -a1 - 2 * a1 * Math.cos(t);
+                plane.points[2].y = plane.points[1].y
+                plane.points[5].y = 0.5 * a1 * Math.cos(t);
+                plane.points[6].y = plane.points[5].y
+
+                plane.update();
+
+                plane.customMesh.position.set(f - 2 * f * Math.random(), f - 2 * f * Math.random(), 3 * (f - 2 * f * Math.random()));
+                plane.customMesh.rotation.set(Math.PI * Math.random(), Math.PI * Math.random(), Math.PI * Math.random());
+
+                plane.velocity = 0.5 - Math.random();
+                planes.push(plane);
+            }
+
+
+            scene.registerBeforeRender(function () {
+
+                // light.angle += 0.01;
+
+                planes.forEach((plane) => {
+                    plane.customMesh.position.z -= plane.velocity;
+                    // plane.customMesh.rotation.z += 0.1 * plane.velocity;
+                    if (plane.velocity > 0 && plane.customMesh.position.z < -100 - 50 * Math.random()) {
+                        plane.customMesh.position.z = 400 + 200 * Math.random();
+                        plane.velocity = 0.5 - Math.random();
+                    }
+
+                    else if (plane.velocity < 0 && plane.customMesh.position.z > 100 + 50 * Math.random()) {
+                        plane.customMesh.position.z = -400 - 200 * Math.random();
+                        plane.velocity = 0.5 - Math.random();
+                    }
+                })
+            });
+
+
+            let plugins = [
+                new TubeSpaceShip(scene),
+                // new Apollo(scene, camera),
+                new HemisphereTubeSpaceShip(scene),
+                new Shadow(scene),
+            ];
+
+
+            // scene.registerBeforeRender(() => {
+            //     plugins.forEach((plugin) => plugin.update());
+            // });
+
+            return scene;
+        };
+
+
+        const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, disableWebGL2Support: false });
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(function () {
+                if (scene) {
+                    scene.render();
+                }
+            });
+        });
+
+
+        // let engine = new BABYLON.Engine(canvas, true, {
+        //     preserveDrawingBuffer: true,
+        //     stencil: true
+        // });
+        // let scene = createScene();
+
+        // engine.runRenderLoop(function () {
+        //     if (scene) {
+        //         scene.render();
+        //     }
+        // });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>
