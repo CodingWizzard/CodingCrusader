@@ -45,65 +45,53 @@ class Plane extends Mesh {
     constructor(scene, drawMiddle) {
         super(scene);
 
-        let a1 = 0.5;
-        let a2 = 2 * a1;
-
         let points = [];
 
-        /*
-            4           7
+        // 3           0
+        //     1   2  
+        //     6   5
+        // 7           4
 
-                5   6
+        // this.OUT_TOP_LEFT = 3;
+        // this.OUT_TOP_RIGHT = 0;
+        // this.OUT_BOTTOM_LEFT = 7;
+        // this.OUT_BOTTOM_RIGHT = 4;
+        // this.IN_TOP_LEFT = 1;
+        // this.IN_TOP_RIGHT = 2;
+        // this.IN_BOTTOM_LEFT = 6;
+        // this.IN_BOTTOM_RIGHT = 5;
 
-                1   2
 
-            0           3                    
-        */
-
-        // 0
-        let x = -a2;
-        let y = -a2;
-        let p = new BABYLON.Vector3(x, 0, y)
+        // 0        
+        let p = new BABYLON.Vector3(1, 0, -1)
         points.push(p);
 
         // 1
-        x += a1;
-        y += a1;
-        p = new BABYLON.Vector3(x, 0, y)
+        p = new BABYLON.Vector3(-0.5, 0, -0.5)
         points.push(p);
 
         // 2
-        x += a1;
-        p = new BABYLON.Vector3(x, 0, y)
+        p = new BABYLON.Vector3(0.5, 0, -0.5)
         points.push(p);
 
         // 3
-        x += a1;
-        y -= a1;
-        p = new BABYLON.Vector3(x, 0, y)
+        p = new BABYLON.Vector3(-1, 0, -1)
         points.push(p);
 
-        // 4
-        x = -a2;
-        y = a1;
-        p = new BABYLON.Vector3(x, 0, y)
+        // 4        
+        p = new BABYLON.Vector3(1, 0, 1)
         points.push(p);
 
-        // 5
-        x += a1;
-        y -= a1;
-        p = new BABYLON.Vector3(x, 0, y)
+        // 5        
+        p = new BABYLON.Vector3(0.5, 0, 0.5)
         points.push(p);
 
-        // 6
-        x += a1;
-        p = new BABYLON.Vector3(x, 0, y)
+        // 6        
+        p = new BABYLON.Vector3(-0.5, 0, 0.5)
         points.push(p);
 
         // 7
-        x += a1;
-        y += a1;
-        p = new BABYLON.Vector3(x, 0, y)
+        p = new BABYLON.Vector3(-1, 0, 1)
         points.push(p);
 
         this.points = points;
@@ -119,32 +107,37 @@ class Plane extends Mesh {
         let max = this.max;
         let points = this.points;
 
+
+        // 3           0
+        //     1   2  
+        //     6   5
+        // 7           4
+
         let a = [
             // left 
-            [0, 1, 4],
-            [1, 4, 5],
+            [3, 1, 7],
+            [1, 6, 7],
 
             //  top
-            [4, 5, 6],
-            [4, 6, 7],
+            [0, 1, 3],
+            [0, 1, 2],
 
             // right
-            [2, 6, 7],
-            [2, 3, 7],
+            [0, 2, 4],
+            [2, 4, 5],
 
             //  bottom
-            [0, 1, 2],
-            [0, 2, 3]
+            [5, 6, 7],
+            [4, 5, 7]
 
-            // // middle
-            // [1, 2, 5],
-            // [2, 5, 6],
+            // middle
+            // 
         ];
 
 
         if (this.drawMiddle) {
             // middle
-            a.push([1, 2, 5]);
+            a.push([1, 2, 6]);
             a.push([2, 5, 6]);
         }
 

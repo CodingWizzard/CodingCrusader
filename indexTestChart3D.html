@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Coding Crusader's</title>
+
+    <script src="vendors/babylon.js"></script>
+    <script src="vendors/babylonjs.materials.min.js"></script>
+    <script src="vendors/jquery-3.7.1.min.js"></script>
+    <script src="vendors/dat.gui.min.js"></script>
+
+    <script src="classes/multiLineText.js"></script>
+    <script src="moduls/chart3D.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        let createScene = async function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = BABYLON.Color3.White();
+
+            let camera = new BABYLON.ArcRotateCamera("",
+                BABYLON.Tools.ToRadians(-60),
+                BABYLON.Tools.ToRadians(70),
+                10,
+                new BABYLON.Vector3(0, 0, 0),
+                scene);
+            camera.upperBetaLimit = null;
+            camera.lowerBetaLimit = null;
+            camera.wheelPrecision = 50;
+            camera.attachControl(canvas, true);
+
+            scene.createDefaultEnvironment({ createGround: true, createSkybox: false })
+
+            let groundMaterial = new BABYLON.GridMaterial("groundMaterial", scene);
+            groundMaterial.gridRatio = 1;
+            groundMaterial.opacity = 0.8;
+
+            let ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 10, height: 10 }, scene, false);
+            ground.material = groundMaterial;
+
+            let obj = {
+                // Status
+                stateOpen: true,
+                stateDeclined: true,
+                stateAccepted: true,
+                stateCompleted: true,
+                stateEmpty: true,
+
+                // Anzahl der Elemente (W)
+                elements5: true,
+                elements15: true,
+                elementsMore: true,
+                elementsEmpty: true,
+
+                // Benötigte Services
+                serviceWindows: true,
+                serviceAssembly: true,
+                serviceDisposal: true,
+                serviceEmpty: true,
+
+                // Art der Anfragen
+                typeNew: true,
+                typeOffer: true,
+                typeRepair: true,
+                typeEmpty: true,
+
+                xAxis: 'state',
+                yAxis: 'count',
+                zAxis: 'elements',
+
+                lastWeeks: '8',
+
+                /* test.off
+                update: () => {
+                    $.ajax({
+                        url: "server/fetchStatistics.php",
+                        data: {
+                            state: {
+                                stateOpen: obj.stateOpen,
+                                stateDeclined: obj.stateDeclined,
+                                stateAccepted: obj.stateAccepted,
+                                stateCompleted: obj.stateCompleted,
+                                stateEmpty: obj.stateEmpty,
+                            },
+                            elements: {
+                                elements5: obj.elements5,
+                                elements15: obj.elements15,
+                                elementsMore: obj.elementsMore,
+                                elementsEmpty: obj.elementsEmpty
+                            },
+                            service: {
+                                serviceWindows: obj.serviceWindows,
+                                serviceAssembly: obj.serviceAssembly,
+                                serviceDisposal: obj.serviceDisposal,
+                                serviceEmpty: obj.serviceEmpty
+                            },
+                            type: {
+                                typeNew: obj.typeNew,
+                                typeOffer: obj.typeOffer,
+                                typeRepair: obj.typeRepair,
+                                typeEmpty: obj.typeEmpty,
+                            },
+                            axis: {
+                                xAxis: obj.xAxis,
+                                yAxis: obj.yAxis,
+                                zAxis: obj.zAxis
+                            },
+                            limit: {
+                                lastWeeks: obj.lastWeeks
+                            }
+                        },
+                        type: "POST",
+                        success: function (data) {
+                            data = jQuery.parseJSON(data);
+
+                            console.log(data.sql);
+                            console.log(data.data);
+
+
+                            chart.clear();
+                            chart.update(data);
+                        }
+                    });
+                }
+                */
+
+                // demo:
+                update: () => {
+                    chart.clear();
+
+                    data = {
+                        sql: 'select ... ',
+                        data: [
+                            { xAxis: "A", zAxis: 'Z1', value: 1 },
+                            { xAxis: "A", zAxis: 'Z2', value: 2 },
+                            { xAxis: "B", zAxis: 'Z3', value: 3 },
+                            { xAxis: "C", zAxis: 'Z2', value: 4 }
+                        ]
+                    }
+                    chart.update(data);
+                }
+            };
+
+            let gui = new dat.gui.GUI();
+            gui.remember(obj);
+
+
+            let folderState = gui.addFolder('state');
+            folderState.add(obj, 'stateOpen');
+            folderState.add(obj, 'stateDeclined');
+            folderState.add(obj, 'stateAccepted');
+            folderState.add(obj, 'stateCompleted');
+            folderState.add(obj, 'stateEmpty');
+
+
+            let folderElements = gui.addFolder('elements');
+            folderElements.add(obj, 'elements5');
+            folderElements.add(obj, 'elements15');
+            folderElements.add(obj, 'elementsMore');
+            folderElements.add(obj, 'elementsEmpty');
+
+            let folderService = gui.addFolder('service');
+            folderService.add(obj, 'serviceWindows');
+            folderService.add(obj, 'serviceAssembly');
+            folderService.add(obj, 'serviceDisposal');
+            folderService.add(obj, 'serviceEmpty');
+
+            let folderType = gui.addFolder('type');
+            folderType.add(obj, 'typeNew');
+            folderType.add(obj, 'typeOffer');
+            folderType.add(obj, 'typeRepair');
+            folderType.add(obj, 'typeEmpty');
+
+
+            let folderLimit = gui.addFolder('limit');
+            folderLimit.add(obj, 'lastWeeks');
+
+            gui.add(obj, 'xAxis', ['year', 'month', 'month/year', 'state', 'elements', 'service', 'type']); // , 'material', , 'manufacturer', 'building_type', 'sound_insulation', 'thermal_insulation', 'security' ] );
+            gui.add(obj, 'yAxis', ['count', 'sum(budget)']); // , 'avg', 'min', 'max', 'sum'] );
+            gui.add(obj, 'zAxis', ['year', 'month', 'month/year', 'state', 'elements', 'service', 'type']); // 'year',
+
+            gui.add(obj, 'update');
+
+
+            let chart = new Chart3D(scene, { data: [] });
+            obj.update();
+
+            return scene;
+        };
+
+
+
+        const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, disableWebGL2Support: false });
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(function () {
+                if (scene) {
+                    scene.render();
+                }
+            });
+        });
+
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>
