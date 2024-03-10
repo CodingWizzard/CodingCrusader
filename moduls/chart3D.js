@@ -1,16 +1,16 @@
 class Chart3D {
 
-    constructor(scene, material, fontData, data) {
+    constructor(scene, material, text3D, data) {
         this.scene = scene;
         this.material = material;
-        this.fontData = fontData;
+        this.text3D = text3D;
         this.update(data);
     }
 
     update(dataAll) {
         let data = dataAll.data;
         let scene = this.scene;
-        let fontData = this.fontData;
+        let text3D = this.text3D;
 
 
         let material = this.material;
@@ -19,43 +19,27 @@ class Chart3D {
             material.emissiveColor = BABYLON.Color3.Black();
         }
 
-        let materialLabel = new BABYLON.StandardMaterial("mat", scene);
-        materialLabel.emissiveColor = BABYLON.Color3.White();
+        // let materialLabel = new BABYLON.StandardMaterial("mat", scene);
+        // materialLabel.emissiveColor = BABYLON.Color3.White();
 
 
         const size = 1;
-        // const height = 0.1;
         let meshes = [];
 
 
         let createLabel = (xOffset, yOffset, zOffset, fontSize, text, rotate) => {
-            const align_h = "center";
-            const align_v = "center";
-            // let fontSize = 12;
-
-            // const meshLabel = BABYLON.MeshBuilder.CreatePlane("", { height: 0.6 * size, width: 0.6 * size, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
-            // meshLabel.position.x = xOffset;
-            // meshLabel.position.z = zOffset;
-            // meshLabel.position.y = yOffset + 0.1;
-            // meshLabel.rotation.x = 0.5 * Math.PI;
-            // meshLabel.material = create_MultiLineText_Material(scene, meshLabel, text, align_h, align_v, fontSize);
-            // meshes.push(meshLabel);
-            // return meshLabel;
-
-            let myText = BABYLON.MeshBuilder.CreateText("myText", text, fontData, {
-                size: 6, // fontSize, // 16,
-                resolution: 64,
-                depth: 1
-            });
-            myText.scaling.scaleInPlace(0.05);
-            myText.position.x = xOffset;
-            myText.position.z = zOffset;
-            myText.position.y = yOffset + 0.1;
+            let label = text3D.createText(text, 0.05, new BABYLON.Vector3(xOffset, yOffset + 0.1, zOffset));
             if (rotate)
-                myText.rotation.x = 0.5 * Math.PI;
-            myText.material = materialLabel;
-            return myText;
+                label.rotation.x = 0.5 * Math.PI;
         }
+
+
+        let createNumber = (xOffset, yOffset, zOffset, fontSize, text, rotate) => {
+            let label = text3D.createNumber(text, new BABYLON.Vector3(xOffset, yOffset + 0.1, zOffset));
+            // if (rotate)
+            //     label.rotation.x = 0.5 * Math.PI;
+        }
+
 
         function mapRange(value, fromMin, fromMax, toMin, toMax) {
             const fromRange = fromMax - fromMin;
@@ -95,8 +79,10 @@ class Chart3D {
         }
 
         let minMaxValues = findMinMax(data);
-        let sum = sumValues(data);
-        createLabel(-1, 0.1, -1, 8, sum.toFixed(0), true);
+        let sum = Math.floor(sumValues(data));  // buggy
+        sum = 314; // test
+        createNumber(-2, 0.1, -1, 8, sum.toString(), true);
+
 
         let colorEdge = new BABYLON.Color4(0, 0, 1, 1);
         let xValues = [];
@@ -137,7 +123,7 @@ class Chart3D {
 
             meshes.push(mesh);
 
-            createLabel(xOffset, boxHeight * heightFactor + 0.01, zOffset, 8, d.value.toFixed(0), false);
+            createNumber(xOffset, boxHeight * heightFactor + 0.01, zOffset, 8, d.value.toFixed(0), false);
         })
 
 

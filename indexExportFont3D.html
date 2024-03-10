@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Coding Crusader's</title>
+
+    <script src="vendors/babylon.js"></script>
+    <script src="vendors/babylonjs.materials.min.js"></script>
+    <script src="vendors/jquery-3.7.1.min.js"></script>
+    <script src="vendors/dat.gui.min.js"></script>
+    <script src="vendors/earcut.min.js"></script>
+    <!-- <script src="https://preview.babylonjs.com/serializers/babylonjs.serializers.min.js"></script> -->
+
+    <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://preview.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+
+    <!-- <script src="classes/text3D.js"></script> -->
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        let createScene = async function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = BABYLON.Color3.White();
+            scene.debugLayer.show();
+
+            let camera = new BABYLON.ArcRotateCamera("",
+                BABYLON.Tools.ToRadians(-60),
+                BABYLON.Tools.ToRadians(70),
+                10,
+                new BABYLON.Vector3(0, 0, 0),
+                scene);
+            camera.upperBetaLimit = null;
+            camera.lowerBetaLimit = null;
+            camera.wheelPrecision = 50;
+            camera.attachControl(canvas, true);
+
+            scene.createDefaultEnvironment({ createGround: true, createSkybox: false })
+
+            // let fontData = await (await fetch("https://assets.babylonjs.com/fonts/Droid Sans_Regular.json")).json();
+            // let text = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,-!?%()";
+            // for (let i = 0; i < text.length; i++) {
+            //     let char = text.charAt(i);
+            //     let mesh = BABYLON.MeshBuilder.CreateText(char, char, fontData, { size: 8, resolution: 64, depth: 1 });
+            //     mesh.position.x = i * 8;
+            // }
+
+
+            // BABYLON.SceneLoader.ImportMesh(
+            //     "",
+            //     "./media/letters/", "letters.obj", scene, (meshes) => {
+
+            //         meshes.forEach((mesh) => {
+            //             console.log(mesh.name);
+            //             // if (mesh.name !== '__root__') {
+            //             //     shadowGenerator.getShadowMap().renderList.push(mesh);
+            //             //     mesh.receiveShadows = true;
+
+            //             //     mesh.material.shadowMap = shadowGenerator.getShadowMap();
+            //             //     mesh.material.useShadowMap = true;
+            //             //     mesh.material.shadowMapDarkness = 0.5;
+            //             // }
+            //         })
+            //     });
+
+
+            const result = await BABYLON.SceneLoader.ImportMeshAsync(null, "./media/letters/", "letters.obj", scene);
+            let mesh = result.meshes[0];
+            // Weitere Verarbeitung des Meshes...
+
+
+            // let options = {
+            //     // shouldExportNode: function (node) {
+            //     //     return node !== skybox;
+            //     // },
+            // };
+            // BABYLON.GLTF2Export.GLBAsync(scene, "fileName", options).then((glb) => {
+            //     glb.downloadFiles();
+            // });
+
+            return scene;
+        };
+
+
+        // BABYLON.SceneLoader.ImportMesh("", "assets/scenes/", "Dude.babylon", scene,
+        //         (meshesDude, particleSystemsDude, skeletonsDude, animationGroupsDude) => {
+
+        //             // meshesDude.forEach((mesh) => {
+        //             //     mesh.scaling.scaleInPlace(0.2);
+        //             // });
+
+
+
+        //             dude = meshesDude[0];
+        //             dude.scaling = new BABYLON.Vector3(0.1, 0.1, 0.1);
+        //             dude.position = new BABYLON.Vector3(0, 0, 0);
+
+        //             skeleton = skeletonsDude[0];
+        //             // toggleSkViewer(true);
+
+        //             addIK();
+
+
+        //             scene.beginAnimation(skeletonsDude[0], 0, 100, true, 1.0);
+
+        //         });
+
+
+
+        const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, disableWebGL2Support: false });
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(function () {
+                if (scene) {
+                    scene.render();
+                }
+            });
+        });
+
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>
