@@ -9,6 +9,7 @@
     <script src="vendors/babylonjs.materials.min.js"></script>
     <script src="vendors/jquery-3.7.1.min.js"></script>
     <script src="vendors/dat.gui.min.js"></script>
+    <script src="vendors/earcut.min.js"></script>
 
     <script src="classes/multiLineText.js"></script>
     <script src="moduls/chart3D.js"></script>
@@ -54,12 +55,63 @@
 
             scene.createDefaultEnvironment({ createGround: true, createSkybox: false })
 
+
+            var material = new BABYLON.StandardMaterial("kosh", scene);
+            material.refractionTexture = new BABYLON.CubeTexture("https://www.babylonjs-playground.com/textures/TropicalSunnyDay", scene);
+            material.reflectionTexture = new BABYLON.CubeTexture("https://www.babylonjs-playground.com/textures/TropicalSunnyDay", scene);
+            material.diffuseColor = new BABYLON.Color3(0, 0, 0);
+            material.invertRefractionY = false;
+            material.indexOfRefraction = 0.98;
+            material.specularPower = 128;
+            material.refractionFresnelParameters = new BABYLON.FresnelParameters();
+            material.refractionFresnelParameters.power = 2;
+            material.reflectionFresnelParameters = new BABYLON.FresnelParameters();
+            material.reflectionFresnelParameters.power = 2;
+            material.reflectionFresnelParameters.leftColor = BABYLON.Color3.Black();
+            material.reflectionFresnelParameters.rightColor = BABYLON.Color3.White();
+
+            // Skybox
+            var skybox = BABYLON.Mesh.CreateBox("skyBox", 100.0, scene);
+            var skyboxMaterial = new BABYLON.StandardMaterial("skyBox", scene);
+            skyboxMaterial.backFaceCulling = false;
+            skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture("https://www.babylonjs-playground.com/textures/TropicalSunnyDay", scene);
+            skyboxMaterial.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
+            skyboxMaterial.diffuseColor = new BABYLON.Color3(0, 0, 0);
+            skyboxMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+            skyboxMaterial.disableLighting = true;
+            skybox.material = skyboxMaterial;
+
             let groundMaterial = new BABYLON.GridMaterial("groundMaterial", scene);
             groundMaterial.gridRatio = 1;
             groundMaterial.opacity = 0.8;
 
-            let ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 10, height: 10 }, scene, false);
+            let ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 20, height: 20 }, scene, false);
             ground.material = groundMaterial;
+            ground.receiveShadows = true;
+
+
+
+            let lightSphere = BABYLON.Mesh.CreateSphere("sphere1", 16, 0.1, scene);
+            let lightSphereMat = new BABYLON.StandardMaterial("mat", scene);
+            lightSphere.material = lightSphereMat;
+            lightSphereMat.emissiveColor = BABYLON.Color3.Yellow();
+            lightSphereMat.linkEmissiveWithDiffuse = true;
+            lightSphere.position.y = 2.0;
+
+            let light = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            light.intensity = 0.7;
+            // light.diffuse = BABYLON.Color3.FromHexString('#ff9944');
+            // light.position.y = 5;
+
+            let shadowGenerator = new BABYLON.ShadowGenerator(1024, light);
+            shadowGenerator.setDarkness(0.5);
+            shadowGenerator.usePoissonSampling = true;
+            shadowGenerator.useBlurVarianceShadowMap = true;
+            shadowGenerator.blurBoxOffset = 1.0;
+            shadowGenerator.blurScale = 150.0;
+            // shadowGenerator.bias = 0.00001;
+            scene.shadowGenerator = shadowGenerator;
+
 
             let obj = {
                 // Status
@@ -149,17 +201,24 @@
 
                 // demo:
                 update: () => {
-                    chart.clear();
-
                     data = {
                         sql: 'select ... ',
                         data: [
-                            { xAxis: "A", zAxis: 'Z1', value: 1 },
-                            { xAxis: "A", zAxis: 'Z2', value: 2 },
-                            { xAxis: "B", zAxis: 'Z3', value: 3 },
-                            { xAxis: "C", zAxis: 'Z2', value: 4 }
+                            // { xAxis: "A", zAxis: 'Z1', value: 1 },
+                            // { xAxis: "A", zAxis: 'Z2', value: 2 },
+                            // { xAxis: "B", zAxis: 'Z3', value: 3 },
+                            // { xAxis: "C", zAxis: 'Z2', value: 4 }
                         ]
                     }
+
+                    let max = 5;
+                    for (let i1 = 0; i1 < max; i1++) {
+                        for (let i2 = 0; i2 < max; i2++) {
+                            data.data.push({ xAxis: "X" + i1, zAxis: 'Z' + i2, value: Math.random() * 20 })
+                        }
+                    }
+
+                    chart.clear();
                     chart.update(data);
                 }
             };
@@ -205,8 +264,39 @@
             gui.add(obj, 'update');
 
 
-            let chart = new Chart3D(scene, { data: [] });
+
+
+            let fontData = await (await fetch("https://assets.babylonjs.com/fonts/Droid Sans_Regular.json")).json();
+            let myText = BABYLON.MeshBuilder.CreateText("myText", "Statistics", fontData, {
+                size: 8, // 16,
+                resolution: 64,
+                depth: 1
+            });
+            myText.scaling.scaleInPlace(0.05);
+            myText.position.z = -2;
+
+
+            let chart = new Chart3D(scene, null, fontData, { data: [] });
             obj.update();
+
+
+            for (let i = 0; i < scene.meshes.length; i++) {
+                scene.meshes[i].receiveShadows = true;
+                shadowGenerator.getShadowMap().renderList.push(scene.meshes[i]);
+            }
+
+            let ts = 0;
+            scene.registerBeforeRender(() => {
+                ts += 0.001;
+
+                lightSphere.position.x = 5 * Math.sin(ts);
+                lightSphere.position.y = 3; // 10 * Math.sin(ts);
+                lightSphere.position.z = 5 * Math.cos(ts);
+                light.position = lightSphere.getAbsolutePosition();
+            })
+
+
+
 
             return scene;
         };
