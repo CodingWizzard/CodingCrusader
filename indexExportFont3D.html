@@ -49,7 +49,7 @@
             let camera = new BABYLON.ArcRotateCamera("",
                 BABYLON.Tools.ToRadians(-60),
                 BABYLON.Tools.ToRadians(70),
-                10,
+                300,
                 new BABYLON.Vector3(0, 0, 0),
                 scene);
             camera.upperBetaLimit = null;
@@ -57,76 +57,101 @@
             camera.wheelPrecision = 50;
             camera.attachControl(canvas, true);
 
-            scene.createDefaultEnvironment({ createGround: true, createSkybox: false })
+            scene.createDefaultEnvironment({ createGround: false, createSkybox: false })
 
-            // let fontData = await (await fetch("https://assets.babylonjs.com/fonts/Droid Sans_Regular.json")).json();
-            // let text = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,-!?%()";
-            // for (let i = 0; i < text.length; i++) {
+            /* Fist export letters & numbers as glb file * /
+            let fontData = await (await fetch("https://assets.babylonjs.com/fonts/Droid Sans_Regular.json")).json();
+            let text = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,-!?%()";
+            for (let i = 0; i < text.length; i++) {
+                let char = text.charAt(i);
+                let mesh = BABYLON.MeshBuilder.CreateText(char, char, fontData, { size: 8, resolution: 64, depth: 1 });
+                mesh.position.x = i * 8;
+            }
+            /* */
+
+            /* load glb file */
+            const result = await BABYLON.SceneLoader.ImportMeshAsync(null, "./media/letters/", "letters.glb", scene);
+            for (let i = 0; i < result.meshes.length; i++) { result.meshes[i].isVisible = false };
+
+
+            /* convert string to letter meshes */
+            let text = "Abc 3.14";
+            const lenText = text.length;
+
+            let xDelta = 6;
+            let yDelta = 10;
+
+            let pos = new BABYLON.Vector3(2 * xDelta, -5 * yDelta, 0);
+
+            let colorEdge = new BABYLON.Color4(0, 0, 1, 1);
+            let instanceId = 0;
+
+
+            // left aligned
+            for (let i = 0; i < lenText; i++) {
+                let char = text.charAt(i);
+                if (char == " ") continue;
+
+                let mesh = scene.getMeshByName(char).createInstance(instanceId++);
+                mesh.position.copyFrom(pos);
+                mesh.position.x = pos.x + i * xDelta;
+
+                // not working:
+                // mesh.rotation.y = 1 * Math.PI;
+                // mesh.rotation.addRotation(Math.PI * 0.5, 0, 0);
+                // mesh.rotate(new BABYLON.Vector3(1, 0, 0), Math.PI * -0.5, BABYLON.Space.LOCAL); // BABYLON.Space.WORLD);
+
+                // mesh.rotate(BABYLON.Axis.X, 0.25 * Math.PI, 2);
+                mesh.rotate(BABYLON.Axis.Y, 1 * Math.PI, 2);
+                // mesh.rotate(BABYLON.Axis.Z,  0.25 * Math.PI, 2);
+            }
+
+            // right aligned
+            pos.set(-2 * xDelta, -5 * yDelta, 0);
+
+            for (let i = 0; i < lenText; i++) {
+                let char = text.charAt(lenText - i - 1);
+                if (char == " ") continue;
+
+                let mesh = scene.getMeshByName(char).createInstance(instanceId++);
+                mesh.position.copyFrom(pos);
+                mesh.position.x = pos.x - i * xDelta;
+                mesh.rotate(BABYLON.Axis.Y, 1 * Math.PI, 2);
+            }
+
+
+
+            // top aligned
+            pos.set(0, -20, 0);
+
+            for (let i = 0; i < lenText; i++) {
+                let char = text.charAt(i);
+                if (char == " ") continue;
+
+                let mesh = scene.getMeshByName(char).createInstance(instanceId++);
+                mesh.position.copyFrom(pos);
+                mesh.position.y = pos.y - i * yDelta;
+                mesh.rotate(BABYLON.Axis.Y, 1 * Math.PI, 2);
+            }
+
+
+
+            // Experimental rotate around a half circle
+            // pos.set(0, -20, 0);
+
+            // for (let i = 0; i < lenText; i++) {
             //     let char = text.charAt(i);
-            //     let mesh = BABYLON.MeshBuilder.CreateText(char, char, fontData, { size: 8, resolution: 64, depth: 1 });
-            //     mesh.position.x = i * 8;
+            //     if (char == " ") continue;
+
+            //     let mesh = scene.getMeshByName(char).createInstance(instanceId++);
+            //     mesh.position.copyFrom(pos);
+            //     mesh.position.x = pos.x + xDelta * 10 * Math.sin(i * 1 * Math.PI / lenText);
+            //     mesh.position.y = pos.y + yDelta * 10 * Math.cos(i * 1 * Math.PI / lenText);
+            //     mesh.rotate(BABYLON.Axis.Z, -1 * Math.PI * i / lenText, 2);
             // }
-
-
-            // BABYLON.SceneLoader.ImportMesh(
-            //     "",
-            //     "./media/letters/", "letters.obj", scene, (meshes) => {
-
-            //         meshes.forEach((mesh) => {
-            //             console.log(mesh.name);
-            //             // if (mesh.name !== '__root__') {
-            //             //     shadowGenerator.getShadowMap().renderList.push(mesh);
-            //             //     mesh.receiveShadows = true;
-
-            //             //     mesh.material.shadowMap = shadowGenerator.getShadowMap();
-            //             //     mesh.material.useShadowMap = true;
-            //             //     mesh.material.shadowMapDarkness = 0.5;
-            //             // }
-            //         })
-            //     });
-
-
-            const result = await BABYLON.SceneLoader.ImportMeshAsync(null, "./media/letters/", "letters.obj", scene);
-            let mesh = result.meshes[0];
-            // Weitere Verarbeitung des Meshes...
-
-
-            // let options = {
-            //     // shouldExportNode: function (node) {
-            //     //     return node !== skybox;
-            //     // },
-            // };
-            // BABYLON.GLTF2Export.GLBAsync(scene, "fileName", options).then((glb) => {
-            //     glb.downloadFiles();
-            // });
 
             return scene;
         };
-
-
-        // BABYLON.SceneLoader.ImportMesh("", "assets/scenes/", "Dude.babylon", scene,
-        //         (meshesDude, particleSystemsDude, skeletonsDude, animationGroupsDude) => {
-
-        //             // meshesDude.forEach((mesh) => {
-        //             //     mesh.scaling.scaleInPlace(0.2);
-        //             // });
-
-
-
-        //             dude = meshesDude[0];
-        //             dude.scaling = new BABYLON.Vector3(0.1, 0.1, 0.1);
-        //             dude.position = new BABYLON.Vector3(0, 0, 0);
-
-        //             skeleton = skeletonsDude[0];
-        //             // toggleSkViewer(true);
-
-        //             addIK();
-
-
-        //             scene.beginAnimation(skeletonsDude[0], 0, 100, true, 1.0);
-
-        //         });
-
 
 
         const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, disableWebGL2Support: false });
