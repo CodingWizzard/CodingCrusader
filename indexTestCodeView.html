@@ -10,12 +10,9 @@
     <script src="vendors/jquery-3.7.1.min.js"></script>
     <script src="vendors/dat.gui.min.js"></script>
     <script src="vendors/earcut.min.js"></script>
-    <!-- <script src="https://preview.babylonjs.com/serializers/babylonjs.serializers.min.js"></script> -->
 
     <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
     <script src="https://preview.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
-
-    <!-- <script src="classes/text3D.js"></script> -->
 
     <style>
         html,
@@ -57,22 +54,10 @@
             // // camera.wheelPrecision = 50;
 
             let camera = new BABYLON.FreeCamera("", new BABYLON.Vector3(0, 0, -400), scene);
-
             camera.attachControl(canvas, true);
 
             scene.createDefaultEnvironment({ createGround: false, createSkybox: false })
 
-            /* Fist export letters & numbers as glb file * /
-            let fontData = await (await fetch("https://assets.babylonjs.com/fonts/Droid Sans_Regular.json")).json();
-            let text = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,-!?%()";
-            for (let i = 0; i < text.length; i++) {
-                let char = text.charAt(i);
-                let mesh = BABYLON.MeshBuilder.CreateText(char, char, fontData, { size: 8, resolution: 64, depth: 1 });
-                mesh.position.x = i * 8;
-            }
-            /* */
-
-            /* load glb file */
             const result = await BABYLON.SceneLoader.ImportMeshAsync(null, "./media/letters/", "letters.glb", scene);
             for (let i = 0; i < result.meshes.length; i++) { result.meshes[i].isVisible = false };
 
@@ -115,7 +100,7 @@
                 else if (alignment == "right") {
                     for (let i = 0; i < lenText; i++) {
                         let char = text.charAt(lenText - i - 1);
-                        // if (char == " ") continue;
+                        // todo: if (char == " ") continue;
                         try {
                             let mesh = scene.getMeshByName(char).createInstance(instanceId++);
                             mesh.position.copyFrom(position);
@@ -126,7 +111,7 @@
                 } else if (alignment == "top") {
                     for (let i = 0; i < lenText; i++) {
                         let char = text.charAt(i);
-                        // if (char == " ") continue;
+                        // todo: if (char == " ") continue;
 
                         try {
                             let mesh = scene.getMeshByName(char).createInstance(instanceId++);
