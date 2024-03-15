@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Coding Crusader's</title>
+
+    <script src="vendors/babylon.js"></script>
+    <script src="vendors/babylonjs.materials.min.js"></script>
+    <script src="vendors/jquery-3.7.1.min.js"></script>
+    <script src="vendors/dat.gui.min.js"></script>
+    <script src="vendors/earcut.min.js"></script>
+
+    <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://preview.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 500px;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <button id="button">00JR7Z/173</button>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+        let button = document.getElementById("button");
+
+        // let baseUrl = "https://playground.babylonjs.com/";
+        // let ids = [
+        //     "#J5U794#11",
+        //     "#7EPIGY#10",
+        //     "#PM5MFS#14",
+        //     "#NGH9FM#3",
+        //     "#DEV5Y5#3",
+        //     "#CQNGRK#427",
+        //     "#TAZ2CB#65",
+        //     "#I9LUUX",
+        // ];
+
+        let createScene = async function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = BABYLON.Color3.Black();
+            // scene.debugLayer.show();
+
+            let camera = new BABYLON.ArcRotateCamera("",
+                BABYLON.Tools.ToRadians(-90),
+                BABYLON.Tools.ToRadians(90),
+                5,
+                new BABYLON.Vector3(0, 0, 0),
+                scene);
+            camera.upperBetaLimit = null;
+            camera.lowerBetaLimit = null;
+            camera.panningMouseButton = 0; // Linke Maustaste deaktivieren
+            camera.buttons = [2, 1, 0]; // Rechte, mittlere und linke Maustaste anpassen
+            camera.panningSensibility = 30; // Empfindlichkeit für das Scrollen
+            camera.attachControl(canvas, true);
+
+            scene.createDefaultEnvironment({ createGround: false, createSkybox: false })
+
+            let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+            sky.intensity = 0.5;
+
+            BABYLON.MeshBuilder.CreateSphere("", { diameter: 4, segments: 3 }, scene);
+
+            return scene;
+        };
+
+
+        const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, disableWebGL2Support: false });
+
+        let scene1;
+        createScene().then((scene) => {
+            scene1 = scene;
+            engine.runRenderLoop(function () {
+                if (scene) {
+                    scene.render();
+                }
+            });
+        });
+
+
+        button.addEventListener('click', () => {
+            if (scene1) {
+                scene1.dispose();
+            }
+
+            async function readTextFile(filename) {
+                try {
+                    fetch(filename)
+                        .then(response => response.text())
+                        .then(data => {
+                            var jsonObject = JSON.parse(data);
+                            var payloadObject = JSON.parse(jsonObject.jsonPayload);
+
+                            console.log(payloadObject.code);
+                            eval(payloadObject.code);       // contains: function async createScene()...
+
+                            createScene().then((scene) => {
+                                scene1 = scene;
+                                engine.runRenderLoop(function () {
+                                    if (scene) {
+                                        scene.render();
+                                    }
+                                });
+                            });
+
+                        });
+                } catch (error) {
+                    console.error(error);
+                }
+            }
+
+            // Will not work since the function has no asyncs
+            // readTextFile("https://snippet.babylonjs.com/SHJQ4Q/1")
+
+            // but this one https://playground.babylonjs.com/#00JR7Z#173
+            readTextFile("https://snippet.babylonjs.com/00JR7Z/173")
+        });
+
+
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>
