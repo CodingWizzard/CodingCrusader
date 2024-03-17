@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Coding Crusader's</title>
+
+    <script src="vendors/babylon.js"></script>
+    <script src="vendors/havokPhysics_umd.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <script src="vendors/earcut.min.js"></script>
+
+    <script src="classes/text3D.js"></script>
+
+    <script src="moduls/pluginBase.js"></script>
+    <script src="moduls/hemisphere.js"></script>
+    <script src="moduls/trailer.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        let createScene = async function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = BABYLON.Color3.Gray();
+
+            let camera = new BABYLON.ArcRotateCamera("",
+                BABYLON.Tools.ToRadians(-90),
+                BABYLON.Tools.ToRadians(80),
+                80, // 800,
+                new BABYLON.Vector3(0, 0, 0),
+                scene);
+
+            // let camera = new BABYLON.FreeCamera("", new BABYLON.Vector3(0, 0, -5), scene);
+            // camera.upperBetaLimit = null;
+            // camera.lowerBetaLimit = null;
+
+            // // camera.lowerAlphaLimit = BABYLON.Tools.ToRadians(-90);
+            // // camera.upperAlphaLimit = BABYLON.Tools.ToRadians(-90);
+            // // camera.lowerBetaLimit = BABYLON.Tools.ToRadians(-10);
+            // // camera.upperBetaLimit = BABYLON.Tools.ToRadians(0);
+            camera.attachControl(canvas, true);
+
+            let fontData = await (await fetch("https://assets.babylonjs.com/fonts/Droid Sans_Regular.json")).json();
+            let text3D = new Text3D(scene, fontData, null);
+
+
+            new Hemisphere(scene);
+            // new Shadow(scene);
+            new Trailer(scene, text3D);
+
+            return scene;
+        };
+
+
+        const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, disableWebGL2Support: false });
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(function () {
+                if (scene) {
+                    scene.render();
+                }
+            });
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

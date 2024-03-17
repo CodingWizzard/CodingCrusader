@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Coding Crusader's</title>
+
+    <script src="vendors/babylon.js"></script>
+    <script src="vendors/havokPhysics_umd.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+
+    <script src="classes/plane.js"></script>
+
+    <script src="moduls/pluginBase.js"></script>
+    <script src="moduls/tubeSpaceShip1.js"></script>
+    <script src="moduls/hemisphereTubeSpaceShip1.js"></script>
+    <script src="moduls/shadow.js"></script>
+    <!-- <script src="moduls/menu.js"></script> -->
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        let createScene = async function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = BABYLON.Color3.Gray();
+
+            let camera = new BABYLON.ArcRotateCamera("",
+                BABYLON.Tools.ToRadians(-90),
+                BABYLON.Tools.ToRadians(80),
+                80, // 800,
+                new BABYLON.Vector3(0, 0, 0),
+                scene);
+
+            // let camera = new BABYLON.FreeCamera("", new BABYLON.Vector3(0, 0, -5), scene);
+            // camera.upperBetaLimit = null;
+            // camera.lowerBetaLimit = null;
+
+            let head = BABYLON.MeshBuilder.CreateSphere("head", { diameter: 1, segments: 1 }, scene);
+            head.material = new BABYLON.StandardMaterial("", scene);
+            head.material.alpha = 0.;
+
+            // let camera = new BABYLON.FollowCamera("FollowCam", new BABYLON.Vector3(0, 0, -500), scene);
+            // // // camera.radius = 250;
+            // camera.heightOffset = 1;
+            // camera.rotationOffset = 10;
+            // camera.lockedTarget = head;
+
+            // // camera.lowerAlphaLimit = BABYLON.Tools.ToRadians(-90);
+            // // camera.upperAlphaLimit = BABYLON.Tools.ToRadians(-90);
+            // // camera.lowerBetaLimit = BABYLON.Tools.ToRadians(-10);
+            // // camera.upperBetaLimit = BABYLON.Tools.ToRadians(0);
+            camera.attachControl(canvas, true);
+
+            // let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+            // sky.intensity = 0.5;
+
+            // let light = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            // light.intensity = 0.7;
+            // light.diffuse = BABYLON.Color3.FromHexString("#ff9944");
+            // light.position.y = 1;
+
+
+            class CameraAction {
+                constructor(scene, camera, pointsArray) {
+                    let desiredFps = 10;
+                    let interval = 1000 / (10 * desiredFps);
+                    let lastTime = performance.now();
+                    let i = 0;
+                    scene.registerAfterRender(() => {
+                        let currentTime = performance.now();
+                        const deltaTime = currentTime - lastTime;
+                        if (deltaTime > interval) {
+                            lastTime = currentTime - (deltaTime % interval);
+
+
+                            // return;
+
+
+                            if (i >= pointsArray.length - 1)
+                                return;
+
+                            head.position.copyFrom(pointsArray[i]);
+
+                            camera.position = head.position;
+                            camera.target = pointsArray[i + 1];
+                            i++;
+                        }
+                    });
+
+
+
+
+                    // // Funktion zum Animieren der FreeCamera entlang der Punkte mit Blickrichtung zum nächsten Punkt
+                    // function animateCameraAlongPoints(pointsArray, speed) {
+                    //     // Iteriere durch das Array der Punkte
+                    //     for (let i = 0; i < pointsArray.length; i++) {
+                    //         let currentPoint = pointsArray[i];
+                    //         let nextPoint = pointsArray[i + 1]; // Nächster Punkt
+
+                    //         if (!nextPoint) continue; // Falls es keinen nächsten Punkt gibt, beende die Schleife
+
+                    //         // Berechne die Dauer basierend auf der Geschwindigkeit
+                    //         let duration = speed * 100; // Hier können Sie die Geschwindigkeit anpassen
+
+                    //         // Erstelle eine Animation, um die Position der Kamera zu ändern
+                    //         let positionAnimation = new BABYLON.Animation("positionAnimation", "position", 10,
+                    //             BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+                    //         let positionKeys = [];
+                    //         positionKeys.push({ frame: 0, value: camera.position.clone() }); // Aktuelle Kameraposition
+                    //         positionKeys.push({ frame: duration, value: nextPoint }); // Zielposition
+                    //         positionAnimation.setKeys(positionKeys);
+
+                    //         // Füge die Positionierungsanimation zur Kamera hinzu
+                    //         camera.animations.push(positionAnimation);
+
+                    //         // Starte die Positionierungsanimation
+                    //         scene.beginAnimation(camera, 0, duration, false);
+
+                    //         // Richte die Kamera auf den nächsten Punkt aus
+                    //         camera.setTarget(nextPoint);
+                    //     }
+                    // }
+
+                    // // Rufe die Funktion auf, um die FreeCamera entlang der Punkte mit einer bestimmten Geschwindigkeit zu animieren
+                    // animateCameraAlongPoints(pointsArray, 5); // Beispielgeschwindigkeit: 0.01 (können Sie anpassen)
+
+                }
+            }
+
+            new HemisphereTubeSpaceShip(scene);
+            new Shadow(scene);
+            // new Menu(scene, camera);
+
+            let tubeSpaceShip = new TubeSpaceShip(scene);
+            new CameraAction(scene, camera, tubeSpaceShip.curve);
+
+            return scene;
+        };
+
+
+        const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, disableWebGL2Support: false });
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(function () {
+                if (scene) {
+                    scene.render();
+                }
+            });
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

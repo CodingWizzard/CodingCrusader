@@ -21,7 +21,7 @@ class Shadow extends PluginBase {
         shadowGenerator.useBlurVarianceShadowMap = true;
         shadowGenerator.blurBoxOffset = 1.0;
         shadowGenerator.blurScale = 150.0;
-        // shadowGenerator.bias = 0.00001;
+        shadowGenerator.bias = 0.00001;
 
 
         for (let i = 0; i < scene.meshes.length; i++) {
@@ -74,9 +74,9 @@ class Shadow extends PluginBase {
             scene.registerBeforeRender(() => {
                 ts += 0.001;
 
-                lightSphere.position.x = 10 * Math.sin(ts);
-                lightSphere.position.y = 3; // 10 * Math.sin(ts);
-                lightSphere.position.z = 10 * Math.cos(ts);
+                lightSphere.position.x = 100 * Math.sin(ts);
+                lightSphere.position.y = 100 * Math.sin(ts);
+                lightSphere.position.z = 100 * Math.cos(ts);
                 light.position = lightSphere.getAbsolutePosition();
             })
         }
