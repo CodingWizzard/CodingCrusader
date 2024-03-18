@@ -147,10 +147,10 @@
 
                 lastWeeks: '8',
 
-                /* test.off
+                /* test.off * /
                 update: () => {
                     $.ajax({
-                        url: "server/fetchStatistics.php",
+                        url: "http://127.0.0.1:5500/server/fetchStatistics.php",
                         data: {
                             state: {
                                 stateOpen: obj.stateOpen,
@@ -199,9 +199,9 @@
                         }
                     });
                 }
-                */
+                /* */
 
-                // demo:
+                /* // demo: */
                 update: () => {
                     data = {
                         sql: 'select ... ',
@@ -223,11 +223,11 @@
                     chart.clear();
                     chart.update(data);
                 }
+                /* */
             };
 
             let gui = new dat.gui.GUI();
             gui.remember(obj);
-
 
             let folderState = gui.addFolder('state');
             folderState.add(obj, 'stateOpen');
@@ -264,6 +264,11 @@
             gui.add(obj, 'zAxis', ['year', 'month', 'month/year', 'state', 'elements', 'service', 'type']); // 'year',
 
             gui.add(obj, 'update');
+
+
+            // let gui2 = new dat.gui.GUI();
+            // gui2.remember(obj);
+            // gui2.add(obj, 'update');
 
 
 

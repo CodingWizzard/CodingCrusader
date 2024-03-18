@@ -36,7 +36,9 @@
 
 
 
-    <script src="classes/discoSphere.js"></script>
+    <!-- <script src="classes/discoSphere.js"></script> -->
+    <script src="classes/sun.js"></script>
+    <script src="classes/registerBeforeRender.js"></script>
 
     <script src="moduls/pluginBase.js"></script>
     <script src="moduls/helper.js"></script>
@@ -154,9 +156,9 @@
 
             plugins.forEach((plugin) => plugin.activate());
 
-            scene.registerBeforeRender(() => {
-                plugins.forEach((plugin) => plugin.update());
-            });
+            // scene.registerBeforeRender(() => {
+            //     plugins.forEach((plugin) => plugin.update());
+            // });
 
             return scene;
         };
