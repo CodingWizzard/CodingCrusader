@@ -85,7 +85,7 @@ class Hemisphere extends PluginBase {
         // });
 
 
-        this.registerBeforeRender = new RegisterBeforeRender(scene, 30, () => {
+        this.registerBeforeRender = new RegisterBeforeRender(scene, 10, () => {
             t += speed;
 
             light_r.position.x = orbit * Math.sin(t);

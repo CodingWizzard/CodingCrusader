@@ -138,11 +138,9 @@
                 new City(scene),
 
                 // new Portal(scene),
-                // new Apollo(scene, camera),
-
-
+                new Apollo(scene, camera),
                 // new Fluid(scene),        // physics
-                // new Birds(scene),        // physics
+                new Birds(scene),        // physics
                 // new Marilyn(scene),         // physics
 
                 // new Html(scene),
@@ -150,11 +148,12 @@
 
                 new Hemisphere(scene),
                 // new HemisphereNight(scene),
+                // new HemisphereNight(scene),
                 new Shadow(scene),
             ];
 
 
-            plugins.forEach((plugin) => plugin.activate());
+            // plugins.forEach((plugin) => plugin.activate());
 
             // scene.registerBeforeRender(() => {
             //     plugins.forEach((plugin) => plugin.update());
