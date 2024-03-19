@@ -2,8 +2,6 @@ class Shadow extends PluginBase {
     constructor(scene) {
         super();
 
-        // Shadows
-
         let lightSphere = BABYLON.Mesh.CreateSphere("sphere1", 16, 0.1, scene);
         let lightSphereMat = new BABYLON.StandardMaterial("mat", scene);
         lightSphere.material = lightSphereMat;
@@ -31,10 +29,14 @@ class Shadow extends PluginBase {
         }
 
 
+
         // publish
         this.scene = scene;
         this.lightSphere = lightSphere;
         this.light = light;
+
+
+        // this.activate();
     }
 
 

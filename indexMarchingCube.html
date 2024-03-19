@@ -10,14 +10,15 @@
     <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
     <script src="vendors/earcut.min.js"></script>
 
-    <script src="classes/text3D.js"></script>
+    <!-- <script src="classes/text3D.js"></script> -->
     <script src="classes/sun.js"></script>
+    <script src="classes/chunk.js"></script>
     <script src="classes/registerBeforeRender.js"></script>
 
 
     <script src="moduls/pluginBase.js"></script>
     <script src="moduls/hemisphere.js"></script>
-    <script src="moduls/trailer.js"></script>
+    <script src="moduls/terrainPainterMarchingCubes.js"></script>
 
     <style>
         html,
@@ -64,34 +65,17 @@
             // // camera.upperBetaLimit = BABYLON.Tools.ToRadians(0);
             camera.attachControl(canvas, true);
 
-            let fontData = await (await fetch("https://assets.babylonjs.com/fonts/Droid Sans_Regular.json")).json();
-            let text3D = new Text3D(scene, fontData, null);
+            // let fontData = await (await fetch("https://assets.babylonjs.com/fonts/Droid Sans_Regular.json")).json();
+            // let text3D = new Text3D(scene, fontData, null);
 
 
-            // let hemi = new Hemisphere(scene);
-            // new Shadow(scene);
-            new Trailer(scene, text3D);
+            // // let hemi = new Hemisphere(scene);
+            // // new Shadow(scene);
+            // new Trailer(scene, text3D);
 
 
-            // Test create, activate, deinstall and destroy
-            let hemi = null;
-            setTimeout(() => {
-                hemi = new Hemisphere(scene);
-            }, 2000);
-
-            setTimeout(() => {
-                hemi.activate();
-
-            }, 4000);
-
-            setTimeout(() => {
-                hemi.deinstall();
-            }, 6000);
-
-            setTimeout(() => {
-                hemi = null;    // dispose class instance
-            }, 8000);
-
+            new Hemisphere(scene);
+            new TerrainPainterMarchingCubes(scene);
 
             return scene;
         };
