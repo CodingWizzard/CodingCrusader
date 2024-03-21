@@ -1,4 +1,4 @@
-class HemisphereNight extends PluginBase {
+class Hemisphere extends PluginBase {
 
     constructor(scene) {
         super();

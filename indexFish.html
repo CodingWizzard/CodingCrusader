@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Coding Crusader's</title>
+
+    <script src="vendors/babylon.js"></script>
+    <script src="vendors/havokPhysics_umd.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <script src="vendors/earcut.min.js"></script>
+
+    <script src="classes/text3D.js"></script>
+    <script src="classes/fish.js"></script>
+    <script src="classes/perlinNoise.js"></script>
+
+    <script src="moduls/pluginBase.js"></script>
+    <script src="moduls/hemisphereNight.js"></script>
+    <script src="moduls/shadow.js"></script>
+
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        let createScene = async function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = BABYLON.Color3.Gray();
+
+            let camera = new BABYLON.ArcRotateCamera("",
+                BABYLON.Tools.ToRadians(-90),
+                BABYLON.Tools.ToRadians(80),
+                40, // 800,
+                new BABYLON.Vector3(0, 0, 0),
+                scene);
+
+            // var camera = new BABYLON.ArcRotateCamera("Camera", 
+            //     -Math.PI / 2, 
+            //     Math.PI / 1.5, 
+            //     4 * 12, 
+            //     BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+
+            // let camera = new BABYLON.FreeCamera("", new BABYLON.Vector3(0, 0, -5), scene);
+            // camera.upperBetaLimit = null;
+            // camera.lowerBetaLimit = null;
+
+            // camera.lowerAlphaLimit = BABYLON.Tools.ToRadians(-90);
+            // camera.upperAlphaLimit = BABYLON.Tools.ToRadians(-90);
+            // camera.lowerBetaLimit = BABYLON.Tools.ToRadians(80);
+            // camera.upperBetaLimit = BABYLON.Tools.ToRadians(80);
+            // camera.wheelPrecision = 100;
+            // camera.attachControl(canvas, true);
+
+
+
+
+            let MAX = 25;
+
+            // let camera = new BABYLON.ArcRotateCamera("Camera",
+            //     BABYLON.Tools.ToRadians(90),
+            //     BABYLON.Tools.ToRadians(60), // 90 + 60),
+            //     30,
+            //     new BABYLON.Vector3(0, 0, 0), scene);
+            // camera.attachControl(canvas, true);
+
+            // let light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+
+            let MAX2 = MAX * 2;
+            let getHeight = (px, py, pz) => {
+                return Math.abs(noise.perlin3(px / MAX * 2, py / MAX * 2, pz / MAX * 2));
+            }
+
+            // let ground = BABYLON.Mesh.CreateGround("ground", MAX, MAX, 1, scene, false);
+
+            let material = new BABYLON.StandardMaterial("material", scene);
+
+            material.emissiveColor = new BABYLON.Color3(Math.random(), Math.random(), Math.random());
+
+            // let meshBase = BABYLON.MeshBuilder.CreateBox("point", { size: 1 }, scene);
+            let meshBase = BABYLON.MeshBuilder.CreateSphere("point", { diameter: 1, segments: 3 }, scene);
+            meshBase.isVisible = false;
+            meshBase.material = material;
+
+            let instanceId = 0;
+            let points = [];
+            let f = 0.5;
+
+            let y = 0;
+            for (let x = -MAX; x <= MAX; x++) {
+                for (let z = -MAX; z <= MAX; z++) {
+
+                    let dist = Math.sqrt(x * x + z * z);
+                    if (dist > MAX) continue;
+
+                    let point = meshBase.createInstance(instanceId++);
+                    point.position.set(f * x, f * y, f * z);
+                    point.position.px = x;
+                    point.position.py = y;
+                    point.position.pz = z;
+                    points.push(point);
+                }
+            }
+
+
+            let time = 0;
+            scene.registerAfterRender(() => {
+
+                points.forEach((point) => {
+                    let c = getHeight(point.position.px + time, point.position.py, point.position.pz);
+                    point.scaling.set(c, c, c);
+                    point.position.y = point.position.py + c * MAX * 0.1;
+                });
+
+                time += 0.05;
+            });
+
+
+
+
+            // new Fish(scene);
+
+            new Hemisphere(scene);
+            new Shadow(scene);
+            return scene;
+        };
+
+
+        const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, disableWebGL2Support: false });
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(function () {
+                if (scene) {
+                    scene.render();
+                }
+            });
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>ai</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+
+        let createScene = function () {
+            let bgcolor = BABYLON.Color3.FromHexString('#888888');
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = bgcolor;
+
+            let camera = new BABYLON.ArcRotateCamera("", 3 * Math.PI / 2, Math.PI / 2.5, 80, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+
+            // let light1 = new BABYLON.SpotLight("light1",
+            //     new BABYLON.Vector3(0, 0, 0),
+            //     new BABYLON.Vector3(1, 0, 0),
+            //     0.5 * Math.PI,
+            //     2, scene);
+            // light1.intensity = 0.5;
+            // light1.diffuse = BABYLON.Color3.FromHexString('#ff000');
+
+            let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+            sky.intensity = 0.5;
+
+
+            let material = new BABYLON.StandardMaterial("TextPlaneMaterial", scene);
+            material.backFaceCulling = false;
+
+
+            let customMesh = new BABYLON.Mesh("custom", scene);
+            customMesh.material = material;
+            let vertexData = new BABYLON.VertexData();
+            vertexData.positions = [];
+            vertexData.indices = [];
+            vertexData.direction = [];
+
+            let idx = 0;
+            let addPoses = (p1, p2, p3) => {
+                vertexData.positions.push(p1.x);
+                vertexData.positions.push(p1.y);
+                vertexData.positions.push(p1.z);
+
+                vertexData.positions.push(p2.x);
+                vertexData.positions.push(p2.y);
+                vertexData.positions.push(p2.z);
+
+                vertexData.positions.push(p3.x);
+                vertexData.positions.push(p3.y);
+                vertexData.positions.push(p3.z);
+
+                vertexData.indices.push(idx++);
+                vertexData.indices.push(idx++);
+                vertexData.indices.push(idx++);
+
+                p4.x = (p1.x + p2.x) / 2;
+                p4.y = (p1.y + p2.y) / 2;
+                p4.z = (p1.z + p2.z) / 2;
+                let direction = new BABYLON.Vector3.Zero();
+                direction = p0.subtract(p4).normalize();
+                direction = direction.scale(-1);
+
+                vertexData.direction.push(direction);
+                vertexData.direction.push(direction);
+                vertexData.direction.push(direction);
+            };
+
+
+            let p0 = new BABYLON.Vector3.Zero();
+            let p1 = new BABYLON.Vector3.Zero();
+            let p2 = new BABYLON.Vector3.Zero();
+            let p3 = new BABYLON.Vector3.Zero();
+            let p4 = new BABYLON.Vector3.Zero();
+
+            let max = 12 * 2;
+            let maxY = 10;
+            for (let iy = 0; iy < maxY; iy++) {
+                for (let i = 0; i < max; i += 1) {
+                    let r = i / max * 2 * Math.PI;
+                    let y = iy;
+                    let f = (maxY - y) + 1;
+
+                    p1.set(f * Math.sin(r), y, f * Math.cos(r));
+
+                    r += 2 * Math.PI / 4;
+                    p2.set(f * Math.sin(r), y, f * Math.cos(r));
+
+                    r += 2 * Math.PI / 4 + 2 * Math.PI / 8;
+                    p3.set(f * Math.sin(r), y, f * Math.cos(r));
+
+                    addPoses(p1, p2, p3);
+                }
+            }
+
+            vertexData.applyToMesh(customMesh);
+
+
+            // let time = 0;
+            scene.registerBeforeRender(() => {
+                // time += 0.1;
+
+                for (let i = 0; i < vertexData.indices.length; i += 3 * 1) {
+                    let v1 = vertexData.indices[i] * 3;
+                    let v2 = vertexData.indices[i + 1] * 3;
+                    let v3 = vertexData.indices[i + 2] * 3;
+
+                    p1.set(vertexData.positions[v1 + 0], vertexData.positions[v1 + 1], vertexData.positions[v1 + 2]);
+                    p2.set(vertexData.positions[v2 + 0], vertexData.positions[v2 + 1], vertexData.positions[v2 + 2]);
+                    p3.set(vertexData.positions[v3 + 0], vertexData.positions[v3 + 1], vertexData.positions[v3 + 2]);
+
+                    let direction = vertexData.direction[i];
+                    // p3.addInPlace(direction.scale(0.5));
+                    p3.addInPlace(direction);
+
+                    vertexData.positions[v1 + 0] = p1.x;
+                    vertexData.positions[v1 + 1] = p1.y;
+                    vertexData.positions[v1 + 2] = p1.z;
+
+                    vertexData.positions[v2 + 0] = p2.x;
+                    vertexData.positions[v2 + 1] = p2.y;
+                    vertexData.positions[v2 + 2] = p2.z;
+
+                    vertexData.positions[v3 + 0] = p3.x;
+                    vertexData.positions[v3 + 1] = p3.y;
+                    vertexData.positions[v3 + 2] = p3.z;
+
+                    vertexData.direction[i].scaleInPlace(0.99);
+                    vertexData.direction[i + 1].scaleInPlace(0.99);
+                    vertexData.direction[i + 2].scaleInPlace(0.99);
+                }
+
+                vertexData.applyToMesh(customMesh);
+            });
+
+            return scene;
+        };
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

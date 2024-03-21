@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>blume</title>
+    <meta charset="UTF-8">
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        #fps {
+            position: absolute;
+            background-color: black;
+            /* border: 2px solid red; */
+            text-align: center;
+            font-size: 16px;
+            color: white;
+            top: 15px;
+            right: 10px;
+            width: 60px;
+            height: 20px;
+        }
+    </style>
+
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+        let engine = new BABYLON.Engine(canvas, true);
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = BABYLON.Color3.FromHexString('#333333');
+
+            let MAX = 80;
+            let MAX2 = MAX * 2;
+
+            let camera = new BABYLON.ArcRotateCamera("Camera",
+                BABYLON.Tools.ToRadians(90),
+                BABYLON.Tools.ToRadians(90 + 80),
+                MAX2 * 10,
+                new BABYLON.Vector3(0, 0, 0), scene);
+            camera.attachControl(canvas, true);
+            camera.lowerAlphaLimit = BABYLON.Tools.ToRadians(90 - 10);
+            camera.upperAlphaLimit = BABYLON.Tools.ToRadians(90 + 10);
+            camera.lowerBetaLimit = BABYLON.Tools.ToRadians(90 + 80 - 10);
+            camera.upperBetaLimit = BABYLON.Tools.ToRadians(90 + 80 + 10);
+
+            // scene.activeCamera.alpha = Math.PI / 2;
+            // scene.activeCamera.beta = 1.2;
+            // scene.activeCamera.lowerRadiusLimit = 30;
+            // scene.activeCamera.upperRadiusLimit = 500;  // 120;
+
+
+            // let camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, 0, -400), scene);
+            // // camera.alpha = 0.5 * Math.PI;
+            // // camera.setTarget(ground.position);
+            // // camera.rotation.x = -0.5 * Math.PI;
+            // camera.attachControl(canvas, true);
+
+
+            let light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.position = new BABYLON.Vector3(20, 150, 70);
+            light.intensity = 0.7;
+
+            // var torus = BABYLON.MeshBuilder.CreateTorus("torus", { diameter: 1, thickness: 0.3 }, scene);
+            // torus.material = new BABYLON.StandardMaterial("material", scene);
+            // torus.material.diffuseColor = new BABYLON.Color3(1, 0, 0);
+            // torus.position.y = 10;
+
+            let texture = new BABYLON.Texture("https://playground.babylonjs.com/textures/cloud.png", scene);
+
+
+
+
+            var groundMaterial = new BABYLON.StandardMaterial("ground", scene);
+            // groundMaterial.spectaColor = BABYLON.Color3.FromHexString('#333388');
+            groundMaterial.diffuseColor = new BABYLON.Color3(1, 1, 1);
+            groundMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+            // groundMaterial.wireframe = true;
+
+
+            // var ground = BABYLON.Mesh.CreateGround("ground", 4000, 4000, 1, scene, false);
+            // ground.rotation.x = 0.5 * Math.PI;
+            // ground.position.z = 20;
+            // // ground.material = groundMaterial;
+
+            var ground = BABYLON.Mesh.CreateGroundFromHeightMap("ground", "https://playground.babylonjs.com/textures/heightMap.png", 4000, 4000, 100, 0, 200, scene, false);
+            ground.position.z = -350;
+            ground.rotation.x = 0.5 * Math.PI;
+            ground.material = groundMaterial;
+            ground.scaling.set(1, 2, 1);
+
+
+
+            // let meshBox = BABYLON.MeshBuilder.CreateBox("", { size: 100 }, scene);
+
+            let torus = BABYLON.MeshBuilder.CreateTorus("torus", { diameter: 3 * 100, thickness: 3 * 30 }, scene);
+            torus.position.y = -400;
+            torus.position.z = 100;
+            torus.rotation.x = 0.5 * Math.PI;
+            torus.i = 0;
+
+
+            scene.registerBeforeRender(function () {
+                torus.rotation.y = torus.rotation.z = torus.rotation.x = 0.5 * Math.PI + 0.35 * Math.sin(torus.i);
+                torus.position.y = -400 + 10 * Math.sin(torus.i);
+                torus.position.z = 100 + 10 * Math.sin(torus.i);
+
+                torus.i += 0.01;
+                // torus.rotation.y += 0.01;
+                // torus.rotation.z += 0.01;
+            });
+
+
+            // for (let y = -500; y < 1000; y += 400) {
+            //     let torus = BABYLON.MeshBuilder.CreateTorus("torus", { diameter: 3 * 100, thickness: 3 * 30 }, scene);
+            //     torus.position.y = y;
+            // }
+
+            // for (let i = 0; i < 4; i++) {
+            //     let torus = BABYLON.MeshBuilder.CreateTorus("torus", { diameter: 3 * 100, thickness: 3 * 30 }, scene);
+            //     torus.position.y = -500 + i * 200;
+            //     torus.position.z = 50 + i * 100;
+            //     torus.rotation.x = 0.5 * Math.PI;
+            // }
+
+
+
+            // let sphere = BABYLON.MeshBuilder.CreateSphere("", { diameter: 1000 }, scene);
+            // sphere.rotation.x = 0.5 * Math.PI;
+            // sphere.material = groundMaterial;
+
+
+
+            // let material = new BABYLON.StandardMaterial("name", scene);
+            // material.diffuseTexture = new BABYLON.Texture("https://upload.wikimedia.org/wikipedia/commons/a/a0/SenegalBaobab.jpg");
+
+            // const points = [];
+            // const scales = [];
+            // const colors = [];
+            // let ready = false;
+
+            // material.diffuseTexture.onLoadObservable.addOnce(function () {
+            //     function texture2D(texture, uv) {
+            //         let u = uv.x * texture.width;
+            //         let v = (uv.y) * texture.height;
+
+            //         let index = 4 * (Math.floor(v) * texture.width + Math.floor(u));
+            //         return {
+            //             r: texture.data[index] / 255,
+            //             g: texture.data[index + 1] / 255,
+            //             b: texture.data[index + 2] / 255,
+            //             a: texture.data[index + 3] / 255
+            //         }
+            //     }
+
+            //     let texture = {
+            //         width: material.diffuseTexture.getSize().width,
+            //         height: material.diffuseTexture.getSize().height,
+            //         data: new Uint8Array(this.width * this.height * 4)
+            //     };
+
+            //     material.diffuseTexture.readPixels().then((result) => {
+            //         texture.data = result;
+
+            //         for (let x = -MAX; x <= MAX; x++) {
+            //             for (let y = -MAX; y <= MAX; y++) {
+            //                 points.push(new BABYLON.Vector3(x, y, Math.random() * 0.01));
+
+            //                 let uv = { x: (x + MAX) / MAX2, y: (y + MAX) / MAX2 };
+            //                 let c = texture2D(texture, uv);
+            //                 colors.push(new BABYLON.Color4(c.r, c.g, c.b, c.a));
+            //                 scales.push(1);
+            //             }
+            //         }
+
+            //         ready = true;
+            //     }).catch((error) => {
+            //         console.error(error); // Handle any errors here
+            //     });
+            // });
+
+
+            // for (let x = -MAX; x <= MAX; x++) {
+            //             for (let y = -MAX; y <= MAX; y++) {
+            //                 points.push(new BABYLON.Vector3(x, y, Math.random() * 0.01));
+
+            //                 // let uv = { x: (x + MAX) / MAX2, y: (y + MAX) / MAX2 };
+            //                 // let c = texture2D(texture, uv);
+            //                 // colors.push(new BABYLON.Color4(c.r, c.g, c.b, c.a));
+            //                 // scales.push(1);
+            //             }
+            //         }
+
+            function mapRange(value, fromMin, fromMax, toMin, toMax) {
+                const fromRange = fromMax - fromMin;
+                const toRange = toMax - toMin;
+                const scaledValue = (value - fromMin) / fromRange;
+                return toMin + scaledValue * toRange;
+            }
+
+            // scene.registerBeforeRender(function () {
+            //     if (!ready) return;
+
+            let meshes = [];
+
+            let f = 10;
+            let max1 = 30;
+            let max2 = 20;
+            for (let idx1 = 0; idx1 < max1; idx1++) {
+
+                for (let idx2 = 0; idx2 < max2; idx2++) {
+                    // let i = Math.floor(points.length * Math.random());
+
+                    let t = mapRange(idx2, 0, max2, 0, 1);
+                    let x = f * (MAX - 2 * MAX * Math.random());
+                    let y = f * (MAX - 2 * MAX * Math.random());
+                    let z = f * (MAX - 2 * MAX * Math.random());
+
+                    const mesh = BABYLON.MeshBuilder.CreatePlane("point", { width: 1, height: 1 }, scene);
+                    // mesh.position.set(points[i].x * f, points[i].y * f - t, points[i].z * f);
+                    mesh.position.set(x, y - t, z);
+                    mesh.rotation.x = 0.5 * Math.PI;
+                    mesh.scaling = mesh.scaling.scale(f * f * t * 10);
+
+                    mesh.position.z += mesh.scaling.y;
+                    mesh.material = new BABYLON.StandardMaterial("", scene);
+                    mesh.material.diffuseTexture = texture;
+                    mesh.material.opacityTexture = texture;
+                    mesh.material.diffuseTexture.hasAlpha = true;
+                    mesh.material.backFaceCulling = false;
+                    mesh.material.alpha = 1 - t;
+
+
+                    let r = mapRange(t, 0.0, 1, 0, 1 - t * Math.random());
+                    let g = mapRange(t, 0.0, 1, 0, 1);
+                    let b = mapRange(t, 0.0, 1, 0, 1 - t * Math.random());
+
+                    mesh.material.diffuseColor.set(r, g, b);
+                    meshes.push(mesh);
+                }
+            }
+
+            //     ready = false;
+            // });
+
+
+
+            scene.registerBeforeRender(function () {
+                meshes.forEach((mesh) => {
+                    // mesh.rotation.z += 1 / mesh.position.y;
+                    mesh.position.x += 0.2;
+                    // if (mesh.position.x < -MAX)
+                    //     mesh.position.x = MAX;
+                })
+            });
+
+            return scene;
+        }
+
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            scene.render();
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
