@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Coding Crusader's</title>
+
+    <script src="../vendors/babylon.js"></script>
+    <script src="../vendors/havokPhysics_umd.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <script src="../vendors/earcut.min.js"></script>
+    <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+
+    <script src="../classes/text3D.js"></script>
+    <script src="../classes/sun.js"></script>
+    <script src="../classes/registerBeforeRender.js"></script>
+
+
+    <script src="../moduls/pluginBase.js"></script>
+    <script src="../moduls/hemisphereStandard.js"></script>
+    <script src="../moduls/shadow.js"></script>
+    <script src="../moduls/helper.js"></script>
+
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+
+        let levels = [1, 2, 3, 4, 5];
+        let names = ["Charlie Chaplin", "Keanu Reeves", "Marilyn Monroe", "Martin Luther King"];
+
+        function generateData(numEntries) {
+            let data = [];
+
+            for (let i = 0; i < numEntries; i++) {
+                let level = levels[Math.floor(Math.random() * levels.length)];
+                let name = names[Math.floor(Math.random() * names.length)];
+                let timestamp = new Date();
+                let randomDays = Math.floor(Math.random() * 365) + 1;
+                timestamp.setDate(timestamp.getDate() + randomDays);
+                data.push({ id: i + 1, level: level, name: name, timestamp: timestamp });
+            }
+            return data;
+        }
+
+
+        let data = generateData(50); // 0);
+
+        data.sort(function (a, b) {
+            if (a.level === b.level) {
+                return b.timestamp - a.timestamp;
+            }
+            return a.level - b.level;
+        });
+
+
+        // console.log("ID\tLevel\tName\tTimestamp");
+        // let levelCounts = {};
+        // data.forEach(function (entry) {
+        //     if (!(entry.level in levelCounts)) {
+        //         levelCounts[entry.level] = 0;
+        //     }
+        //     if (levelCounts[entry.level] < 4) {
+        //         console.log(entry.id + "\t" + entry.level + "\t" + entry.name + "\t" + entry.timestamp.toISOString());
+        //         levelCounts[entry.level]++;
+        //     }
+        // });
+
+
+        let createScene = async function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = BABYLON.Color3.Gray();
+
+            let camera = new BABYLON.ArcRotateCamera("",
+                BABYLON.Tools.ToRadians(-90),
+                BABYLON.Tools.ToRadians(80),
+                3, // 800,
+                new BABYLON.Vector3(0, 0, 0),
+                scene);
+
+            // let camera = new BABYLON.FreeCamera("", new BABYLON.Vector3(0, 0, -5), scene);
+            // camera.upperBetaLimit = null;
+            // camera.lowerBetaLimit = null;
+
+            // // camera.lowerAlphaLimit = BABYLON.Tools.ToRadians(-90);
+            // // camera.upperAlphaLimit = BABYLON.Tools.ToRadians(-90);
+
+            camera.lowerBetaLimit = BABYLON.Tools.ToRadians(80);
+            camera.upperBetaLimit = BABYLON.Tools.ToRadians(80);
+            camera.wheelPrecision = 100;
+            camera.attachControl(canvas, true);
+
+            let light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.position = new BABYLON.Vector3(20, 150, 70);
+            light.intensity = 0.7;
+
+
+            let fontData = await (await fetch("https://assets.babylonjs.com/fonts/Droid Sans_Regular.json")).json();
+            let text3D = new Text3D(scene, fontData, null);
+
+
+            // let material = new BABYLON.StandardMaterial("kosh", scene);
+            // material.refractionTexture = new BABYLON.CubeTexture("https://www.babylonjs-playground.com/textures/TropicalSunnyDay", scene);
+            // material.reflectionTexture = new BABYLON.CubeTexture("https://www.babylonjs-playground.com/textures/TropicalSunnyDay", scene);
+            // material.diffuseColor = new BABYLON.Color3(0, 0, 0);
+            // material.invertRefractionY = false;
+            // material.indexOfRefraction = 0.98;
+            // material.specularPower = 128;
+            // material.refractionFresnelParameters = new BABYLON.FresnelParameters();
+            // material.refractionFresnelParameters.power = 2;
+            // material.reflectionFresnelParameters = new BABYLON.FresnelParameters();
+            // material.reflectionFresnelParameters.power = 2;
+            // material.reflectionFresnelParameters.leftColor = BABYLON.Color3.Black();
+            // material.reflectionFresnelParameters.rightColor = BABYLON.Color3.White();
+
+            // Skybox
+            let skyboxMaterial = new BABYLON.StandardMaterial("skyBox", scene);
+            skyboxMaterial.backFaceCulling = false;
+            skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture("https://www.babylonjs-playground.com/textures/TropicalSunnyDay", scene);
+            skyboxMaterial.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
+            skyboxMaterial.diffuseColor = new BABYLON.Color3(0, 0, 0);
+            skyboxMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+            skyboxMaterial.disableLighting = true;
+
+            let skybox = BABYLON.Mesh.CreateBox("skyBox", 100.0, scene);
+            skybox.material = skyboxMaterial;
+
+            // let sphere1 = BABYLON.Mesh.CreateSphere("Sphere1", 32, 2, scene);
+
+            // let mirrorMaterial1 = new BABYLON.StandardMaterial("texture4", scene);
+            // mirrorMaterial1.diffuseColor = new BABYLON.Color3(0.0, 0.0, 0.0);
+            // mirrorMaterial1.specularColor = new BABYLON.Color3(0.0, 0.0, 0.0);
+            // mirrorMaterial1.reflectionTexture = new BABYLON.MirrorTexture("mirror", 1024, scene, true); //Create a mirror texture
+            // mirrorMaterial1.reflectionTexture.mirrorPlane = new BABYLON.Plane(0, -1.0, 0, -10.0);
+            // mirrorMaterial1.reflectionTexture.renderList = [sphere1];
+            // mirrorMaterial1.reflectionTexture.level = 1; //Select the level (0.0 > 1.0) of the reflection
+
+
+            // let tile1 = BABYLON.Mesh.CreatePlane("tile1", 70, scene);
+            // tile1.position.y = -3;
+            // tile1.rotation = new BABYLON.Vector3(Math.PI / 2, 0, 0);
+            // // tile1.showBoundingBox = true;
+            // tile1.material = mirrorMaterial1;
+
+            // let box = BABYLON.MeshBuilder.CreateBox("box", { size: 1 }, scene);
+
+            /*
+            // // Water
+            let waterMesh = BABYLON.Mesh.CreateGround("waterMesh", 2048, 2048, 16, scene, false);
+            // waterMesh.position.y = 2;
+
+            let water = new BABYLON.WaterMaterial("water", scene, new BABYLON.Vector2(512, 512));
+            water.backFaceCulling = true;
+            water.bumpTexture = new BABYLON.Texture("https://www.babylonjs-playground.com/textures/waterbump.png", scene);
+            water.windForce = -2;
+            water.waveHeight = 1;
+            water.bumpHeight = 0.15;
+            water.windDirection = new BABYLON.Vector2(1, 1);
+            water.waterColor = new BABYLON.Color3(0.7, 0.7, 0.9);
+            water.colorBlendFactor = 0.8;
+            water.addToRenderList(skybox);
+            waterMesh.material = water;
+
+
+            let mat = new BABYLON.StandardMaterial("mat", scene);
+            mat.disableLighting = true;
+            mat.backFaceCulling = false;
+            let noiseTexture = new BABYLON.NoiseProceduralTexture("perlin", 256, scene);
+            noiseTexture.hasAlpha = true;
+            noiseTexture.octaves = 5;
+            // noiseTexture.persistence=0.8;
+            noiseTexture.animationSpeedFactor = 2.5;
+            mat.alpha = 0.4;
+            mat.emissiveTexture = noiseTexture;
+
+            // box.material = mat;
+            */
+
+
+            // let sphere1 = BABYLON.Mesh.CreateSphere("Sphere1", 32, 2, scene);
+            // sphere1.isPickable = false;
+            // sphere1.material = skyboxMaterial; // material;
+
+            // let colorGrading = new BABYLON.ColorGradingTexture("https://www.babylonjs-playground.com/textures/LateSunset.3dl", scene);
+            // skyboxMaterial.cameraColorGradingTexture = colorGrading;
+            // // material.cameraColorGradingTexture = colorGrading;
+            // skyboxMaterial.cameraColorGradingEnabled = true;
+            // // material.cameraColorGradingEnabled = true;
+
+
+            // let texture = new BABYLON.Texture("media/wall.png", scene);
+
+            // let matSphere = new BABYLON.StandardMaterial("mat", scene);
+            // matSphere.alpha = 0.0;
+
+            // // let matPlane = new BABYLON.StandardMaterial("mat", scene);
+            // // // matPlane.emissiveColor = BABYLON.Color3.Yellow();
+            // // matPlane.diffuseTexture = new BABYLON.Texture("media/people.jpg", scene);;
+
+            // let sphere = BABYLON.MeshBuilder.CreateSphere("", { diameter: 1, segments: 3 }, scene);
+            // sphere.material = matSphere;
+            // sphere.isPickable = false;
+
+            // let phi = 1.6;
+            // let max = 6;
+            // let radius = 3;
+            // for (let i = 0; i < max; i++) {
+            //     let u = 1; // i / max;
+            //     let v = 1; // i / max;
+            //     let uv = new BABYLON.Vector4(u, v, u + 1 / max, v + 1 / max);
+            //     let plane = BABYLON.MeshBuilder.CreateBox("", { width: 1, height: 1 * phi, depth: 0.1, frontUVs: uv, backUVs: uv }, scene);
+            //     plane.material = matPlane;
+            //     plane.position.set(
+            //         radius * Math.sin(i * 2 * Math.PI / max),
+            //         0,
+            //         radius * Math.cos(i * 2 * Math.PI / max));
+            //     plane.lookAt(sphere.position);
+
+
+
+            //     let title = text3D.createText("Menu " + i, 0.02, new BABYLON.Vector3(0, 0.8, 0.25));
+            //     //title.rotate(new BABYLON.Vector3(1, 0, 0), -Math.PI * 0.25, BABYLON.Space.LOCAL);
+            //     title.rotate(new BABYLON.Vector3(0, 1, 0), Math.PI * 1, BABYLON.Space.LOCAL);
+            //     title.parent = plane;
+            //     title.isPickable = false;
+
+
+            //     let option = text3D.createText("Option " + i, 0.02, new BABYLON.Vector3(0, -0.75, 0.25));
+            //     option.rotate(new BABYLON.Vector3(1, 0, 0), -Math.PI * 0.25, BABYLON.Space.LOCAL);
+            //     option.rotate(new BABYLON.Vector3(0, 1, 0), Math.PI * 1, BABYLON.Space.LOCAL);
+            //     option.parent = plane;
+            //     option.isPickable = false;
+            // }
+
+            // let hint = text3D.createText("click the walls", 0.03, new BABYLON.Vector3(0, -0.75, 0.25));
+            // hint.rotate(new BABYLON.Vector3(1, 0, 0), Math.PI * 0.25, BABYLON.Space.LOCAL);
+            // hint.rotate(new BABYLON.Vector3(0, 1, 0), Math.PI * 0, BABYLON.Space.LOCAL);
+            // hint.isPickable = false;
+
+            let p0 = new BABYLON.Vector3.Zero();
+            let phi = 1.6;
+            // let u = 0;
+            // let v = 0;
+
+            let max = 7;
+            let levelCounts = {};
+            data.forEach(function (entry, index) {
+                if (!(entry.level in levelCounts)) {
+                    levelCounts[entry.level] = 0;
+                }
+                if (levelCounts[entry.level] < max) {
+
+                    let radius = 1 + entry.level * 2;
+
+                    // let uv = new BABYLON.Vector4(u, v, u + 1 / max, v + 1 / max);
+
+                    // BABYLON.SceneLoader.ImportMeshAsync("", Assets.meshes.pirateFort.rootUrl, Assets.meshes.pirateFort.filename, scene,
+                    //         function (evt) {
+
+                    //             // onProgress
+                    //             var loadedPercent = 0;
+                    //             if (evt.lengthComputable) {
+                    //                 loadedPercent = (evt.loaded * 100 / evt.total).toFixed();
+                    //             } else {
+                    //                 var dlCount = evt.loaded / (1024 * 1024);
+                    //                 loadedPercent = Math.floor(dlCount * 100.0) / 100.0;
+                    //             }
+                    //             onProgress("piratefort", loadedPercent);
+
+                    //         }).then((result) => {
+                    //             var mesh = result.meshes[0];
+                    //         })
+                    // );
+
+
+                    // BABYLON.Texture.LoadAsync("media/people/" + entry.name + ".jpg").then((texture) => {
+                    //     // // Material erstellen
+                    //     // var material = new BABYLON.StandardMaterial("material", scene);
+                    //     // material.diffuseTexture = texture;
+
+                    //     // // Mesh erstellen und Material anwenden
+                    //     // var sphere = BABYLON.MeshBuilder.CreateSphere("sphere", {diameter: 2}, scene);
+                    //     // sphere.material = material;
+
+
+                    //     let matPlane = new BABYLON.StandardMaterial("mat", scene);
+                    //     // matPlane.emissiveColor = BABYLON.Color3.Yellow();
+                    //     matPlane.diffuseTexture = texture; // new BABYLON.Texture("media/people/" + entry.name + ".jpg", scene);;
+                    //     matPlane.backFaceCulling = false;
+
+
+
+
+                    //     let i = 2 * Math.PI * index / levels.length;
+                    //     // let plane = BABYLON.MeshBuilder.CreateBox("", { width: 1, height: 1 * phi, depth: 0.1 /*, frontUVs: uv, backUVs: uv */ }, scene);
+                    //     let plane = BABYLON.MeshBuilder.CreatePlane("", { width: 1, height: 1 * phi }, scene);
+                    //     plane.material = matPlane;
+                    //     plane.position.set(
+                    //         radius * Math.sin(i * 2 * Math.PI / max),
+                    //         0,
+                    //         radius * Math.cos(i * 2 * Math.PI / max));
+                    //     plane.lookAt(p0);
+                    //     plane.rotate(new BABYLON.Vector3(0, 1, 0), Math.PI * 1, BABYLON.Space.LOCAL);
+                    //     plane.custEntry = entry;
+                    //     // plane.showBoundingBox = true;
+                    //     // plane.rotation.y = 2 * Math.PI;
+
+
+                    //     let title = text3D.createText(entry.name, 0.01, new BABYLON.Vector3(0, - 1, -0.01));
+                    //     // title.rotate(new BABYLON.Vector3(0, 1, 0), Math.PI * 1, BABYLON.Space.LOCAL);
+                    //     title.parent = plane;
+                    //     title.isPickable = false;
+
+                    // });
+
+
+
+                    /**/
+                    let matPlane = new BABYLON.StandardMaterial("mat", scene);
+                    // matPlane.emissiveColor = BABYLON.Color3.Yellow();
+                    matPlane.diffuseTexture = new BABYLON.Texture("../media/people/" + entry.name + ".jpg", scene);;
+                    matPlane.backFaceCulling = false;
+
+
+
+
+                    let i = 2 * Math.PI * index / levels.length;
+                    // let plane = BABYLON.MeshBuilder.CreateBox("", { width: 1, height: 1 * phi, depth: 0.1 }, scene);
+                    let plane = BABYLON.MeshBuilder.CreatePlane("", { width: 1, height: 1 * phi }, scene);
+                    plane.material = matPlane;
+                    plane.position.set(
+                        radius * Math.sin(i * 2 * Math.PI / max),
+                        0,
+                        radius * Math.cos(i * 2 * Math.PI / max));
+                    plane.lookAt(p0);
+                    plane.rotate(new BABYLON.Vector3(0, 1, 0), Math.PI * 1, BABYLON.Space.LOCAL);
+                    plane.custEntry = entry;
+                    // plane.showBoundingBox = true;
+                    // plane.rotation.y = 2 * Math.PI;
+
+
+                    // Das dauert!
+                    // let title = text3D.createText(entry.name, 0.01, new BABYLON.Vector3(0, - 1, -0.01));
+                    // // title.rotate(new BABYLON.Vector3(0, 1, 0), Math.PI * 1, BABYLON.Space.LOCAL);
+                    // title.parent = plane;
+                    // title.isPickable = false;
+                    /**/
+
+
+                    // let option = text3D.createText(entry.level, 0.02, new BABYLON.Vector3(0, -0.75, 0.25));
+                    // option.rotate(new BABYLON.Vector3(1, 0, 0), -Math.PI * 0.25, BABYLON.Space.LOCAL);
+                    // option.rotate(new BABYLON.Vector3(0, 1, 0), Math.PI * 1, BABYLON.Space.LOCAL);
+                    // option.parent = plane;
+                    // option.isPickable = false;
+
+                    // mirrorMaterial1.reflectionTexture.renderList.push(plane);
+                    // mirrorMaterial1.reflectionTexture.renderList.push(title);
+
+                    // water.addToRenderList(plane);
+                    // water.addToRenderList(title);
+
+                    levelCounts[entry.level]++;
+                }
+            });
+
+
+            scene.onPointerDown = function (evt, pickResult) {
+                // console.log(evt.button);    // 0 : left, 1: middle, 2: right
+
+                let scale = 0.9;
+                if (evt.button == 2)
+                    scale = 1.1;
+
+                let mesh = pickResult.pickedMesh;
+                if (mesh) {
+                    // pickResult.pickedMesh.scaling.scaleInPlace(scale);
+                    if (mesh.custEntry === undefined)
+                        return;
+
+                    if (evt.button == 0)
+                        mesh.custEntry.level++;
+                    else if (evt.button == 2)
+                        mesh.custEntry.level--;
+
+                }
+            };
+
+
+
+            // let hemisphere = new Hemisphere(scene);
+            // hemisphere.sphere.isPickable = false;
+            // new Shadow(scene);
+
+            // new Helper(scene);
+            return scene;
+        };
+
+
+        const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, disableWebGL2Support: false });
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(function () {
+                if (scene) {
+                    scene.render();
+                }
+            });
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Coding Crusader's</title>
+
+    <script src="../vendors/babylon.js"></script>
+    <script src="../vendors/havokPhysics_umd.js"></script>
+    <script src="../vendors/babylon.gui.min.js"></script>
+    <script src="../vendors/earcut.min.js"></script>
+    <script src="../vendorsbabylonjs.materials.min.js"></script>
+
+    <script src="../classes/text3D.js"></script>
+    <script src="../classes/sun.js"></script>
+    <script src="../classes/registerBeforeRender.js"></script>
+
+
+    <script src="../moduls/pluginBase.js"></script>
+    <script src="../moduls/hemisphereStandard.js"></script>
+    <script src="../moduls/shadow.js"></script>
+    <script src="../moduls/helper.js"></script>
+
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+
+        let levels = [1, 2, 3, 4, 5];
+        let names = ["Charlie Chaplin", "Keanu Reeves", "Marilyn Monroe", "Martin Luther King"];
+
+        function generateData(numEntries) {
+            let data = [];
+
+            for (let i = 0; i < numEntries; i++) {
+                let level = levels[Math.floor(Math.random() * levels.length)];
+                let name = names[Math.floor(Math.random() * names.length)];
+                let timestamp = new Date();
+                let randomDays = Math.floor(Math.random() * 365) + 1;
+                timestamp.setDate(timestamp.getDate() + randomDays);
+                data.push({ id: i + 1, level: level, name: name, timestamp: timestamp });
+            }
+            return data;
+        }
+
+
+        let data = generateData(50); // 0);
+
+        data.sort(function (a, b) {
+            if (a.level === b.level) {
+                return b.timestamp - a.timestamp;
+            }
+            return a.level - b.level;
+        });
+
+
+        // console.log("ID\tLevel\tName\tTimestamp");
+        // let levelCounts = {};
+        // data.forEach(function (entry) {
+        //     if (!(entry.level in levelCounts)) {
+        //         levelCounts[entry.level] = 0;
+        //     }
+        //     if (levelCounts[entry.level] < 4) {
+        //         console.log(entry.id + "\t" + entry.level + "\t" + entry.name + "\t" + entry.timestamp.toISOString());
+        //         levelCounts[entry.level]++;
+        //     }
+        // });
+
+
+        let createScene = async function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = BABYLON.Color3.Gray();
+
+            let camera = new BABYLON.ArcRotateCamera("",
+                BABYLON.Tools.ToRadians(-90),
+                BABYLON.Tools.ToRadians(80),
+                3, // 800,
+                new BABYLON.Vector3(0, 0, 0),
+                scene);
+
+            // let camera = new BABYLON.FreeCamera("", new BABYLON.Vector3(0, 0, -5), scene);
+            // camera.upperBetaLimit = null;
+            // camera.lowerBetaLimit = null;
+
+            // // camera.lowerAlphaLimit = BABYLON.Tools.ToRadians(-90);
+            // // camera.upperAlphaLimit = BABYLON.Tools.ToRadians(-90);
+
+            camera.lowerBetaLimit = BABYLON.Tools.ToRadians(80);
+            camera.upperBetaLimit = BABYLON.Tools.ToRadians(80);
+            camera.wheelPrecision = 100;
+            camera.attachControl(canvas, true);
+
+            let light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.position = new BABYLON.Vector3(20, 150, 70);
+            light.intensity = 0.7;
+
+
+
+            // var dynamicTexture = new BABYLON.DynamicTexture("myDynamicTexture", 512, scene, true);
+
+            // var context = dynamicTexture.getContext();
+
+            // var img = new Image();
+            // img.src = "media/people/Charlie Chaplin.jpg"; // Passe den Pfad entsprechend an
+            // img.onload = function () {
+            //     context.drawImage(img, 0, 0); // Zeichne das Bild auf die DynamicTexture
+
+            //     // context.drawText("hello", 1, 1, "30px Arial", "white", 'rgba(255,0,255,255)');
+
+            //     var font = "bold 44px monospace";
+            //     dynamicTexture.drawText("Charlie Chaplin", 10, 44, font, "white", null, true, true);
+
+            //     dynamicTexture.update(); // Aktualisiere die DynamicTexture
+            // };
+
+
+            var materialImage = new BABYLON.StandardMaterial("myMaterial", scene);
+            materialImage.diffuseTexture = new BABYLON.Texture("../media/people/Charlie Chaplin.jpg", scene);;
+            materialImage.backFaceCulling = false;
+
+            let planeImage = BABYLON.MeshBuilder.CreatePlane("", { width: 1, height: 1 }, scene);
+            planeImage.material = materialImage;
+
+
+
+
+
+            var dynamicTexture = new BABYLON.DynamicTexture("myDynamicTexture", { width: 256, height: 128 }, scene, true);    // 512
+
+            var context = dynamicTexture.getContext();
+
+            var font = "bold 22px monospace";
+            dynamicTexture.drawText("Charlie Chaplin", 10, 44, font, "white", null, true, true);
+
+            var materialLabel = new BABYLON.StandardMaterial("myMaterial", scene);
+            materialLabel.diffuseTexture = dynamicTexture;
+            materialLabel.backFaceCulling = false;
+
+            let label = BABYLON.MeshBuilder.CreatePlane("", { width: 1, height: 0.2 }, scene);
+            label.position.z = 0.1;
+            label.position.y = 0.5;
+            label.material = materialLabel;
+
+            // //Set width an height for plane
+            // var planeWidth = 10 / 10;
+            // var planeHeight = 3 / 10;
+            // var plane = BABYLON.MeshBuilder.CreatePlane("plane", { width: planeWidth, height: planeHeight }, scene);
+            // plane.position.z = -0.1;
+
+            // //Set font type
+            // var font_type = "Arial";
+
+
+
+            // //Set width and height for dynamic texture using same multiplier
+            // var DTWidth = planeWidth * 60;
+            // var DTHeight = planeHeight * 60;
+
+            // //Set text
+            // var text = "Charlie Chaplin";
+
+            // //Create dynamic texture
+            // var dynamicTexture = new BABYLON.DynamicTexture("DynamicTexture", { width: DTWidth, height: DTHeight }, scene);
+
+            // //Check width of text for given font type at any size of font
+            // var ctx = dynamicTexture.getContext();
+            // var size = 8; // 12; //any value will work
+            // ctx.font = size + "px " + font_type;
+            // var textWidth = ctx.measureText(text).width;
+
+            // //Calculate ratio of text width to size of font used
+            // var ratio = textWidth / size;
+
+            // //set font to be actually used to write text on dynamic texture
+            // var font_size = Math.floor(DTWidth / (ratio * 1)); //size of multiplier (1) can be adjusted, increase for smaller text
+            // var font = font_size + "px " + font_type;
+
+            // //Draw text
+            // dynamicTexture.drawText(text, null, null, font, "#000000", "#ffffff", true);
+
+            // //create material
+            // var mat = new BABYLON.StandardMaterial("mat", scene);
+            // mat.diffuseTexture = dynamicTexture;
+
+            // //apply material
+            // plane.material = mat;
+            // // let hemisphere = new Hemisphere(scene);
+            // // hemisphere.sphere.isPickable = false;
+            // // new Shadow(scene);
+
+            // new Helper(scene);
+            return scene;
+        };
+
+
+        const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, disableWebGL2Support: false });
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(function () {
+                if (scene) {
+                    scene.render();
+                }
+            });
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

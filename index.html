@@ -232,18 +232,11 @@
         let createScene = function () {
             let scene = new BABYLON.Scene(engine);
             // scene.clearColor = BABYLON.Color3.Black();
-            /*
-            scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR;            
-            // scene.fogColor = bgcolor;
-            scene.fogDensity = 0.1;
-            scene.fogStart = 10.0;
-            scene.fogEnd = 100.0;
-            */
 
             let camera = new BABYLON.ArcRotateCamera("",
                 BABYLON.Tools.ToRadians(-90),
                 BABYLON.Tools.ToRadians(-10),
-                10,
+                80,
                 new BABYLON.Vector3(0, 0, 0),
                 scene);
             // camera.upperBetaLimit = null;
@@ -254,29 +247,6 @@
             camera.upperBetaLimit = BABYLON.Tools.ToRadians(0);
             camera.attachControl(canvas, true);
 
-            // let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
-            // sky.intensity = 0.75;
-
-            // let light = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
-
-            // class Point {
-            //     constructor(x, y, z) {
-            //         this.p = new BABYLON.Vector3(x, y, z);
-            //         this.mesh = BABYLON.MeshBuilder.CreateSphere("", { diameter: 0.1, segments: 9 }, scene);
-            //         this.mesh.position.copyFrom(this.p);
-            //     }
-            // }
-
-            // class Line {
-            //     constructor(point1, point2) {
-            //         this.point1 = point1;
-            //         this.point2 = point2;
-
-            //         let points = [point1.p, point2.p];
-            //         let lineSystem = BABYLON.MeshBuilder.CreateLines("", { points: points }, scene);
-            //         lineSystem.color = BABYLON.Color3.Red();
-            //     }
-            // }
 
             class Mesh {
                 constructor() {
@@ -318,13 +288,7 @@
                     this.vertexData.indices = this.indices;
                     this.vertexData.applyToMesh(this.customMesh);
                 }
-
             }
-
-            // let createPoint = (p) => {
-            //     // let mesh = BABYLON.MeshBuilder.CreateSphere("", { diameter: 0.1, segments: 9 }, scene);
-            //     // mesh.position.copyFrom(p);
-            // }
 
             let a1 = 0.5;
             let a2 = 2 * a1;

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Coding Crusader's</title>
+
+    <script src="../vendors/babylon.js"></script>
+    <script src="../vendors/babylonjs.materials.min.js"></script>
+    <script src="../vendors/jquery-3.7.1.min.js"></script>
+    <script src="../vendors/dat.gui.min.js"></script>
+    <script src="../vendors/earcut.min.js"></script>
+
+    <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://preview.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        let createScene = async function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = BABYLON.Color3.Black();
+            // scene.debugLayer.show();
+
+            let camera = new BABYLON.ArcRotateCamera("",
+                BABYLON.Tools.ToRadians(-90),
+                BABYLON.Tools.ToRadians(90),
+                500,
+                new BABYLON.Vector3(0, 0, 0),
+                scene);
+            camera.upperBetaLimit = null;
+            camera.lowerBetaLimit = null;
+            // camera.wheelPrecision = 50;
+
+            // let camera = new BABYLON.FreeCamera("", new BABYLON.Vector3(0, 0, -400), scene);
+            camera.attachControl(canvas, true);
+
+            scene.createDefaultEnvironment({ createGround: false, createSkybox: false })
+
+            let instanceId = 0;
+
+            let scale = 1;
+            let xDelta = scale * 7;
+            let yDelta = scale * 14;
+            let zDelta = scale * 1;
+
+
+            var gl = new BABYLON.GlowLayer("glow", scene);
+            gl.intensity = 1
+
+            let material = new BABYLON.StandardMaterial("mat", scene);
+            material.emissiveColor = BABYLON.Color3.Green();
+            material.alpha = 0.5;
+            // material.wireframe = true;
+
+
+            const result = await BABYLON.SceneLoader.ImportMeshAsync(null, ".././media/letters/", "letters.glb", scene);
+            for (let i = 0; i < result.meshes.length; i++) {
+                result.meshes[i].material = material;
+                result.meshes[i].isVisible = false
+                // if (result.meshes[i].name == "y") {
+                //     let mesh = result.meshes[i];
+                //     mesh.translate(BABYLON.Axis.Y, 2 * yDelta, BABYLON.Space.LOCAL);
+                //     mesh.position = new BABYLON.Vector3(0, -2 * yDelta, 0);
+                // }
+
+            };
+
+
+            let renderText = (text, alignment, position, rotation, corner) => {
+
+                const lenText = text.length;
+
+                let positionOld = new BABYLON.Vector3.Zero();
+                positionOld.copyFrom(position);
+
+                if (alignment == "left") {
+                    for (let i = 0; i < lenText; i++) {
+                        let char = text.charAt(i);
+                        if (char === '\n') {
+                            position.x = positionOld.x - xDelta;
+                            position.y -= yDelta;
+                        }
+                        else if (char === '\r') {
+                            continue;
+                        }
+
+                        if (position.x > corner.x) {
+                            position.x = positionOld.x - xDelta;
+                            position.y -= yDelta;
+                        }
+
+                        try {
+                            let mesh = scene.getMeshByName(char).createInstance(instanceId++);
+                            mesh.position.copyFrom(position);
+                            mesh.position.x = position.x;
+                            mesh.rotate(BABYLON.Axis.Y, rotation.y, BABYLON.Space.LOCAL);   // BABYLON.Space.WORLD
+                            mesh.scaling.scaleInPlace(scale);
+
+
+                            if (char == "Q" || char == "y" || char == "q" || char == "j" || char == "g" || char == "p") {
+                                mesh.translate(BABYLON.Axis.Y, - 0.2 * yDelta, BABYLON.Space.LOCAL);
+                            }
+
+
+
+                        } catch (e) { }
+
+                        position.x += xDelta;
+                    }
+                }
+                else if (alignment == "right") {
+                    for (let i = 0; i < lenText; i++) {
+                        let char = text.charAt(lenText - i - 1);
+                        // todo: if (char == " ") continue;
+                        try {
+                            let mesh = scene.getMeshByName(char).createInstance(instanceId++);
+                            mesh.position.copyFrom(position);
+                            mesh.position.x = position.x - i * xDelta;
+                            mesh.rotate(BABYLON.Axis.Y, rotation.y, BABYLON.Space.LOCAL);
+                        } catch (e) { }
+                    }
+                } else if (alignment == "top") {
+                    for (let i = 0; i < lenText; i++) {
+                        let char = text.charAt(i);
+                        // todo: if (char == " ") continue;
+
+                        try {
+                            let mesh = scene.getMeshByName(char).createInstance(instanceId++);
+                            mesh.position.copyFrom(position);
+                            mesh.position.y = position.y - i * yDelta;
+                            mesh.rotate(BABYLON.Axis.Y, rotation.y, BABYLON.Space.LOCAL);
+                        } catch (e) { }
+                    }
+                }
+            }
+
+
+            // renderText("left\naligned", "left", new BABYLON.Vector3(0, 0, 0), new BABYLON.Vector3(0, Math.PI, 0));
+            // renderText(createScene.toString(), "left", new BABYLON.Vector3(0, 0, 0), new BABYLON.Vector3(0, Math.PI, 0));
+
+            async function readTextFile(filename) {
+                try {
+                    fetch(filename)
+                        .then(response => response.text())
+                        .then(data => {
+
+                            let width = 40;
+
+                            renderText(data, "left",
+                                new BABYLON.Vector3(-0.5 * width * xDelta, 0, 0),
+                                new BABYLON.Vector3(0, Math.PI, 0),
+                                new BABYLON.Vector3(width * xDelta, 0, 0));
+                        });
+                } catch (error) {
+                    console.error(error);
+                }
+            }
+
+            // readTextFile('../media/loremIpsumSmall.txt')
+
+            let width = 40;
+            let position = new BABYLON.Vector3(-0.5 * width * xDelta, 0, 0);
+            let log = (text) => {
+                renderText(text, "left",
+                    position,
+                    new BABYLON.Vector3(0, Math.PI, 0),
+                    new BABYLON.Vector3(width * xDelta, 0, 0));
+
+                position.x = -0.5 * width * xDelta;
+                position.y -= yDelta;
+            }
+
+
+            // setTimeout(() => { log("System ready.") }, 1000);
+            // setTimeout(() => { log("Enter your name:") }, 2000);
+
+
+            log("knock, knock... wake up, Neo!")
+            // log("System ready.")
+
+
+
+            return scene;
+        };
+
+
+        const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, disableWebGL2Support: false });
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(function () {
+                if (scene) {
+                    scene.render();
+                }
+            });
+        });
+
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>
