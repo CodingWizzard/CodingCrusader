@@ -95,10 +95,10 @@ class CAD {
 
         this.render(points);
 
-        let pointsEdgeSlide = this.edgeSlide(points, 0.5);
-        this.render(pointsEdgeSlide);
+        let pointsInset = this.edgeSlide(points, 0.5);
+        this.render(pointsInset);
 
-        let pointsExtrude = this.extrude(pointsEdgeSlide, 1);
+        let pointsExtrude = this.extrude(pointsInset, 1);
         this.render(pointsExtrude);
 
 
@@ -114,8 +114,8 @@ class CAD {
 
         }
 
-        createFacetsFromPoints(points, pointsEdgeSlide);
-        createFacetsFromPoints(pointsEdgeSlide, pointsExtrude);
+        createFacetsFromPoints(points, pointsInset);
+        createFacetsFromPoints(pointsInset, pointsExtrude);
 
 
         let mesh = createMesh();
