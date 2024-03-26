@@ -6,18 +6,11 @@
     <title>Coding Crusader's</title>
 
     <script src="../vendors/babylon.js"></script>
-    <script src="../vendors/havokPhysics_umd.js"></script>
-    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
-    <script src="../vendors/earcut.min.js"></script>
 
-    <!-- <script src="classes/text3D.js"></script> -->
-    <script src="../classes/sun.js"></script>
     <script src="../classes/chunk.js"></script>
-    <script src="../classes/registerBeforeRender.js"></script>
-
 
     <script src="../moduls/pluginBase.js"></script>
-    <script src="../moduls/hemisphere.js"></script>
+    <script src="../moduls/hemisphereStandard.js"></script>
     <script src="../moduls/terrainPainterMarchingCubes.js"></script>
 
     <style>
@@ -51,28 +44,10 @@
             let camera = new BABYLON.ArcRotateCamera("",
                 BABYLON.Tools.ToRadians(-90),
                 BABYLON.Tools.ToRadians(80),
-                80, // 800,
+                40, // 800,
                 new BABYLON.Vector3(0, 0, 0),
                 scene);
-
-            // let camera = new BABYLON.FreeCamera("", new BABYLON.Vector3(0, 0, -5), scene);
-            // camera.upperBetaLimit = null;
-            // camera.lowerBetaLimit = null;
-
-            // // camera.lowerAlphaLimit = BABYLON.Tools.ToRadians(-90);
-            // // camera.upperAlphaLimit = BABYLON.Tools.ToRadians(-90);
-            // // camera.lowerBetaLimit = BABYLON.Tools.ToRadians(-10);
-            // // camera.upperBetaLimit = BABYLON.Tools.ToRadians(0);
             camera.attachControl(canvas, true);
-
-            // let fontData = await (await fetch("https://assets.babylonjs.com/fonts/Droid Sans_Regular.json")).json();
-            // let text3D = new Text3D(scene, fontData, null);
-
-
-            // // let hemi = new Hemisphere(scene);
-            // // new Shadow(scene);
-            // new Trailer(scene, text3D);
-
 
             new Hemisphere(scene);
             new TerrainPainterMarchingCubes(scene);

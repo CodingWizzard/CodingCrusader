@@ -6,24 +6,37 @@ class TerrainPainterMarchingCubes extends PluginBase {
 
         let chunk = new Chunk(scene);
 
-        let meshBox = BABYLON.MeshBuilder.CreateSphere("box", { diameter: 1, segments: 12 }, scene);
-        meshBox.material = new BABYLON.StandardMaterial("mat", scene);
-        meshBox.material.alpha = 0.5;
+        /**/
 
-        let speed = 0.0003;
-        let factor = 0.5;
+        let g = new BABYLON.Vector3(0, -9.8 * 0.001, 0);
+        let meshBase = BABYLON.MeshBuilder.CreateSphere("", { diameter: 0.15, segments: 9 }, this.scene);
+        meshBase.material = new BABYLON.StandardMaterial("mat", scene);
+        // meshBase.material.backFaceCulling = false;
+        meshBase.material.emissiveColor = BABYLON.Color3.FromHexString('#ffffff');
 
-        scene.onKeyboardObservable.add((kbInfo) => {
-            switch (kbInfo.type) {
-                case BABYLON.KeyboardEventTypes.KEYDOWN:
-                    switch (kbInfo.event.key) {
-                        case "x": // ArrowUp":
-                            factor *= -1;
-                            break;
-                    }
-                    break;
-            }
-        });
+        meshBase.dir = new BABYLON.Vector3(0 * 0.02, 0 * 0.2, 0);
+        meshBase.isVisible = false;
+
+        let meshes = [];
+        let max = 100;
+        for (let i = 0; i < max; i++) {
+            let meshInstance = meshBase.createInstance("");
+            meshInstance.dir = new BABYLON.Vector3(0.02, 0.2, 0.02);
+            meshInstance.position.x = 2 * i / max;
+            meshInstance.isVisible = true;
+            meshes.push(meshInstance);
+        }
+
+
+        let r = new BABYLON.Vector3.Zero();
+        let f = .01;
+        let rnd = (dir) => {
+            r.set(
+                Math.sign(dir.x) * f * Math.random(),
+                Math.sign(dir.y) * f * Math.random(),
+                Math.sign(dir.z) * f * Math.random())
+            dir.addInPlace(r);
+        }
 
 
         let desiredFps = 60;
@@ -36,31 +49,41 @@ class TerrainPainterMarchingCubes extends PluginBase {
             if (deltaTime > interval) {
                 lastTime = currentTime - (deltaTime % interval);
 
+                let mx = chunk.max - 1;
 
-                // meshBox.position.x = chunk.max * Math.sin(0.5 * lastTime * speed);
-                // meshBox.position.y = chunk.max * Math.sin(1 * lastTime * speed);
-                // meshBox.position.z = chunk.max * Math.sin(2.5 * lastTime * speed);
+                for (let i = 0; i < meshes.length; i++) {
+                    let mesh = meshes[i];
 
-                // meshBox.position.x = chunk.max * Math.sin(3 * lastTime * speed);
-                // meshBox.position.y = chunk.max * Math.cos(4 * lastTime * speed);
-                // meshBox.position.z = chunk.max * Math.sin(5 * lastTime * speed);
+                    mesh.position.addInPlace(mesh.dir);
+                    mesh.dir.addInPlace(g);
 
-                meshBox.position.x = 1 * (0.5 * chunk.max - chunk.max * Math.random());
-                meshBox.position.y = 1 * (0.5 * chunk.max - chunk.max * Math.random());
-                meshBox.position.z = 1 * (0.5 * chunk.max - chunk.max * Math.random());
+                    if (mesh.position.y > mx || mesh.position.y < -mx)
+                        mesh.dir.y *= -1
 
-                let x = Math.floor(meshBox.position.x);
-                let y = Math.floor(meshBox.position.y);
-                let z = Math.floor(meshBox.position.z);
-                chunk.cells[x][y][z] += factor;
+                    if (mesh.position.x > mx || mesh.position.x < -mx)
+                        mesh.dir.x *= -1
 
-                // if (chunk.cells[x][y][z] < 0)
-                //     chunk.cells[x][y][z] = 0;
-                // else if (chunk.cells[x][y][z] > 2)
-                //     chunk.cells[x][y][z] = 2 + 8 * Math.random();
+                    if (mesh.position.z > mx || mesh.position.z < -mx)
+                        mesh.dir.z *= -1
 
+                    if (Math.random() > 0.9) {
+                        rnd(mesh.dir);
+                    }
 
-                chunk.cells[x][y][z] += 1 * (0.5 - Math.random()); // 2 + 8 * Math.random();
+                    let x = Math.floor(mesh.position.x);
+                    let y = Math.floor(mesh.position.y);
+                    let z = Math.floor(mesh.position.z);
+
+                    let root = Math.sqrt(x * x + y * y + z * z);
+                    try {
+                        if (root < mx - 3 || root > mx + 3)
+                            chunk.cells[x][y][z] += 0.1;
+                        else
+                            chunk.cells[x][y][z] -= 0.1;
+                    } catch (e) { }
+
+                }
+
 
 
                 chunk.generate(currentTime);

@@ -17,9 +17,10 @@ class Chunk {
         this.customMesh = BABYLON.MeshBuilder.CreateBox("", { size: 1 }, scene);
         this.customMesh.material = new BABYLON.StandardMaterial("mat", scene);
         this.customMesh.material.backFaceCulling = false;
+        this.customMesh.material.emissiveColor = BABYLON.Color3.FromHexString('#ffffff');
         // this.customMesh.material.alpha = 0.8;
         // this.customMesh.material.diffuseTexture = new BABYLON.Texture("https://playground.babylonjs.com/textures/sand.jpg", scene);
-        // this.customMesh.material.wireframe = true;
+        this.customMesh.material.wireframe = true;
         // this.customMesh.material.color = new BABYLON.Color3(1, 1, 1);
 
         this.vertexData = new BABYLON.VertexData();
@@ -30,6 +31,16 @@ class Chunk {
             for (let y = -this.max - 1; y <= this.max + 1; y++) {
                 this.cells[x][y] = [];
                 for (let z = -this.max - 1; z <= this.max + 1; z++) {
+                    this.cells[x][y][z] = 0;
+                }
+            }
+        }
+    }
+
+    clear() {
+        for (let x = -this.max; x <= this.max; x++) {
+            for (let y = -this.max; y <= this.max; y++) {
+                for (let z = -this.max; z <= this.max; z++) {
                     this.cells[x][y][z] = 0;
                 }
             }
