@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>thin instance wrapper</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/cannon.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+
+        var SCREEN_WIDTH = window.innerWidth,
+            SCREEN_HEIGHT = window.innerHeight,
+            SCREEN_WIDTH_HALF = SCREEN_WIDTH / 2,
+            SCREEN_HEIGHT_HALF = SCREEN_HEIGHT / 2;
+
+        class WindAccelerator {
+            constructor(scene,x,y,z) {
+                this.mesh = BABYLON.MeshBuilder.CreateBox("", { width: 1, height: 1, depth: .01 }, scene);
+                let f = 15;
+                this.mesh.position.set(0.5*f - 0*Math.random(), 0.5*f - f*Math.random(), 0.5*f - f*Math.random())
+                // this.pos = new BABYLON.Vector3(0.5*f - f*Math.random(), 0.5*f - f*Math.random(), 0.5*f - f*Math.random());
+                this.pos = new BABYLON.Vector3(0,0,0);
+                this.pos.copyFrom(this.mesh.position)
+                this.delta = new BABYLON.Vector3(0, 0, 0);
+                this.acc = new BABYLON.Vector3(0, 0, 0);
+
+                this.time = 0
+                scene.registerAfterRender(() => {
+                    this.delta.x = 0.01 * (this.mesh.position.x - this.pos.x);                    
+                    if (Math.abs(this.delta.x) > 0) {
+                        this.mesh.position.x += this.acc.x;
+                        this.acc.x -= this.delta.x;
+                        this.acc.x *= 0.98;
+                    }
+
+                    this.delta.y = 0.01 * (this.mesh.position.y - this.pos.y); 
+                    if (Math.abs(this.delta.y) > 0) {
+                        this.mesh.position.y += this.acc.y;
+                        this.acc.y -= this.delta.y;
+                        this.acc.y *= 0.98;
+                    }
+
+                    this.delta.z = 0.01 * (this.mesh.position.z - this.pos.z); 
+                    if (Math.abs(this.delta.z) > 0) {
+                        this.mesh.position.z += this.acc.z;
+                        this.acc.z -= this.delta.z;
+                        this.acc.z *= 0.98;
+                    }
+
+
+                    // mesh.position.copyFrom(wind.position);
+                    this.mesh.rotation.copyFrom(this.mesh.position);
+
+
+                    this.pos.x += 0.4*(0.5*Math.random() - Math.random()) * Math.sin(this.time)
+                    this.pos.y += 0.4*(0.5*Math.random() - Math.random()) * Math.cos(this.time)
+                    this.pos.z += 0.4*(0.5*Math.random() - Math.random()) * Math.sin(this.time)
+                    this.time+= 0.01;
+                });
+            }
+        }
+
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color3(0, 0, 0);
+            let light_h = new BABYLON.HemisphericLight("", new BABYLON.Vector3(0, 1, 0), scene);
+            let light = new BABYLON.DirectionalLight("dir01", new BABYLON.Vector3(0, -0.5, 1.0), scene);
+            // let camera = new BABYLON.ArcRotateCamera("Camera", Math.PI / 2, Math.PI / 2.5, 50, new BABYLON.Vector3(0, 0, 0), scene);
+            // let camera = new BABYLON.ArcRotateCamera("Camera", -Math.PI / 3, Math.PI / 4, 50, new BABYLON.Vector3(0, 0, 0), scene);
+            let camera = new BABYLON.ArcRotateCamera("Camera", 0,0, 50, new BABYLON.Vector3(0, 0, 0), scene);
+            light.position = new BABYLON.Vector3(20, 150, 70);
+            camera.attachControl(canvas, true);
+
+            
+            for (let i=0;i<100;i++) {
+                let wind = new WindAccelerator(scene,0,0,0);
+            }
+            
+
+            // let list = [];
+            // for(let i=0;i<100;i++) {
+            //     let item = new BoxWithAccelerator(scene,8*Math.random(),8*Math.random(),4*Math.random());
+            //     list.push(item)
+            // }
+
+            // let time = 0;
+            // scene.registerAfterRender(() => {
+            //     list.forEach( (item,idx) => {
+            //         let z = 0.1*Math.random()
+            //         item.mesh.pos.z += z
+            //         item.mesh.pos.y = 0.1*(1 - 0.5*Math.random());
+            //         item.mesh.rotation.x = item.mesh.pos.z;
+            //     });
+                
+            //     time += 0.05;
+            // });
+
+            // for(let x=-4;x<=8;x++) {
+            //     for(let y=-4;y<=8;y++) {
+            //         new BoxWithAccelerator(scene,Math.sin(x*1*Math.PI/8), 0, x*Math.cos(y*Math.PI/8));
+            //     }
+            // }
+
+            // scene.onPointerMove = () => {
+            //     // mouse_pos.set(scene.pointerX - SCREEN_WIDTH_HALF, - scene.pointerY + SCREEN_HEIGHT_HALF, 0);
+            //     wind.pos.x = 0.1*(scene.pointerX - SCREEN_WIDTH_HALF);
+            //     wind.pos.z = -0.1*(scene.pointerY - SCREEN_HEIGHT_HALF);
+            // };
+
+            return scene;
+        };
+
+
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

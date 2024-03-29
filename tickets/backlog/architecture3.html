@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>architect</title>
+
+
+    <script src="https://preview.babylonjs.com/babylon.js"></script>
+    <script src="https://preview.babylonjs.com/Oimo.js"></script>
+    <script src="https://preview.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tweakpane@3.0.5/dist/tweakpane.min.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        #fps {
+            position: absolute;
+            background-color: black;
+            /* border: 2px solid red; */
+            text-align: center;
+            font-size: 16px;
+            color: white;
+            top: 15px;
+            right: 10px;
+            width: 60px;
+            height: 20px;
+        }
+    </style>
+
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="fps">0</div>
+
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+        let divFps = document.getElementById("fps")
+
+        let desiredFps = 3;
+        let interval = 1000 / (10 * desiredFps);
+        let manipulator = null;
+        let shadowGenerator = null;
+
+        let attachDragBehavior = (mesh) => {
+            // let pointerDragBehavior = new BABYLON.PointerDragBehavior({});
+            // pointerDragBehavior.useObjectOrientationForDragging = false;
+            // mesh.addBehavior(pointerDragBehavior);
+        }
+
+        
+        let meshes = [];
+        let x = 0;
+        let y = 0;
+        let z = 0;
+        let m = 0;
+        let size = 1;
+        // let delta = 4;
+        let max = 10;
+        let cx = 0;
+        let cy = 0;
+        let cz = 0;
+
+        let rx = 0;
+        let ry = 0;
+        let rz = 0;
+
+        let sx = 1;
+        let sy = 1;
+        let sz = 1;
+
+        let rax = 0;
+        let ray = 0;
+        let raz = 0;
+
+        const NL = 0;   // null, nothing
+        const FW = 1;   // forward
+        const BW = 2;   // backward
+        const LT = 4;   // left
+        const RT = 8;   // right
+        const UP = 16;  // up
+        const DW = 32;  // down
+        const CT = 64;  // center
+        const AL = FW + BW + LT + RT + UP + DW;
+
+        let ghost = null;
+        let camera = null;
+
+       
+        let xmin = undefined;
+        let xmax = undefined;
+        let dx = undefined;
+        let ymin = undefined;
+        let ymax = undefined;
+        let dy = undefined;
+        let zmin = undefined;
+        let zmax = undefined;
+        let dz = undefined;
+
+        let init = () => {
+            cx = 0;
+            cy = 0;
+            cz = 0;
+
+            rx = 0;
+            ry = 0;
+            rz = 0;
+
+            sx = 1;
+            sy = 1;
+            sz = 1;
+
+            rax = 0;
+            ray = 0;
+            raz = 0;
+
+            xmin = 0;
+            xmax = max - 1;
+            dx = 1;
+            ymin = 0;
+            ymax = max - 1;
+            dy = 1;
+            zmin = 0;
+            zmax = max - 1;
+            dz = 1;
+            return "ok";
+        }
+
+        let clear = () => {
+            init();
+            pivot(0, 0, 0);
+            loop(NL, null);
+            return "ok"
+        }
+
+        let range = (_xmin, _xmax, _dx, _ymin, _ymax, _dy, _zmin, _zmax, _dz) => {
+            xmin = _xmin
+            xmax = _xmax
+            dx = _dx
+            ymin = _ymin
+            ymax = _ymax
+            dy = _dy
+            zmin = _zmin
+            zmax = _zmax
+            dz = _dz
+
+            return "ok";
+        }
+
+        let info = () => {
+            console.log("cx = ", cx);
+            console.log("cy = ", cy);
+            console.log("cz = ", cz);
+            console.log("xmin = ", xmin);
+            console.log("xmax = ", xmax);
+            console.log("dx = ", dx);
+            console.log("ymin = ", ymin);
+            console.log("ymax = ", ymax);
+            console.log("dy = ", dy);
+            console.log("zmin = ", zmin);
+            console.log("zmax = ", zmax);
+            console.log("dz = ", dz);
+            return "ok";
+        }
+
+        let loop = (faces, material) => {
+            if (dx == 0) dx = 1;
+            if (dy == 0) dy = 1;
+            if (dz == 0) dz = 1;
+            for (x = xmin; x <= xmax; x += dx) {
+                for (y = ymin; y <= ymax; y += dy) {
+                    for (z = zmin; z <= zmax; z += dz) {
+                        // cells[x][y][z].material = material;
+                        // fn(x, y, z, mask);
+
+                        box({ x: x, y: y, z: z }, faces, material)
+                    }
+                }
+            }
+            // view();
+            return "ok";
+        }
+
+
+        let pivot = (x, y, z) => {
+            cx = x;
+            cy = y;
+            cz = z;
+            ghost.position.set(size * cx, size * cy, size * cz);
+
+            return "ok"
+        }
+
+        let rotate = (x, y, z) => {
+            rx = x;
+            ry = y;
+            rz = z;
+            ghost.rotation.set(rx, ry, rz);
+        }
+
+        let scale = (x, y, z) => {
+            sx = x;
+            sy = y;
+            sz = z;
+            ghost.scaling.set(sx, sy, sz);
+        }
+
+        let randomize = (x, y, z) => {
+            rax = x;
+            ray = y;
+            raz = z;
+        }
+
+        let instanceId = 0;
+
+        let mesh_plane = null;
+        let mesh_box = null;
+        let mesh_sphere1 = null;
+        let mesh_sphere2 = null;
+        let mesh_sphere4 = null;
+        let mesh_cylinder1 = null;
+        let mesh_cylinder2 = null;
+        let mesh_cylinder3 = null;
+        let mesh_kegel = null;
+        let mesh_box_minus_sphere2 = null;
+        let mesh_box_minus_cylinder2 = null;
+        let mesh_plane_glass = null;
+        let mesh_rock = null;
+
+        let box = (offset, faces, box_mother) => {
+            return create(offset, faces, box_mother);
+        }
+
+        let create = (offset, faces, box_mother) => {
+
+            let dim = { x: size, y: size, z: size };
+            let base = BABYLON.MeshBuilder.CreateBox("", { size: .25 }, scene);
+            base.position.set(cx + offset.x, cy + offset.y, cz + offset.z);
+            base.rotation.set(rx, ry, rz);
+            base.scaling.set(sx, sy, sz);
+            base.isVisible = false;
+            attachDragBehavior(base);
+            meshes.push(base);
+
+            let plane = null;
+
+            if (faces & CT) {
+                plane = box_mother.createInstance(instanceId++);
+                plane.scaling.x = dim.x;
+                plane.scaling.y = dim.y;
+                plane.scaling.z = dim.z;
+                // plane.position.set(-dim.x * 0.5, -dim.y * 0.5, 0);
+                plane.parent = base;
+                plane.isVisible = true;
+                // plane.receiveShadows = true;
+                shadowGenerator.getShadowMap().renderList.push(plane);
+                // plane.checkCollisions = true;
+                // plane.material = box_material;
+                meshes.push(plane);
+            }
+
+            if (faces & FW) {
+                plane = box_mother.createInstance(instanceId++);
+                plane.scaling.x = dim.x;
+                plane.scaling.y = dim.y;
+                plane.position.set(-dim.x * 0.5, -dim.y * 0.5, 0);
+                plane.parent = base;
+                plane.isVisible = true;
+                // plane.receiveShadows = true;
+                shadowGenerator.getShadowMap().renderList.push(plane);
+                // plane.checkCollisions = true;
+                // plane.material = box_material;
+                meshes.push(plane);
+            }
+
+            if (faces & BW) {
+                plane = box_mother.createInstance(instanceId++);
+                plane.scaling.x = dim.x;
+                plane.scaling.y = dim.y;
+                plane.position.set(-dim.x * 0.5, -dim.y * 0.5, dim.z);
+                plane.parent = base;
+                plane.isVisible = true;
+                // plane.receiveShadows = true;
+                shadowGenerator.getShadowMap().renderList.push(plane);
+                // plane.checkCollisions = true;
+                // plane.material = box_material;
+                meshes.push(plane);
+            }
+
+            if (faces & UP) {
+                plane = box_mother.createInstance(instanceId++);
+                plane.scaling.x = dim.x;
+                plane.scaling.y = dim.z;
+                plane.position.set(-dim.x * 0.5, 0, dim.z * 0.5);
+                plane.parent = base;
+                plane.isVisible = true;
+                plane.rotation.x = 0.5 * Math.PI;
+                // plane.receiveShadows = true;
+                shadowGenerator.getShadowMap().renderList.push(plane);
+                // plane.checkCollisions = true;
+                // plane.material = box_material;
+                meshes.push(plane);
+            }
+
+            if (faces & DW) {
+                plane = box_mother.createInstance(instanceId++);
+                plane.scaling.x = dim.x;
+                plane.scaling.y = dim.z;
+                plane.position.set(-dim.x * 0.5, -dim.y, dim.z * 0.5);
+                plane.parent = base;
+                plane.isVisible = true;
+                plane.rotation.x = 0.5 * Math.PI;
+                // plane.receiveShadows = true;
+                shadowGenerator.getShadowMap().renderList.push(plane);
+                // plane.checkCollisions = true;
+                // plane.material = box_material;
+                meshes.push(plane);
+            }
+
+            if (faces & RT) {
+                plane = box_mother.createInstance(instanceId++);
+                plane.scaling.x = dim.z;
+                plane.scaling.y = dim.y;
+                plane.position.set(0, -dim.y * 0.5, dim.z * 0.5);
+                plane.parent = base;
+                plane.isVisible = true;
+                plane.rotation.y = 0.5 * Math.PI;
+                // plane.receiveShadows = true;
+                shadowGenerator.getShadowMap().renderList.push(plane);
+                // plane.checkCollisions = true;
+                // plane.material = box_material;
+                meshes.push(plane);
+            }
+
+            if (faces & LT) {
+                plane = box_mother.createInstance(instanceId++);
+                plane.scaling.x = dim.z;
+                plane.scaling.y = dim.y;
+                plane.position.set(-dim.x, -dim.y * 0.5, dim.z * 0.5);
+                plane.parent = base;
+                plane.isVisible = true;
+                plane.rotation.y = 0.5 * Math.PI;
+                // plane.receiveShadows = true;
+                shadowGenerator.getShadowMap().renderList.push(plane);
+                // plane.checkCollisions = true;
+                // plane.material = box_material;
+                meshes.push(plane);
+            }
+
+
+            if (plane) {
+                if (rax !== 0) {
+                    plane.position.x += 0.5 * rax - rax * Math.random();
+                    plane.rotation.x += 0.5 * rax - rax * Math.random();
+                }
+
+                if (ray !== 0) {
+                    plane.position.y += 0.5 * ray - ray * Math.random();
+                    plane.rotation.y += 0.5 * ray - ray * Math.random();
+                }
+                if (raz !== 0) {
+                    plane.position.z += 0.5 * raz - raz * Math.random();
+                    plane.rotation.z += 0.5 * raz - raz * Math.random();
+                }
+
+            }
+
+            return base;
+        }
+
+
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+            scene = scene
+            scene.enablePhysics(undefined, new BABYLON.OimoJSPlugin());
+            let physicsEngine = scene.getPhysicsEngine();
+            // physicsEngine.setGravity(new BABYLON.Vector3(0, -.9, 0))
+            scene.collisionsEnabled = true;
+            scene.gravity = new BABYLON.Vector3(0, -0.9, 0);
+            let bgcolor = BABYLON.Color3.FromHexString('#111111');
+            scene.clearColor = bgcolor;
+            scene.ambientColor = bgcolor;
+
+            camera = new BABYLON.ArcRotateCamera("camera1", 0, 0, 0, new BABYLON.Vector3(0, 0, 0), scene);
+            camera.setPosition(new BABYLON.Vector3(0, 0, -20));
+            camera.attachControl(canvas, true);
+            // camera.angularSensibilityX = 2000;
+            // camera.angularSensibilityY = 2000;
+
+
+
+            // let material_crate = new BABYLON.StandardMaterial("Mat", scene);
+            // material_crate.diffuseTexture = new BABYLON.Texture("https://playground.babylonjs.com/textures/crate.png", scene);
+            // // material_crate.diffuseTexture = new BABYLON.Texture(gallery.getOneImg(1), scene);
+            // // material_crate.diffuseTexture.hasAlpha = true;
+            // // material_crate.alpha = 0.5;
+
+            // // material_fur = new BABYLON.StandardMaterial("Mat", scene);
+            // // material_fur.diffuseTexture = new BABYLON.Texture("https://playground.babylonjs.com/textures/fur.png", scene);
+            // // material_fur.diffuseTexture.hasAlpha = true;
+            // // material.alpha = 0.5;
+
+            // let material_ground = new BABYLON.StandardMaterial("Mat", scene);
+            // material_ground.diffuseTexture = new BABYLON.Texture("https://playground.babylonjs.com/textures/ground.jpg", scene);
+            // // material_ground.diffuseTexture = new BABYLON.Texture(gallery.getOneImg(2), scene);
+            // // material_ground.diffuseTexture.hasAlpha = true;
+
+            // box_material = material_crate;
+
+            // box_mother_ground = BABYLON.MeshBuilder.CreatePlane("", { width: .95, height: .95, sideOrientation: BABYLON.Mesh.DOUBLESIDE }, scene);
+            // box_mother_ground.isVisible = false;
+            // box_mother_ground.material = material_ground;
+
+
+
+            // https://forum.babylonjs.com/t/how-to-create-a-lantern-animation/19211/2
+
+            // latern: https://www.babylonjs-playground.com/#NWRGQJ#4
+
+            let customProcTextmacadam = new BABYLON.RoadProceduralTexture("customtext", 512, scene);
+            // let mat_mesh = new BABYLON.StandardMaterial("gmat", scene);
+            // mat_mesh.diffuseTexture = customProcTextmacadam;
+            // mat_mesh.diffuseTexture.uScale = 10;
+            // mat_mesh.diffuseTexture.vScale = 10;
+            // mat_mesh.specularPower = 1;
+
+
+            let brickWallDiffURL = "http://i.imgur.com/Rkh1uFK.png"; "assets/Rkh1uFK.png";
+            let brickWallNHURL = "http://i.imgur.com/GtIUsWW.png"; // "assets/GtIUsWW.png";
+            let wallDiffuseTexture = new BABYLON.Texture(brickWallDiffURL, scene);
+            let wallNormalsHeightTexture = new BABYLON.Texture(brickWallNHURL, scene);
+            let normalsHeightTexture = wallNormalsHeightTexture;
+
+            let material = new BABYLON.StandardMaterial("mtl01", scene);
+            material.diffuseTexture = wallDiffuseTexture;
+            material.bumpTexture = wallNormalsHeightTexture;
+            material.useParallax = true;
+            material.useParallaxOcclusion = true;
+            material.parallaxScaleBias = 0.1;
+            material.specularPower = 1000.0;
+            material.specularColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+
+
+            mat_mesh = material;
+
+
+            mesh_plane = BABYLON.MeshBuilder.CreatePlane("", { width: 1, height: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE }, scene);
+            mesh_plane.isVisible = false;
+            mesh_plane.material = mat_mesh;
+            mesh_plane.receiveShadows = true;
+
+            mesh_box = BABYLON.MeshBuilder.CreateBox("sphere", { size: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+            mesh_box.isVisible = false;
+            mesh_box.material = mat_mesh;
+            mesh_box.receiveShadows = true;
+
+            mesh_sphere1 = BABYLON.MeshBuilder.CreateSphere("sphere", { slice: 1, arc: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+            mesh_sphere1.isVisible = false;
+            mesh_sphere1.material = mat_mesh;
+            mesh_sphere1.receiveShadows = true;
+
+            mesh_sphere2 = BABYLON.MeshBuilder.CreateSphere("sphere", { slice: 0.5, arc: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+            mesh_sphere2.isVisible = false;
+            mesh_sphere2.material = mat_mesh;
+            mesh_sphere2.receiveShadows = true;
+            // mesh_half_sphere.material = material_crate;
+
+            mesh_sphere4 = BABYLON.MeshBuilder.CreateSphere("sphere", { slice: 0.5, arc: 0.5, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+            mesh_sphere4.isVisible = false;
+            mesh_sphere4.material = mat_mesh;
+            mesh_sphere4.receiveShadows = true;
+
+            mesh_cylinder1 = BABYLON.MeshBuilder.CreateCylinder("cylinder", { height: 1, arc: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+            mesh_cylinder1.isVisible = false;
+            mesh_cylinder1.material = mat_mesh;
+            mesh_cylinder1.receiveShadows = true;
+
+            mesh_cylinder2 = BABYLON.MeshBuilder.CreateCylinder("cylinder", { height: 1, arc: 0.5, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+            mesh_cylinder2.isVisible = false;
+            mesh_cylinder2.material = mat_mesh;
+            mesh_cylinder2.receiveShadows = true;
+
+            mesh_cylinder3 = BABYLON.MeshBuilder.CreateCylinder("cylinder", { height: 1, tessellation: 3, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+            mesh_cylinder3.isVisible = false;
+            mesh_cylinder3.material = mat_mesh;
+            mesh_cylinder3.receiveShadows = true;
+
+            mesh_kegel = BABYLON.MeshBuilder.CreateCylinder("cylinder", { height: 1, diameterTop: 0, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+            mesh_kegel.isVisible = false;
+            mesh_kegel.material = mat_mesh;
+            mesh_kegel.receiveShadows = true;
+
+
+
+            let create_box_minus_sphere2 = () => {
+                let a = BABYLON.Mesh.CreateSphere("sphere", 16, 1, scene);
+                let b = BABYLON.Mesh.CreateBox("box", 1, scene);
+                a.isVisible = false;
+                b.isVisible = false;
+                b.position.y -= 0.5;
+                let aCSG = BABYLON.CSG.FromMesh(a);
+                let bCSG = BABYLON.CSG.FromMesh(b);
+                let subCSG = bCSG.subtract(aCSG);
+                return subCSG.toMesh("csg", null, scene);
+            }
+            mesh_box_minus_sphere2 = create_box_minus_sphere2();
+            mesh_box_minus_sphere2.isVisible = false;
+            mesh_box_minus_sphere2.material = mat_mesh;
+            mesh_box_minus_sphere2.receiveShadows = true;
+
+
+            let create_box_minus_cylinder2 = () => {
+                let a = BABYLON.MeshBuilder.CreateCylinder("cylinder", { height: 1, arc: 0.5, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+                let b = BABYLON.Mesh.CreateBox("box", 1, scene);
+                a.isVisible = false;
+                b.isVisible = false;
+                // b.position.y -= 0.5;
+                let aCSG = BABYLON.CSG.FromMesh(a);
+                let bCSG = BABYLON.CSG.FromMesh(b);
+                let subCSG = bCSG.subtract(aCSG);
+                return subCSG.toMesh("csg", null, scene);
+            }
+            mesh_box_minus_cylinder2 = create_box_minus_cylinder2();
+            mesh_box_minus_cylinder2.isVisible = false;
+            mesh_box_minus_cylinder2.material = mat_mesh;
+            mesh_box_minus_cylinder2.receiveShadows = true;
+
+
+            let create_rock = () => {
+
+                let sphere = BABYLON.MeshBuilder.CreateSphere("sphere",
+                    {
+                        segments: 30,
+                        // diameterX: Math.random() * 1.5,
+                        // diameterY: Math.random() * 1.5,
+                        // diameterZ: Math.random() * 1.5,
+                        updatable: true
+                    }, scene);
+                sphere.forceSharedVertices();
+                sphere.applyDisplacementMap("assets/distortion.png", 0.1, 1);
+
+                return sphere;
+            }
+            mesh_rock = create_rock();
+            mesh_rock.isVisible = false;
+            mesh_rock.material = mat_mesh;
+            mesh_rock.receiveShadows = true;
+
+
+
+            // https://www.babylonjs-playground.com/#345DWH#3
+
+            // let sphere = BABYLON.MeshBuilder.CreateIcoSphere("",
+            // {
+            // subdivisions: 5,
+            // radiusX: Math.random() * 3.5,
+            // radiusY: Math.random() * 3.5,
+            // radiusZ: Math.random() * 3.5,
+            // updatable:true
+            // }, scene);
+
+            /*
+        let hdrTexture = BABYLON.CubeTexture.CreateFromPrefilteredData("assets/forest.env", scene);
+        let glass = new BABYLON.PBRMaterial("glass", scene);
+        glass.reflectionTexture = hdrTexture;
+        glass.refractionTexture = hdrTexture;
+        glass.linkRefractionWithTransparency = true;
+        glass.indexOfRefraction = 0.52;
+        glass.alpha = 0.9;
+        glass.microSurface = 1;
+        glass.reflectivityColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+        glass.albedoColor = new BABYLON.Color3(0.85, 0.85, 0.85);
+        // let box = BABYLON.MeshBuilder.CreateBox('blah', { depth: 0.2, width: 4, height: 3 }, scene);
+        // box.material = glass;
+        */
+
+            let glass = new BABYLON.PBRMaterial("glass", scene);
+            // glass.diffuseColor = new BABYLON.Color3(0.99, 0.99, 0.85)
+            glass.emissiveColor = new BABYLON.Color3(0.66, 0.99, 0.33);
+            glass.alpha = 0.4;
+
+            mesh_plane_glass = BABYLON.MeshBuilder.CreatePlane("", { width: 1, height: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE }, scene);
+            mesh_plane_glass.isVisible = false;
+            mesh_plane_glass.material = glass;
+            mesh_plane_glass.receiveShadows = true;
+
+
+
+            // let water = new BABYLON.WaterMaterial("water", scene, new BABYLON.Vector2(512, 512));
+            // water.backFaceCulling = true;
+            // water.bumpTexture = new BABYLON.Texture("textures/waterbump.png", scene);
+            // water.windForce = -5;
+            // water.waveHeight = 0;
+            // water.bumpHeight = 0.15;
+            // water.windDirection = new BABYLON.Vector2(1, 1);
+            // water.waterColor = new BABYLON.Color3(0, 0.1, 0);
+            // water.colorBlendFactor = 0.8;
+            // // water.addToRenderList(skybox);
+            // // water.addToRenderList(box);
+
+            // mesh_plane_water = BABYLON.MeshBuilder.CreatePlane("", { width: 1, height: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE }, scene);
+            // mesh_plane_water.isVisible = false;
+            // mesh_plane_water.material = water;
+            // mesh_plane_water.receiveShadows = true;
+
+
+            /*
+            // https://doc.babylonjs.com/divingDeeper/mesh/creation/set/sphere
+            // Viertel Sphere
+            const sphere1 = BABYLON.MeshBuilder.CreateSphere("sphere", { slice: 0.5, arc: 0.5, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+
+            // Zylinder dreieck
+            const cylinder2 = BABYLON.MeshBuilder.CreateCylinder("cylinder", { tessellation: 3, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+
+            // Zylinder halbiert
+            const cylinder3 = BABYLON.MeshBuilder.CreateCylinder("cylinder", { height: 1, arc: 0.5, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+
+            // Spitzer Zylinder Hut
+            const cylinder4 = BABYLON.MeshBuilder.CreateCylinder("cylinder", { diameterTop: 0, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+
+            // halbe scheibe
+            const disc1 = BABYLON.MeshBuilder.CreateDisc("disc", { arc: 0.5, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+
+            const torus1 = BABYLON.MeshBuilder.CreateTorus("torus", { diameter: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE }, scene);
+            */
+
+
+            // box_mother = box_mother_crate;
+
+
+
+
+
+            // // Skybox
+            // let skybox = BABYLON.Mesh.CreateBox('skyBox', 5000.0, scene)
+            // let skyboxMaterial = new BABYLON.StandardMaterial('skyBox', scene)
+            // skyboxMaterial.backFaceCulling = false
+            // skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture('//www.babylonjs.com/assets/skybox/TropicalSunnyDay', scene)
+            // skyboxMaterial.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE
+            // skyboxMaterial.diffuseColor = new BABYLON.Color3(0, 0, 0)
+            // skyboxMaterial.specularColor = new BABYLON.Color3(0, 0, 0)
+            // // skyboxMaterial.disableLighting = true
+            // // skyboxMaterial.luminance = 0.1;
+            // skybox.material = skyboxMaterial
+
+
+            let skyLight = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+            skyLight.intensity = 0.20;
+
+            // let light1 = new BABYLON.SpotLight("spotLight", new BABYLON.Vector3(0, 0, 0), new BABYLON.Vector3(0, 1, 0), Math.PI / 3, 2, scene);
+            // light1.intensity = 0; // .5;
+            // light1.diffuse = BABYLON.Color3.FromHexString('#FF0000');
+
+            // let light2 = new BABYLON.SpotLight("spotLight", new BABYLON.Vector3(0, 0, 0), new BABYLON.Vector3(0, 1, 0), Math.PI / 3, 2, scene);
+            // light2.intensity = 0; // .5;
+            // light2.diffuse = BABYLON.Color3.FromHexString('#00FF00');
+
+            // let light3 = new BABYLON.SpotLight("spotLight", new BABYLON.Vector3(0, 0, 0), new BABYLON.Vector3(0, 1, 0), Math.PI / 3, 2, scene);
+            // light3.intensity = 0; // .5;
+            // light3.diffuse = BABYLON.Color3.FromHexString('#0000FF');
+
+
+            // let light0 = new BABYLON.DirectionalLight("", new BABYLON.Vector3(0, 1, 0), scene);
+            // light0.intensity = .5;
+            // light0.diffuse = BABYLON.Color3.FromHexString('#FFFFFF');
+            // light0.position.z = -5;
+            // light0.parent = camera;
+
+
+            let lightSphere = BABYLON.Mesh.CreateSphere("sphere1", 16, 0.1, scene);
+            let lightSphereMat = new BABYLON.StandardMaterial("mat", scene);
+            lightSphere.material = lightSphereMat;
+            lightSphereMat.emissiveColor = BABYLON.Color3.Yellow();
+            lightSphereMat.linkEmissiveWithDiffuse = true;
+            lightSphere.position.y = -1.0;
+
+            // let light = new BABYLON.SpotLight("", new BABYLON.Vector3(0, 0, 0), new BABYLON.Vector3(0, 0, 1), Math.PI / 3, 2, scene);
+            // light.intensity = .25;
+            // light.diffuse = BABYLON.Color3.FromHexString('#999999');
+            // light.range = 100;
+            // light.angle = Math.PI * 0.25;;
+            // // light.radius = Math.PI * 0.5;
+            // // light.parent = camera;
+
+            let light = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            light.intensity = 0.7;
+            light.diffuse = BABYLON.Color3.FromHexString('#ff9944');
+
+
+            let t = 0;
+            scene.registerBeforeRender(function () {
+                lightSphere.position.x += 0.01 * Math.sin(t);
+                lightSphere.position.y += 0.01 * Math.sin(t);
+                lightSphere.position.z += 0.01 * Math.cos(t);
+
+                light.position = lightSphere.getAbsolutePosition();
+                // light.position.y += 0;
+                light.intensity = 0.4 + Math.random() * 0.05;
+
+                t += 0.01;
+            });
+
+
+
+            /* offline * /
+            // Ground
+            let ground = BABYLON.Mesh.CreateGroundFromHeightMap("ground", "assets/heightMap.png", 100, 100, 100, 0, 10, scene, false);
+            let groundMaterial = new BABYLON.StandardMaterial("ground", scene);
+            groundMaterial.diffuseTexture = new BABYLON.Texture("assets/ground.jpg", scene);
+            groundMaterial.diffuseTexture.uScale = 6;
+            groundMaterial.diffuseTexture.vScale = 6;
+            groundMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+            ground.position.y = -5;
+            // ground.position.x = -10;
+            // ground.position.z = -10;
+            ground.material = groundMaterial;
+            ground.receiveShadows = true;
+
+            /**/
+
+            /* offline */
+            // Sky material
+            let skyboxMaterial = new BABYLON.SkyMaterial("skyMaterial", scene);
+            skyboxMaterial.backFaceCulling = false;
+            skyboxMaterial.luminance = 0.5;
+            // skyboxMaterial._cachedDefines.FOG = true;
+
+            // Sky mesh (box)
+            let skybox = BABYLON.Mesh.CreateBox("skyBox", 1000.0, scene);
+            skybox.material = skyboxMaterial;
+
+            /**/
+
+            let pivot = {};
+            let dimension = {};
+            let base = null;
+            let sphere = null;
+
+            shadowGenerator = new BABYLON.ShadowGenerator(1024, light);
+            shadowGenerator.setDarkness(0.2);
+            //shadowGenerator.usePoissonSampling = true;
+            shadowGenerator.useBlurVarianceShadowMap = true;
+            // shadowGenerator.blurBoxOffset = 1.0;
+            // shadowGenerator.blurScale = 150.0;
+            // shadowGenerator.forceBackFacesOnly = true;
+
+            // shadowGenerator.setDarkness(0.2);
+            // shadowGenerator.useCloseExponentialShadowMap = true;
+            // //shadowGenerator.blurBoxOffset = 1.0;
+            // //shadowGenerator.blurScale = 150.0;
+            // shadowGenerator.bias = 0.5; // 0.01;
+
+
+            // shadowGenerator.usePercentageCloserFiltering = true;
+            // shadowGenerator.bias = 0.01;
+            // shadowGenerator.transparencyShadow = true;
+
+
+            let mat_grid = new BABYLON.GridMaterial("groundMaterial", scene);
+            mat_grid.gridRatio = 0.1;
+            mat_grid.mainColor = BABYLON.Color3.Blue();
+            mat_grid.opacity = 0.99;
+
+
+
+
+            ghost = BABYLON.MeshBuilder.CreateBox("", { size: size * 0.9 }, scene);
+            ghost.material = new BABYLON.StandardMaterial('skyBox', scene);
+            ghost.material = mat_grid
+
+
+            return scene;
+        }
+
+
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+
+        clear();
+        init();
+
+
+        let etage = (max, step) => {
+            randomize(.25, .25, .25)
+            range(-max, max, 1, 0, 0, 1, -max, max, 1);
+            loop(CT, mesh_box);
+
+            randomize(0, 0, 0)
+            range(-max, max, 1, 5, 5, 1, -max, max, 1);
+            loop(CT, mesh_box);
+
+            range(-max, max, step, 1, 4, 1, -max, max, step);
+            loop(CT, mesh_box);
+
+        }
+       
+       
+
+        range(-5, 5, 1, 0, 0, 1, -5, 5, 1);
+        loop(CT, mesh_box);
+
+        pivot(0, 1, 0);
+        range(-4, 4, 2, -10, 3, 1, -4, 4, 2);
+        loop(CT, mesh_box);
+
+        range(-3, 3, 2, 3, 3, 1, -4, 4, 2);
+        rotate(0.5 * Math.PI, 0, 0);
+        loop(CT, mesh_box_minus_cylinder2);
+
+        rotate(0, 0, 0);
+        range(-4, 4, 1, 4, 4, 1, -4, 4, 1);
+        loop(CT, mesh_box);
+
+        range(-4, 4, 4, 5, 8, 1, -4, 4, 4);
+        loop(CT, mesh_box);
+
+        scale(1, .25, 1);
+        range(-5, 5, 1, 8, 8, 1, -5, 5, 1);
+        loop(CT, mesh_box);
+
+        pivot(0, 0, -1);
+        scale(.98, .98, .98);
+        range(-3, 4, 1, 1, 5, 1, -3, -3, 1);
+        randomize(.01, .01, .01);
+        loop(FW, mesh_plane_glass);
+
+
+        let create_ground = (y) => {
+
+            pivot(0, y, 0);
+            let s = Math.abs(y) * 0.75;
+            scale(s, s, s);
+            max = 14 + y;
+            for (let i = 0; i < max; i++) {
+                randomize(1, 1, 1);
+                let m = create({
+                    x: (6 + s) * Math.sin(Math.PI * 2 * i / max),
+                    y: s * 0.5 * Math.sin(Math.PI * 2 * i / max),
+                    z: (6 + s) * Math.cos(Math.PI * 2 * i / max)
+                }, CT, mesh_rock);
+                m.lookAt(ghost.position)
+            }
+        }
+
+        for (let i = 3; i < 9; i += 2) {
+            create_ground(-i);
+        }
+
+
+        let treppe = () => {
+            let max = 14 * 4;
+            scale(1, 0.25, 1);
+            for (let i = 0; i <= max; i++) {
+                rotate(0, 2 * Math.PI * i / (0.25 * max), 0);
+                create({ x: 0, y: i * 0.25, z: 0 }, LT, mesh_box)
+            }
+        }
+        init();
+        pivot(0, -5, 0);
+        treppe();
+
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

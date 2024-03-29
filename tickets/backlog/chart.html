@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <script src="https://preview.babylonjs.com/babylon.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.js"></script>
+
+    <canvas id="myChart" style="width:100%;max-width:700px"></canvas>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        #fps {
+            position: absolute;
+            background-color: black;
+            /* border: 2px solid red; */
+            text-align: center;
+            font-size: 16px;
+            color: white;
+            top: 15px;
+            right: 10px;
+            width: 60px;
+            height: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="fps">0</div>
+
+    <div id="chart-container">
+        <canvas id="chart"></canvas>
+    </div>
+
+    <script>
+        let SCREEN_WIDTH = window.innerWidth,
+            SCREEN_HEIGHT = window.innerHeight,
+            SCREEN_WIDTH_HALF = SCREEN_WIDTH / 2,
+            SCREEN_HEIGHT_HALF = SCREEN_HEIGHT / 2;
+
+        let canvas = document.getElementById("renderCanvas");
+        let divFps = document.getElementById("fps")
+
+        let desiredFps = 3;
+        let interval = 1000 / (10 * desiredFps);
+
+        let createScene = function () {
+
+            let scene = new BABYLON.Scene(engine);
+            let bgcolor = BABYLON.Color3.FromHexString('#000000');
+            scene.clearColor = bgcolor;
+            scene.ambientColor = bgcolor;
+
+            var camera = new BABYLON.ArcRotateCamera("camera1", 0, 0, 0, new BABYLON.Vector3(0, 0, 0), scene);
+            camera.setPosition(new BABYLON.Vector3(0, 0, -20));
+            camera.attachControl(canvas, true);
+
+            let light = new BABYLON.SpotLight("spotLight", new BABYLON.Vector3(0, 0, 0), new BABYLON.Vector3(0, 1, 0), Math.PI / 3, 2, scene);
+            light.intensity = .5;
+            light.diffuse = BABYLON.Color3.FromHexString('#12ff21');
+
+            let skyLight = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+
+            let box = BABYLON.MeshBuilder.CreateBox("", { width: 1, height: 1, depth: 1 }, scene);
+
+
+
+            // var ctx = document.getElementById("chart").getContext('2d');
+            // var chart = new Chart(ctx, {
+            //     type: 'line',
+            //     data: {
+            //         labels: [],
+            //         datasets: [{
+            //             label: 'CPU Auslastung',
+            //             borderColor: 'rgb(255, 99, 132)',
+            //             data: []
+            //         }, {
+            //             label: 'GPU Auslastung',
+            //             borderColor: 'rgb(54, 162, 235)',
+            //             data: []
+            //         }]
+            //     },
+            //     options: {
+            //         scales: {
+            //             yAxes: [{
+            //                 scaleLabel: {
+            //                     display: true,
+            //                     labelString: 'Auslastung (%)'
+            //                 },
+            //                 ticks: {
+            //                     min: 0,
+            //                     max: 100
+            //                 }
+            //             }]
+            //         }
+            //     }
+            // });
+
+
+            // https://www.w3schools.com/js/js_graphics_chartjs.asp
+            // const xValues = []; // ["Italy", "France", "Spain", "USA", "Argentina"];
+            // const yValues = []; // [55, 49, 44, 24, 15];
+            // const barColors = []; // ["red", "green", "blue", "orange", "brown"];
+
+            // let chart = new Chart("myChart", {
+            //     type: "bar",
+            //     data: {
+            //         labels: xValues,
+            //         datasets: [{
+            //             backgroundColor: barColors,
+            //             data: yValues
+            //         }]
+            //     },
+            //     options: {
+            //         legend: { display: false },
+            //         title: {
+            //             display: true,
+            //             text: "World Wine Production 2018"
+            //         }
+            //     }
+            // });
+
+            // var time = 0;
+            // var fps = 30;
+
+            let max = 15;
+            // // chart.data.datasets[0].data = [];
+            // chart.data.datasets[0].data.labels = [];
+            // chart.data.datasets[0].data.datasets = [];            
+
+            const xValues = [];
+            const yValues = [];
+            const barColors = [];
+
+
+            for (let i = 0; i < max; i++) {
+                let x = i; // 10*Math.sin(i*2*Math.PI/max);
+                let y = 10 * Math.sin(i * 2 * Math.PI / max);
+                xValues.push(x);
+                yValues.push(y);
+                barColors.push("blue");
+            }
+            // chart.update();
+
+
+            let chart = new Chart("myChart", {
+                type: "bar",
+                data: {
+                    labels: xValues,
+                    datasets: [{
+                        backgroundColor: barColors,
+                        data: yValues
+                    }]
+                },
+                options: {
+                    legend: { display: false },
+                    title: {
+                        display: true,
+                        text: "World Wine Production 2018"
+                    }
+                }
+            });
+
+            let t = 0;
+            scene.registerBeforeRender(() => {
+
+                t += 0.1;
+                divFps.innerHTML = engine.getFps().toFixed() + " fps";
+
+
+                const xValues = [];
+                const yValues = [];
+                const barColors = [];
+
+                for (let i = 0; i < max; i++) {
+                    let y = 10 * Math.sin(t + i * 2 * Math.PI / max);
+                    yValues.push(y);
+                }
+                chart.data.datasets[0].data = yValues;
+                chart.update();
+
+
+                // var cpuLoad = Math.random() * 100;
+                // var gpuLoad = Math.random() * 100;
+                // time += 1000 / fps;
+                // chart.data.labels.push('');
+                // chart.data.datasets[0].data.push({ x: Date.now(), y: cpuLoad });
+                // chart.data.datasets[1].data.push({ x: Date.now(), y: gpuLoad });
+                // // scene.getMeshByName("cpuBox").scaling.x = cpuLoad / 100;
+                // // scene.getMeshByName("gpuBox").scaling.x = gpuLoad / 100;
+
+                // chart.data.datasets[0].data.push({ x: Date.now(), y: engine.getFps() });
+                // chart.update();
+            });
+
+            return scene;
+        }
+
+
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

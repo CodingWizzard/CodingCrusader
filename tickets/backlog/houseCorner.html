@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>ai</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = BABYLON.Color3.Black();
+
+            let camera = new BABYLON.ArcRotateCamera("",
+                BABYLON.Tools.ToRadians(-90),
+                BABYLON.Tools.ToRadians(-10),
+                10,
+                new BABYLON.Vector3(0, 0, 0),
+                scene);
+            camera.lowerBetaLimit = null;
+            camera.lowerAlphaLimit = BABYLON.Tools.ToRadians(-90);
+            camera.upperAlphaLimit = BABYLON.Tools.ToRadians(-90);
+            camera.attachControl(canvas, true);
+
+
+            class Mesh {
+                constructor() {
+                    this.positions = [];
+                    this.indices = [];
+                    this.idx = 0;
+
+                    let customMesh = new BABYLON.Mesh("custom", scene);
+                    customMesh.material = new BABYLON.StandardMaterial("TextPlaneMaterial", scene);
+                    customMesh.material.backFaceCulling = false;
+                    // customMesh.material.wireframe = true;
+
+                    let vertexData = new BABYLON.VertexData();
+                    this.customMesh = customMesh;
+                    this.vertexData = vertexData;
+                }
+
+                addTriangle(p1, p2, p3) {
+                    this.positions.push(p1.x);
+                    this.positions.push(p1.y);
+                    this.positions.push(p1.z);
+
+                    this.positions.push(p2.x);
+                    this.positions.push(p2.y);
+                    this.positions.push(p2.z);
+
+                    this.positions.push(p3.x);
+                    this.positions.push(p3.y);
+                    this.positions.push(p3.z);
+
+                    this.indices.push(this.idx++);
+                    this.indices.push(this.idx++);
+                    this.indices.push(this.idx++);
+                }
+
+
+                updateMesh() {
+                    this.vertexData.positions = this.positions;
+                    this.vertexData.indices = this.indices;
+                    this.vertexData.applyToMesh(this.customMesh);
+                }
+
+            }
+
+            let a1 = 0.5;
+            let a2 = 2 * a1;
+
+            class Plane extends Mesh {
+                constructor(drawMiddle) {
+                    super();
+
+                    let points = [];
+
+                    /*
+                        4           7
+
+                            5   6
+
+                            1   2
+
+                        0           3                    
+                    */
+
+
+                    // let a1 = 0.5;
+                    // let a2 = 2 * a1;
+
+                    // 0
+                    let x = -a2;
+                    let y = -a2;
+                    let p = new BABYLON.Vector3(x, y, 0)
+                    points.push(p);
+                    // createPoint(p);
+
+                    // 1
+                    x += a1;
+                    y += a1;
+                    p = new BABYLON.Vector3(x, y, 0)
+                    points.push(p);
+                    // createPoint(p);
+
+                    // 2
+                    x += a1;
+                    p = new BABYLON.Vector3(x, y, 0)
+                    points.push(p);
+                    // createPoint(p);
+
+                    // 3
+                    x += a1;
+                    y -= a1;
+                    p = new BABYLON.Vector3(x, y, 0)
+                    points.push(p);
+                    // createPoint(p);
+
+
+                    // 4
+                    x = -a2;
+                    y = a1;
+                    p = new BABYLON.Vector3(x, y, 0)
+                    points.push(p);
+                    // createPoint(p);
+
+                    // 5
+                    x += a1;
+                    y -= a1;
+                    p = new BABYLON.Vector3(x, y, 0)
+                    points.push(p);
+                    // createPoint(p);
+
+                    // 6
+                    x += a1;
+                    p = new BABYLON.Vector3(x, y, 0)
+                    points.push(p);
+                    // createPoint(p);
+
+                    // 7
+                    x += a1;
+                    y += a1;
+                    p = new BABYLON.Vector3(x, y, 0)
+                    points.push(p);
+                    // createPoint(p);
+
+
+
+                    // // walls
+                    // // 8 = 0
+                    // x = -a2;
+                    // y = -a2;
+                    // p = new BABYLON.Vector3(x, y, -a2)
+                    // points.push(p);
+                    // createPoint(p);
+
+                    // // 9 = 4
+                    // x = -a2;
+                    // y = a1;
+                    // p = new BABYLON.Vector3(x, y, -a2)
+                    // points.push(p);
+                    // createPoint(p);
+
+
+
+                    this.points = points;
+                    this.drawMiddle = drawMiddle;
+                }
+
+
+
+                update() {
+                    this.positions = [];
+                    this.indices = [];
+                    this.idx = 0;
+
+                    let max = this.max;
+                    let points = this.points;
+
+                    let a = [
+                        // links 
+                        [0, 1, 4],
+                        [1, 4, 5],
+
+                        //  oben
+                        [4, 5, 6],
+                        [4, 6, 7],
+
+                        // rechts
+                        [2, 6, 7],
+                        [2, 3, 7],
+
+                        //  unten
+                        [0, 1, 2],
+                        [0, 2, 3]
+                        // // Mitte
+                        // [1, 2, 5],
+                        // [2, 5, 6],
+                    ];
+
+
+                    if (this.drawMiddle) {
+                        // Mitte
+                        a.push([1, 2, 5]);
+                        a.push([2, 5, 6]);
+                    }
+
+                    a.forEach((trio) => {
+                        this.addTriangle(points[trio[0]], points[trio[1]], points[trio[2]]);
+                    })
+
+
+
+                    this.updateMesh();
+                }
+            }
+
+
+            let planeTop = new Plane(true);
+            planeTop.points[1].z =
+                planeTop.points[2].z =
+                planeTop.points[5].z =
+                planeTop.points[6].z = 1;
+            planeTop.update();
+
+
+            let planeBack = new Plane(false);
+            planeBack.customMesh.rotation.x = 0.5 * Math.PI;
+            planeBack.customMesh.position.z = -a1;
+            planeBack.customMesh.position.y = -2 * a1;
+            planeBack.update();
+
+
+            let planeFront = new Plane(false);
+            planeFront.customMesh.rotation.x = 0.5 * Math.PI;
+            planeFront.customMesh.position.z = -a1;
+            planeFront.customMesh.position.y = 1 * a1;
+            planeFront.update();
+
+
+
+            let planeLeft = new Plane(false);
+            planeLeft.customMesh.rotation.y = 0.5 * Math.PI;
+            planeLeft.customMesh.position.z = -a1 * 2;
+            planeLeft.customMesh.position.x = -2 * a1;
+            planeLeft.update();
+
+            let planeRight = new Plane(false);
+            planeRight.customMesh.rotation.y = 0.5 * Math.PI;
+            planeRight.customMesh.position.z = -a1 * 2;
+            planeRight.customMesh.position.x = 1 * a1;
+            planeRight.update();
+
+            let planeBottom = new Plane(true);
+            planeBottom.customMesh.position.z = -a1 * 3;
+            planeBottom.update();
+
+
+            planeTop.customMesh.isVisible = false;
+            planeBack.customMesh.isVisible = false;
+            planeFront.customMesh.isVisible = false;
+            planeLeft.customMesh.isVisible = false;
+            planeRight.customMesh.isVisible = false;
+            planeBottom.customMesh.isVisible = false;
+
+
+            let max = 1;
+            let max2 = max * max;
+            let f = 3;
+
+            let paths = [];
+            for (let x = -max; x <= max; x += 1) {
+
+                let path = [];
+                for (let y = -max; y <= max; y += 1) {
+
+                    let dx = 0 * 3 * Math.cos(x + y * 2 * Math.PI / max)
+                    let dz = 0 * 3 * Math.sin(x + y * 2 * Math.PI / max)
+                    path.push(new BABYLON.Vector3(x * f + dx, y * f, -a1 * 3 + dz + 0.2));
+                    let zl = -a1 * 2;
+
+                    let planeBottomInst = planeBottom.customMesh.createInstance("");
+                    planeBottomInst.position.set(x * f, y * f, zl); // -a1 * 3);
+                    planeBottomInst.position.x += dx;
+                    planeBottomInst.position.z += dz;
+
+                    let maxLevels = 5;
+                    for (let i = 0; i < maxLevels; i++) {
+
+                        zl += a1;
+
+                        let planeBackInst = planeBack.customMesh.createInstance("");
+                        planeBackInst.position.set(x * f, y * f - 2 * a1, zl);
+
+                        let planeFrontInst = planeFront.customMesh.createInstance("");
+                        planeFrontInst.position.set(x * f, y * f + 1 * a1, zl);
+
+
+                        zl += a1;
+                        let planeLeftInst = planeLeft.customMesh.createInstance("");
+                        planeLeftInst.position.set(x * f - a1 * 2, y * f, zl - 2 * a1); // + a1 * 2);
+
+                        let planeRightInst = planeRight.customMesh.createInstance("");
+                        planeRightInst.position.set(x * f + a1, y * f, zl - 2 * a1); // + a1 * 2);
+
+                        planeBackInst.position.x += dx;
+                        planeFrontInst.position.x += dx;
+                        planeLeftInst.position.x += dx;
+                        planeRightInst.position.x += dx;
+
+                        planeBackInst.position.z += dz;
+                        planeFrontInst.position.z += dz;
+                        planeLeftInst.position.z += dz;
+                        planeRightInst.position.z += dz;
+
+                    }
+
+
+                    let planeTopInst = planeTop.customMesh.createInstance("");
+                    planeTopInst.position.set(x * f, y * f, zl);
+
+                    planeTopInst.position.x += dx;
+                    planeTopInst.position.z += dz;
+                }
+
+                paths.push(path);
+            }
+
+
+            let ribbon = BABYLON.Mesh.CreateRibbon("ribbon", paths, false, false, 0, scene, true, BABYLON.Mesh.DOUBLESIDE);
+            ribbon.material = new BABYLON.StandardMaterial("");
+
+            // Shadows
+
+            let lightSphere = BABYLON.Mesh.CreateSphere("sphere1", 16, 0.01, scene);
+            let lightSphereMat = new BABYLON.StandardMaterial("mat", scene);
+            lightSphere.material = lightSphereMat;
+            lightSphereMat.emissiveColor = BABYLON.Color3.Yellow();
+            lightSphereMat.linkEmissiveWithDiffuse = true;
+            lightSphere.position.y = .0;
+            lightSphere.position.x = 3.0;
+
+            let light = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            light.intensity = 0.3;
+
+
+            let shadowGenerator = new BABYLON.ShadowGenerator(1024, light);
+            shadowGenerator.setDarkness(0.2);
+            shadowGenerator.usePoissonSampling = true;
+            shadowGenerator.useBlurVarianceShadowMap = true;
+            shadowGenerator.blurBoxOffset = 1.0;
+            shadowGenerator.blurScale = 150.0;
+            // shadowGenerator.bias = 0.00001;
+
+            for (let i = 0; i < scene.meshes.length; i++) {
+                scene.meshes[i].receiveShadows = true;
+                shadowGenerator.getShadowMap().renderList.push(scene.meshes[i]);
+            }
+
+
+            let ts = 0;
+            scene.registerBeforeRender(() => {
+                ts += 0.01;
+
+                light.intensity = 0.5 + 0.1 * Math.random();
+                light.position = lightSphere.getAbsolutePosition();
+            })
+            return scene;
+        };
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

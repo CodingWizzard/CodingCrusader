@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>morphing</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <!-- <script src="https://cdn.babylonjs.com/cannon.js"></script> -->
+    <!-- <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+    <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script> -->
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+
+        let sig = (t) => { return 0.5 * Math.tanh(t * 0.5); }
+
+        let createScene = function () {
+            let bgcolor = BABYLON.Color3.FromHexString('#444444');
+
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = bgcolor;
+
+            let camera = new BABYLON.ArcRotateCamera("", 3 * Math.PI / 2, Math.PI / 2.5, 80, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+
+
+            // lights
+            let light_r = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            light_r.intensity = 0.7;
+            light_r.diffuse = BABYLON.Color3.FromHexString('#888888');
+
+            let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+            sky.intensity = 0.5;
+            sky.diffuse = bgcolor;
+
+            // let lightSphere = BABYLON.Mesh.CreateSphere("sphere1", 16, 0.1, scene);
+            // let lightSphereMat = new BABYLON.StandardMaterial("mat", scene);
+            // lightSphere.material = lightSphereMat;
+            // lightSphereMat.emissiveColor = BABYLON.Color3.Yellow();
+            // lightSphereMat.linkEmissiveWithDiffuse = true;
+            // lightSphere.position.y = 6.0;
+
+
+            let shadowGenerator = new BABYLON.ShadowGenerator(1024, light_r);
+            shadowGenerator.setDarkness(0.2);
+            shadowGenerator.usePoissonSampling = true;
+            shadowGenerator.useBlurVarianceShadowMap = true;
+            shadowGenerator.blurBoxOffset = 1.0;
+            shadowGenerator.blurScale = 150.0;
+            // shadowGenerator.bias = 0.00001;
+
+
+            // let ground = BABYLON.MeshBuilder.CreateBox("", { width: 500, height: 3, depth: 500 }, scene);
+            // ground.position = new BABYLON.Vector3(0, 0, 0);
+            // ground.receiveShadows = true;
+            // ground.position.y = -10;
+
+            // let sphere0 = BABYLON.Mesh.CreateSphere("Sphere", 64, 400, scene, true, BABYLON.Mesh.DOUBLESIDE);
+            // sphere0.receiveShadows = true;
+            
+
+
+            let size = 10;
+
+            let mat = new BABYLON.StandardMaterial("mat", scene);
+            mat.alpha = 0.8;
+
+            let sphere = BABYLON.Mesh.CreateSphere("Sphere", 64, size, scene, true, BABYLON.Mesh.DOUBLESIDE);
+            sphere.material = mat;            
+            // sphere.material.wireframe = true;
+            shadowGenerator.getShadowMap().renderList.push(sphere);
+
+            // let sphere1 = BABYLON.Mesh.CreateSphere("Sphere", 64, 1, scene, true, BABYLON.Mesh.DOUBLESIDE);
+            // sphere1.position.set(-20,0,0);
+            
+            
+            let positions = sphere.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+            let maxpos = positions.length/3;
+
+            let f = size*.5;
+            let maxpoints = 12;
+            let points = [];
+            for(let i=0;i<maxpoints;i++) {
+                // let po = new BABYLON.Vector3(0.5*f-f*Math.random(),0.5*f-f*Math.random(),0.5*f-f*Math.random());
+                let po = new BABYLON.Vector3(
+                        (f+i)*Math.sin(i*4*Math.PI/maxpoints),
+                        (f+i)*Math.cos(i*4*Math.PI/maxpoints),
+                        (f+i)*Math.cos(i*4*Math.PI/maxpoints));
+                // points.push(po);
+                let sphere1 = BABYLON.Mesh.CreateSphere("Sphere", 64, 1, scene, true, BABYLON.Mesh.DOUBLESIDE);
+                sphere1.isVisible = false;
+                sphere1.position.copyFrom(po);
+                points.push(sphere1.position);
+            }
+
+            let t = 0;
+            let z = 0.01;
+            scene.registerBeforeRender(function () {
+
+                // t += 0.001;
+                // lightSphere.position.x += 0.01 * Math.sin(t);
+                // lightSphere.position.y += 0.01 * Math.sin(t);
+                // lightSphere.position.z += 0.01 * Math.cos(t);
+                // light.position = lightSphere.getAbsolutePosition();
+                // light.intensity = 0.5 + Math.random() * 0.05;
+
+
+                // for (let ip = 0; ip < positions.length; ip += 27) {
+                //     let y = positions[ip + 1];
+                //     let f = Math.log(-Math.abs(y));
+                //     positions[ip + 130] += 0.02 * f;
+                // }
+
+                for (let i=0;i<points.length;i++) {
+                    for (let ip = 0; ip < positions.length; ip += 3) {
+                        let dx = positions[ip +0] - points[i].x;
+                        let dy = positions[ip +1] - points[i].y;
+                        let dz = positions[ip +2] - points[i].z;
+                        let dist = Math.sqrt(dx*dx+dy*dy+dz*dz);
+
+                        if (Math.random() > 0.99)
+                            continue;
+
+                        if (Math.abs(dist) < 10)
+                            continue;
+
+                        if (Math.abs(dist) > 20)
+                            continue;
+
+                        positions[ip +0] += z*(dx/dist); // * -Math.sign(dx);
+                        positions[ip +1] += z*(dy/dist); // * -Math.sign(dy);
+                        positions[ip +2] += z*(dz/dist); // * -Math.sign(dz);
+                    }
+
+
+                    t += 0.01;
+                    points[i].x += 1*Math.sin(i*t);
+                    points[i].y += 1*Math.cos(i*t);
+                    points[i].z += 1*Math.sin(i*t);
+                }
+
+
+                sphere.updateVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
+            });
+
+            return scene;
+        };
+
+
+
+
+
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

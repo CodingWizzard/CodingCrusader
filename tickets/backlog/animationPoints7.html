@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>thin instance wrapper</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/cannon.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color3(0, 0, 0);
+            let light = new BABYLON.DirectionalLight("dir01", new BABYLON.Vector3(0, -0.5, 1.0), scene);
+            let camera = new BABYLON.ArcRotateCamera("Camera", -Math.PI / 2, Math.PI / 2.24, 500, new BABYLON.Vector3(0, 0, 0), scene);
+            light.position = new BABYLON.Vector3(20, 150, 70);
+            camera.attachControl(canvas, true);
+
+
+            let MAXPOINTS = 100;
+
+            let radius = 100;
+            let fn = [];
+            // fn.push( (v) => {return v*Math.sin(time + v*2*Math.PI/MAXPOINTS)} );
+            // fn.push( (v) => {return v*Math.cos(time + v*2*Math.PI/MAXPOINTS)} );
+
+            // fn.push( (x,y,z) => {return 10+5*x} );      // line
+            // fn.push( (x,y,z) => {return 10+5*x + 3*y} );    // area
+            // fn.push( (x,y,z) => {return radius*x + radius*y + radius*z} );    // volume
+            
+
+            // fn.push( (x,y,z) => {return x} );      // line
+            // fn.push( (x,y,z) => {return y} );      // line
+            // fn.push( (x,y,z) => {return z} );      // line
+
+            fn.push( (x,y) => {return radius*Math.sin(time+x)*Math.cos(time+y)} );      // line
+            fn.push( (x,y) => {return radius*Math.sin(time+x)*Math.sin(time+y)} );      // addEventListener
+            fn.push( (x,y) => {return radius*Math.cos(time+x)} );      // line
+            // fn.push( (x,y,z) => {return x+y+z} );      // volume
+
+            // fn.push( (v) => {return -20-2.5*v} );
+
+            // fn.push( (v) => {return Math.tan(time + v*2*Math.PI/MAXPOINTS)} );
+            // fn.push( (v) => {return (time%10)*v} );
+            // fn.push( (v) => {return (time%5)*v*v*0.1} );
+            // fn.push( (v) => {return (time%2)*Math.pow(2,v)} );
+            // fn.push( (v) => {return Math.exp(v)} );
+            // fn.push( (v) => {return Math.log(v)} );
+
+            let size = 1.5;
+            let pcs = new BABYLON.PointsCloudSystem("pcs", size, scene);
+            
+            pcs.recycleParticle = (particle) => {
+                particle.x  = BABYLON.Scalar.RandomRange(0,Math.PI);
+                particle.y  = BABYLON.Scalar.RandomRange(0,2*Math.PI);
+                particle.z  = 0; // BABYLON.Scalar.RandomRange(-Math.PI,Math.PI);
+                particle.ifnx  = 0; // Math.floor(BABYLON.Scalar.RandomRange(0, fn.length));
+                particle.ifny  = 1; // Math.floor(BABYLON.Scalar.RandomRange(0, fn.length));
+                particle.ifnz  = 2; // Math.floor(BABYLON.Scalar.RandomRange(0, fn.length));
+            };
+
+            pcs.addPoints(20000, pcs.recycleParticle);
+            pcs.buildMeshAsync();
+
+            pcs.updateParticle = (particle) => {
+                // particle.position.x = particle.x; // fn[particle.ifnx](particle.x,0,0);
+                // particle.position.y = particle.y; // fn[particle.ifny](0,particle.y,0);
+                // particle.position.z = fn[particle.ifnz](particle.x,particle.y,particle.z);
+
+                particle.position.x = fn[particle.ifnx](particle.x,particle.y);
+                particle.position.y = fn[particle.ifny](particle.x,particle.y);
+                particle.position.z = fn[particle.ifnz](particle.x,particle.y);
+            };
+
+            let time = 0;
+            scene.registerAfterRender(() => {
+                pcs.setParticles();
+                time += 0.01;
+            });
+
+
+            
+            return scene;
+        };
+
+
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>ben hur portal</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <!-- <script src="https://cdn.babylonjs.com/cannon.js"></script> -->
+    <!-- <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+    <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script> -->
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        // 30.03.21 Necip's Renderer
+
+        let canvas = document.getElementById("renderCanvas");
+
+
+
+        // https://forum.babylonjs.com/t/babylon-js-big-bang/3689
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+
+            let bgcolor = BABYLON.Color3.FromHexString('#000000');
+            scene.clearColor = bgcolor;
+            scene.ambientColor = bgcolor;
+
+            let camera = new BABYLON.ArcRotateCamera("camera", BABYLON.Tools.ToRadians(-90), BABYLON.Tools.ToRadians(90), 5, 
+                    BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+            camera.wheelPrecision = 15; //Mouse wheel speed            
+            // camera.setPosition(new BABYLON.Vector3(-10, -10, 0));
+
+            let light = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 0, 0), scene);
+
+
+            //Create a custom mesh  
+            let customMesh = new BABYLON.Mesh("custom", scene);
+            customMesh.computeWorldMatrix();
+            customMesh.isPickable = false;
+
+            let xmax = 100;
+            let ymax = 100;
+
+            let pointsCount = xmax*ymax;
+
+            let positions = new Array(3 * pointsCount);
+            let colors = new Array(4 * pointsCount);
+
+            positions.fill(0);
+            colors.fill(0);
+
+            let vertexData = new BABYLON.VertexData();
+
+            //Assign positions
+            vertexData.positions = positions;
+            vertexData.colors = colors;
+
+            //Apply vertexData to custom mesh
+            vertexData.applyToMesh(customMesh, true);
+
+            let mat = new BABYLON.StandardMaterial("mat", scene);
+            mat.emissiveColor = new BABYLON.Color3(1, 1, 1);
+            mat.disableLighting = true;
+            mat.pointsCloud = true;
+            mat.pointSize = 5;
+            // mat.alpha = 0.5;
+            customMesh.material = mat;
+
+            let f = 0.02;
+            let p = 0;
+
+            for (let x = 0; x < xmax; x++) {
+                for (let y = 0; y < ymax; y++) {
+                    positions[3 * p] = x * f;
+                    positions[3 * p + 1] = y * f;
+                    positions[3 * p + 2] = 0;
+                    p++;
+                }
+            }
+
+            let _box = (x0,y0,w0,h0) => {
+                for (let x = x0; x < x0+w0 && x < xmax; x++) {
+                    for (let y = y0; y < y0+h0 && y < ymax; y++) {
+                        p = Math.floor(x*ymax + y);
+                        let color = 0.75;
+
+                        colors[4 * p] = color;  // red
+                        colors[4 * p + 1] = color;
+                        colors[4 * p + 2] = color;
+                        colors[4 * p + 3] = 0;
+                    }
+                }
+            }
+
+
+            let player1 = {x:1, y:1, w:2, h:10, xd:0, yd:0};
+            let player2 = {x:xmax-3, y:1, w:2, h:10, xd:0, yd:0};
+            let ball = {x:8, y:8, w:2, h:2, xd:1, yd:0.5};
+
+            let box = (entity) => {
+                _box(entity.x, entity.y, entity.w, entity.h);
+            }
+
+            let _increment = (entity) => {
+                entity.x += entity.xd;
+                entity.y += entity.yd;
+                if (entity.x > xmax-1-entity.w)
+                    entity.x = xmax-1-entity.w;
+                if (entity.y > ymax-1-entity.h)
+                    entity.y = ymax-1-entity.h;
+
+                if (entity.x < 1)
+                    entity.x = 1;
+                if (entity.y < 1)
+                    entity.y = 1;
+            }
+
+            let increment = (entity) => {
+                entity.x += entity.xd;
+                entity.y += entity.yd;
+                if (entity.x > xmax-3 || entity.x < 1)
+                entity.xd *= -1;
+                if (entity.y > ymax-3 || entity.y < 1)
+                entity.yd *= -1;
+            }
+
+            let intersect = () => {
+                if (ball.x <= player1.x+player1.w && ball.y >= player1.y && ball.y <= player1.y+player1.h) {
+                    ball.xd = 0;
+                    ball.yd = 0;
+                }
+
+                if (ball.x >= player2.x-player2.w && ball.y >= player2.y && ball.y <= player2.y+player2.h) {
+                    ball.xd = 0;
+                    ball.yd = 0;
+                }
+            }
+
+            let render = () => {
+
+                colors.fill(0.1);
+                for (let x = 0; x < xmax; x++) {
+                    for (let y = 0; y < ymax; y++) {
+                        p = Math.floor(x*xmax + y);
+                        let color = 0.25;
+
+                        colors[4 * p] = color;  // red
+                        colors[4 * p + 1] = color;
+                        colors[4 * p + 2] = color;
+                        colors[4 * p + 3] = 0;
+                    }
+                }
+
+                for (let y=1;y<ymax;y+=4) {
+                    _box(Math.floor(xmax/2), y, 2, 2);
+                }
+
+                box(player1);
+                box(player2);
+                box(ball);
+
+                customMesh.updateVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
+                customMesh.updateVerticesData(BABYLON.VertexBuffer.ColorKind, colors);
+
+                increment(ball);
+                intersect();
+            }
+
+
+
+            var inputMap = {};
+            scene.actionManager = new BABYLON.ActionManager(scene);
+            scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, function (evt) {
+                inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+            }));
+            scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyUpTrigger, function (evt) {
+                inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+            }));
+
+            scene.onBeforeRenderObservable.add(() => {
+                if (inputMap["q"]) {
+                    player1.yd = 1;
+                    _increment(player1);
+                }
+                if (inputMap["a"]) {
+                    player1.yd = -1;
+                    _increment(player1);
+                }
+
+                if (inputMap["w"]) {
+                    player2.yd = 1;
+                    _increment(player2);
+                }
+                if (inputMap["s"]) {
+                    player2.yd = -1;
+                    _increment(player2);
+                }
+
+                if (inputMap[" "]) {
+                    if (ball.x < xmax*0.5) {
+                        ball.xd = 1;
+                        ball.yd = 1;
+                    }
+                    else {
+                        ball.xd = -1;
+                        ball.yd = -1;
+                    }
+                }
+            })
+
+
+            let iTime = 0;
+            scene.registerAfterRender(function () {
+                render();
+                iTime += 0.1;
+            })
+
+            return scene;
+        }
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

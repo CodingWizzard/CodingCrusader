@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        var createScene = function () {
+            var scene = new BABYLON.Scene(engine);
+            const camera = new BABYLON.ArcRotateCamera("Camera",
+                BABYLON.Tools.ToRadians(90),
+                BABYLON.Tools.ToRadians(90),
+                20, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+            // var cameraTarget = new BABYLON.Vector3(0, 1.2, 0);
+            // var camera = new BABYLON.ArcRotateCamera("camera",
+            //     BABYLON.Tools.ToRadians(90),
+            //     BABYLON.Tools.ToRadians(90),
+            //     10, BABYLON.Vector3.Zero(), scene);
+
+            // camera.setTarget(cameraTarget, true, false, false);
+            // camera.allowUpsideDown = false;
+            // camera.panningSensibility = 0;
+            // camera.allowUpsideDown = false;
+            // camera.lowerRadiusLimit = 5;
+            // camera.upperRadiusLimit = 40;
+            // camera.radius = 15;
+            // // camera.upperBetaLimit = Math.PI /2;
+            // camera.panningSensibility = 0;
+            // camera.cameraAcceleration = .1; // how fast to move
+            // camera.maxCameraSpeed = 2; // speed limit
+            // camera.pinchDeltaPercentage = 0.00060;
+            // camera.wheelPrecision = 20;
+            // scene.activeCamera = camera;
+            // camera.useBouncingBehavior = false;
+            // camera.useAutoRotationBehavior = false;
+            // camera.attachControl(canvas, true);
+
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
+
+
+            const materialAlpha = new BABYLON.StandardMaterial("mat", scene);
+            materialAlpha.alpha = 0.25;
+
+
+            const meshMirrors = [];
+            const plane0 = BABYLON.MeshBuilder.CreatePlane("", { size: 50, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+            plane0.material = materialAlpha;
+            plane0.position.z = -0.5;
+            meshMirrors.push(plane0);
+
+            // const plane1 = BABYLON.MeshBuilder.CreatePlane("", { size: 50, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+            // plane1.material = materialAlpha;
+            // plane1.position.z = 0.5;
+            // meshMirrors.push(plane1);
+
+
+            function distance(mesh1, mesh2) {
+                let dx = mesh1.position.x - mesh2.position.x;
+                let dy = mesh1.position.y - mesh2.position.y;
+                let dz = mesh1.position.z - mesh2.position.z;
+                return Math.sqrt(dx * dx + dy * dy + dz * dz);
+            }
+
+            function positionMirrored(mesh1, mesh2) {
+                let d = distance(mesh1, mesh2);
+
+                return new BABYLON.Vector3(
+                    mesh1.position.x,
+                    mesh1.position.y,
+                    mesh1.position.z + mesh2.position.z - d);
+            }
+
+            let instanceId = 0;
+            const meshBase = BABYLON.MeshBuilder.CreateCylinder("", { diameterTop: 0 });
+            // const meshBase = BABYLON.MeshBuilder.CreateBox("", { size: 1 });
+            // const meshBase = BABYLON.MeshBuilder.CreateBox("", { width: 1, height: 1, depth: 0.1 });
+            // const meshBase = BABYLON.MeshBuilder.CreateSphere("", { diameterX: 1, diameterY: 0.3 });
+            meshBase.isVisible = false;
+
+            let meshObjects = [];
+            let meshMirrored = [];
+
+            let max = 30;
+            for (let i = 0; i < max; i++) {
+
+                const meshObj = meshBase.createInstance(instanceId++);
+                meshObj.position.x = 5 * Math.sin(i * 2 * Math.PI / max);
+                meshObj.position.y = 5 * Math.cos(i * 2 * Math.PI / max);
+                // meshObj.position.z = 5 * Math.cos(i * 2 * Math.PI / max);
+
+                meshObj.rotation.z = -2 * Math.PI * i / max;
+                // meshObj.rotation.z = meshObj.position.x;
+
+                meshObjects.push(meshObj);
+                meshMirrored.push(meshObj);
+            }
+
+            function mirror(meshObject, iMeshMirror, iter, maxIter) {
+                if (iter >= maxIter)
+                    return;
+                const mesh = meshObject.createInstance(instanceId++);
+                mesh.position = positionMirrored(meshObject, meshMirrors[iMeshMirror]);
+                mesh.rotation.copyFrom(meshObject.rotation)
+                meshMirrored.push(mesh);
+                mirror(mesh, iMeshMirror, iter + 1, maxIter);
+            }
+
+            meshObjects.forEach((mesh) => {
+                mirror(mesh, 0, 0, 8);
+            })
+
+
+            let alpha = camera.alpha;
+            let beta = camera.beta;
+            let t = 0;
+            scene.registerAfterRender(function () {
+                meshMirrored.forEach((mesh, index) => {
+                    // let f = index > 0 == 0 ? -1 : 1;
+                    mesh.rotation.x += 0.1 * Math.sin(t);
+                    mesh.rotation.y += 0.1 * Math.sin(t);
+                    mesh.rotation.z += 0.1 * Math.sin(t);
+
+
+                    mesh.scaling.x = 0.1 * mesh.rotation.x % 2;
+                    mesh.scaling.y = 0.1 * mesh.rotation.y % 2;
+                    mesh.scaling.z = 0.1 * mesh.rotation.z % 2;
+                })
+                // camera.alpha = alpha + 0.1 * Math.sin(0.5 * t);
+                // camera.beta = beta + 0.1 * Math.cos(0.5 * t);
+                t += 0.01;
+            });
+
+
+            return scene;
+        };
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

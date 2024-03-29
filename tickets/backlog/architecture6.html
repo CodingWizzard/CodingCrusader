@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>architect</title>
+
+
+
+    <!-- DatGUI -->
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script> -->
+
+    <!-- <script src="/libs/jszip.min.js"></script>
+       <script src="/libs/fileSaver.js"></script> -->
+
+    <!-- jQuery -->
+    <!-- <script src="https://code.jquery.com/jquery.js"></script> -->
+    <!-- <script src="https://rawcdn.githack.com/jeromeetienne/jquery-qrcode/master/jquery.qrcode.min.js"></script> -->
+
+
+    <!-- 
+    <script src="https://preview.babylonjs.com/recast.js"></script>
+    <script src="https://preview.babylonjs.com/cannon.js"></script>
+    
+    <script src="https://preview.babylonjs.com/earcut.min.js"></script> -->
+
+    <!-- Babylon.js -->
+    <script src="https://preview.babylonjs.com/babylon.js"></script>
+    <!-- <script src="https://preview.babylonjs.com/ammo.js"></script> -->
+    <script src="https://preview.babylonjs.com/Oimo.js"></script>
+    <script src="https://preview.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+
+    <!-- <script src="./vendor/require.js"></script> -->
+    <script src="https://cdn.jsdelivr.net/npm/tweakpane@3.0.5/dist/tweakpane.min.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+
+
+
+    <!-- <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+    <script src="https://preview.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+    <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://preview.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+    
+    <script src="https://preview.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+    <script src="https://preview.babylonjs.com/nodeEditor/babylon.nodeEditor.js"></script>
+    <script src="https://preview.babylonjs.com/guiEditor/babylon.guiEditor.js"></script> -->
+
+    <!-- Extensions -->
+    <!-- <script
+        src="https://rawcdn.githack.com/BabylonJS/Extensions/f43ab677b4bca0a6ab77132d3f785be300382760/ClonerSystem/src/babylonx.cloner.js">
+        </script>
+    <script
+        src="https://rawcdn.githack.com/BabylonJS/Extensions/785013ec55b210d12263c91f3f0a2ae70cf0bc8a/CompoundShader/src/babylonx.CompoundShader.js">
+        </script> -->
+
+    <!-- <script src="https://console3.babylonjs.xyz/console3-playground.js"></script> -->
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        #fps {
+            position: absolute;
+            background-color: black;
+            /* border: 2px solid red; */
+            text-align: center;
+            font-size: 16px;
+            color: white;
+            top: 15px;
+            right: 10px;
+            width: 60px;
+            height: 20px;
+        }
+    </style>
+
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="fps">0</div>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+        let divFps = document.getElementById("fps")
+
+
+        let desiredFps = 3;
+        let interval = 1000 / (10 * desiredFps);
+
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.debugLayer.show();
+            let bgcolor = BABYLON.Color3.FromHexString('#111111');
+            scene.clearColor = bgcolor;
+            scene.ambientColor = bgcolor;
+
+            let camera = new BABYLON.ArcRotateCamera("camera1", 0, 0, 0, new BABYLON.Vector3(0, 0, 0), scene);
+            camera.setPosition(new BABYLON.Vector3(0, 0, -20));
+            camera.attachControl(canvas, true);
+
+
+
+            let skyLight = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+            skyLight.intensity = 0.20;
+
+            let lightSphere = BABYLON.Mesh.CreateSphere("sphere1", 16, 0.1, scene);
+            let lightSphereMat = new BABYLON.StandardMaterial("mat", scene);
+            lightSphere.material = lightSphereMat;
+            lightSphereMat.emissiveColor = BABYLON.Color3.Yellow();
+            lightSphereMat.linkEmissiveWithDiffuse = true;
+            lightSphere.position.y = -1.0;
+
+            let light = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            light.intensity = 0.7;
+            light.diffuse = BABYLON.Color3.FromHexString('#ff9944');
+
+            let t = 0;
+            scene.registerBeforeRender(function () {
+                lightSphere.position.x += 0.01 * Math.sin(t);
+                lightSphere.position.y += 0.01 * Math.sin(t);
+                lightSphere.position.z += 0.01 * Math.cos(t);
+
+                light.position = lightSphere.getAbsolutePosition();
+                // light.intensity = 0.4 + Math.random() * 0.05;
+
+                t += 0.01;
+            });
+
+
+
+            // var rad1 = BABYLON.Mesh.CreatePlane("rad1", 4, scene);
+            // // var rad1 = BABYLON.Mesh.CreateBox("rad1", { width: 3, height: 3, depth: 9 }, scene);
+            // // var rad1 = BABYLON.MeshBuilder.CreateBox("box", { width: 4, height: 4, depth: 4 });
+            // // var rad1 = BABYLON.Mesh.CreateSphere("rad1", 8, 16, scene);
+            // // var rad1 = BABYLON.Mesh.CreateCylinder("rad1", 10, 5, 5, 8, 8, scene);
+            // // rad1.visibility = 1;
+            // rad1.material = new BABYLON.StandardMaterial("bmat", scene);
+            // rad1.material.diffuseColor = new BABYLON.Color3(0.0, 1.0, 0.0);
+            // rad1.material.emissiveColor = new BABYLON.Color3(1, 1, 1);
+            // // rad1.material.emissiveColor = new BABYLON.Color3(0.3, 0.1, 0.1);
+            // rad1.material.backFaceCulling = false;
+            // // rad1.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
+            // rad1.scalingDeterminant *= 2;
+            // rad1.rotation.y = Math.PI * 0.5;
+            /// rad1.position.z = 20;
+
+
+            // var rad2 = BABYLON.Mesh.CreateBox("rad1", 3, scene);
+            // // var rad1 = BABYLON.Mesh.CreateSphere("rad1", 8, 16, scene);
+            // // var rad1 = BABYLON.Mesh.CreateCylinder("rad1", 10, 5, 5, 8, 8, scene);
+            // rad2.visibility = 1;
+            // rad2.material = new BABYLON.StandardMaterial("bmat", scene);
+            // rad2.material.diffuseColor = new BABYLON.Color3(0.0, 1.0, 0.0);
+            // rad2.material.emissiveColor = new BABYLON.Color3(1, 1, 1);
+            // // rad2.material.emissiveColor = new BABYLON.Color3(0.3, 0.1, 0.1);
+            // rad2.material.backFaceCulling = false;
+            // rad2.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
+            // rad2.scalingDeterminant *= 2;
+            // rad2.position.z = 20;
+
+
+            // var godrays = new BABYLON.VolumetricLightScatteringPostProcess('godrays', 1.0, camera, rad1, 100, BABYLON.Texture.BILINEAR_SAMPLINGMODE, engine, false);
+            // godrays._volumetricLightScatteringRTT.renderParticles = false; // true;
+            // godrays.exposure = 0.1;
+            // godrays.decay = 0.96815;
+            // godrays.weight = 0.98767;
+            // godrays.density = 0.996;
+
+            // var godrays2 = new BABYLON.VolumetricLightScatteringPostProcess('godrays', 1.0, camera, rad2, 100, BABYLON.Texture.BILINEAR_SAMPLINGMODE, engine, false);
+            // godrays2._volumetricLightScatteringRTT.renderParticles = false; // true;
+            // godrays2.exposure = 0.1;
+            // godrays2.decay = 0.96815;
+            // godrays2.weight = 0.98767;
+            // godrays2.density = 0.996;
+
+            // set the godrays texture to be the image.
+            // godrays.mesh.material.diffuseTexture = new BABYLON.Texture("https://www.babylonjs-playground.com/textures/BJS-logo_v3.png", scene);
+            // godrays.mesh.material.diffuseTexture.hasAlpha = true;
+
+
+
+            let brickWallDiffURL = "assets/Rkh1uFK.png";
+            let brickWallNHURL = "assets/GtIUsWW.png";
+            let wallDiffuseTexture = new BABYLON.Texture(brickWallDiffURL, scene);
+            let wallNormalsHeightTexture = new BABYLON.Texture(brickWallNHURL, scene);
+            let normalsHeightTexture = wallNormalsHeightTexture;
+
+            let material = new BABYLON.StandardMaterial("mtl01", scene);
+            material.diffuseTexture = wallDiffuseTexture;
+            material.bumpTexture = wallNormalsHeightTexture;
+            material.useParallax = true;
+            material.useParallaxOcclusion = true;
+            material.parallaxScaleBias = 0.1;
+            material.specularPower = 1000.0;
+            material.specularColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+            // material.alpha = 0.1;
+
+            let mesh_plane = BABYLON.MeshBuilder.CreatePlane("plane", { width: 1, height: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE }, scene);
+            mesh_plane.isVisible = false;
+            mesh_plane.material = material;
+
+            let mesh_box = BABYLON.MeshBuilder.CreateBox("box", { size: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+            mesh_box.isVisible = false;
+            mesh_box.material = material;
+
+            let mesh_sphere1 = BABYLON.MeshBuilder.CreateSphere("sphere1", { slice: 1, arc: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+            mesh_sphere1.isVisible = false;
+            mesh_sphere1.material = material;
+
+            let mesh_sphere2 = BABYLON.MeshBuilder.CreateSphere("sphere2", { slice: 0.5, arc: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+            mesh_sphere2.isVisible = false;
+            mesh_sphere2.material = material;
+
+
+            let material_sphere = new BABYLON.StandardMaterial("mtl01", scene);
+            // material_sphere.alpha = 0.1;
+            let mesh_sphere = BABYLON.MeshBuilder.CreateSphere("sphere1", { slice: 1, arc: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+            mesh_sphere.isVisible = false;
+            mesh_sphere.material = material_sphere;
+
+
+
+            let instanceId = 0;
+
+            let create = (position, offset, rotation, scaling, base, mesh_mother) => {
+                let mesh = mesh_mother.createInstance(instanceId++);
+                mesh.position.set(position.x + offset.x, position.y + offset.y, position.z + offset.z);
+                mesh.rotation.set(rotation.x, rotation.y, rotation.z);
+                mesh.scaling.set(scaling.x, scaling.y, scaling.z);
+                mesh.parent = base;
+                mesh.isVisible = true;
+                return mesh;
+            }
+
+            let loop = (
+                range_x,
+                range_y,
+                range_z,
+                base_offset,
+                base_rotation,
+                callback
+                // callback_before_range_x,
+                // callback_before_range_y,
+                // callback_before_range_z
+            ) => {
+
+                if (range_x.delta == 0) range_x.delta = 1;
+                if (range_y.delta == 0) range_y.delta = 1;
+                if (range_z.delta == 0) range_z.delta = 1;
+
+                let base = mesh_box.createInstance(instanceId++);   // todo: abstract mesh 
+                base.isVisible = false;
+                base.position.set(base_offset.x, base_offset.y, base_offset.z);
+                base.rotation.set(base_rotation.x, base_rotation.y, base_rotation.z);
+
+                let i = 0;
+                // callback_before_range_x(range_x);
+                for (let x = range_x.min; x <= range_x.max; x += range_x.delta) {
+                    // callback_before_range_y(range_y, x);
+                    for (let y = range_y.min; y <= range_y.max; y += range_y.delta) {
+                        // callback_before_range_z(range_z, x, y);
+                        for (let z = range_z.min; z <= range_z.max; z += range_z.delta) {
+                            callback(base, x, y, z, i++)
+                        }
+                    }
+                }
+            }
+
+
+
+            // // Ground
+            // loop(
+            //     -5, 5, 5,           // xmin,xmax,dx
+            //     -1, -1, 1,          // ymin,ymax,dy
+            //     -5, 5, 5,           // zmin,zmax,dz
+
+            //     { x: 0, y: 0, z: 0 },  // base_offset,
+            //     { x: 0, y: 0, z: 0 },  // base_rotation,
+
+            //     (base, x, y, z, i) => {
+            //         if (x == 0 && z == 0)
+            //             return;
+
+            //         let offset = { x: 0, y: 0, z: 0 };  // offset,
+            //         let rotation = { x: 0, y: 0, z: 0 };  // rotation,
+            //         let scaling = { x: 5, y: .5, z: 5 };  // scaling
+            //         create(x, y, z, offset, rotation, scaling, base, mesh_box);
+            //     }
+            // );
+
+
+            /** /
+            // temple
+            let building_style_a = (base_offset) => {
+
+                // column
+                loop(
+                    -4, 4, 4,           // xmin,xmax,dx
+                    0, 10, 1,            // ymin,ymax,dy
+                    -4, 4, 4,           // zmin,zmax,dz
+
+                    base_offset,            // base_offset,
+                    { x: 0, y: 0, z: 0 },   // base_rotation,
+
+                    (base, x, y, z, i) => {
+                        if (x == 0 && z == 0)
+                            return;
+
+                        let offset = { x: 0, y: 0, z: 0 };  // offset,
+                        let rotation = { x: 0, y: 0, z: 0 };  // rotation,
+                        let scaling = { x: 1, y: 1, z: 1 };  // scaling
+                        create(x, y, z, offset, rotation, scaling, base, mesh_box);
+                    }
+                );
+
+                // bottom, top
+                loop(
+                    -5, 5, 1,           // xmin,xmax,dx
+                    0, 9, 9,            // ymin,ymax,dy
+                    -5, 5, 1,           // zmin,zmax,dz
+
+                    { x: 0, y: 0, z: 0 },  // base_offset,
+                    { x: 0, y: 0, z: 0 },  // base_rotation,
+
+                    (base, x, y, z, i) => {
+                        if ((x >= -2 && x <= 2) && (z >= -2 && z <= 2))
+                            return;
+
+                        let offset = { x: 0, y: -0.5, z: 0 };  // offset,
+                        let rotation = { x: 0, y: 0, z: 0 };  // rotation,
+                        let scaling = { x: 1, y: .25, z: 1 };  // scaling
+                        create(x, y, z, offset, rotation, scaling, base, mesh_box);
+                    }
+                );
+
+
+                // walls
+                loop(
+                    -5, 5, 1,           // xmin,xmax,dx
+                    -12, 0, 1,          // ymin,ymax,dy
+                    -5, 5, 1,           // zmin,zmax,dz
+
+                    base_offset,            // base_offset,
+                    { x: 0, y: 0, z: 0 },   // base_rotation,
+
+                    (base, x, y, z, i) => {
+                        if ((x >= -4 && x <= 4) && (z >= -4 && z <= 4))
+                            return;
+                        if (y % 4 === 0)
+                            return;
+
+                        let offset = { x: 0, y: 0, z: 0 };  // offset,
+                        let rotation = { x: 0, y: 0, z: 0 };  // rotation,
+                        let scaling = { x: 1, y: 1, z: 1 };  // scaling
+                        create(x, y, z, offset, rotation, scaling, base, mesh_box);
+                    }
+                );
+            }
+
+            building_style_a({ x: 0, y: 0, z: 0 });
+
+            // stairs
+            loop(
+                -3, -0.5, 0.25,
+                0, 0, 0,
+                -1.5, 2, 1,
+
+                { x: 2.5, y: 0, z: 0 },   // base_offset,
+                { x: 0, y: 0, z: 0 },   // base_rotation,
+
+                (base, x, y, z, i) => {
+                    let offset = { x: 0, y: 0, z: 0 };  // offset,
+                    let rotation = { x: 0, y: 0, z: 0 };  // rotation,
+                    let scaling = { x: 1, y: .25, z: 1 };  // scaling
+
+                    y = x;
+                    // z = Math.sin(i * 1 * Math.PI / 20);
+                    // rotation.y = Math.sin(i * 1 * Math.PI / 20)
+                    create(x, y, z, offset, rotation, scaling, base, mesh_box);
+                }
+            );
+
+
+
+            // region
+            let max = 27 * 3;
+            loop(
+                -max, max, 3,           // xmin,xmax,dx
+                -max, max, 3,           // ymin,ymax,dy
+                -max, max, 3,           // zmin,zmax,dz
+
+                { x: 0, y: 0, z: 0 },   // base_offset,
+                { x: 0, y: 0, z: 0 },   // base_rotation,
+
+                (base, x, y, z, i) => {
+                    if ((x > -max && x < max) && (y > -max && y < max) && (z > -max && z < max))
+                        return;
+
+                    // if (x % 2 === 0 && z % 2 === 0)
+                    //     return;
+
+                    if (x % 4 === 0 && y % 4 === 0)
+                        return;
+
+                    if (z % 4 === 0 && y % 4 === 0)
+                        return;
+
+                    let offset = { x: 0, y: 0, z: 0 };  // offset,
+                    let rotation = { x: 0, y: 0, z: 0 };  // rotation,
+                    let scaling = { x: 3, y: 3, z: 3 };  // scaling
+                    create(x, y, z, offset, rotation, scaling, base, mesh_box);
+                }
+            );
+
+            /**/
+
+
+            // // max = 27;
+            // loop(
+            //     -max, max, 3,           // xmin,xmax,dx
+            //     -max, max, 1,           // ymin,ymax,dy
+            //     -max, max, 3,           // zmin,zmax,dz
+
+            //     { x: 0, y: 0, z: 0 },   // base_offset,
+            //     { x: 0, y: 0, z: 0 },   // base_rotation,
+
+            //     (base, x, y, z, i) => {
+            //         if ((x > -max && x < max) && (y > -max && y < max) && (z > -max && z < max))
+            //             return;
+
+            //         // if (x % 2 === 0 && z % 2 === 0)
+            //         //     return;
+
+            //         // if (x % 4 === 0 && y % 4 === 0)
+            //         //     return;
+
+            //         // if (z % 4 === 0 && y % 4 === 0)
+            //         //     return;
+
+            //         let offset = { x: 0, y: 0, z: 0 };  // offset,
+            //         let rotation = { x: 0, y: 0, z: 0 };  // rotation,
+            //         let scaling = { x: .1, y: .1, z: .1 };  // scaling
+            //         create(x, y, z, offset, rotation, scaling, base, mesh_box);
+            //     }
+            // );
+
+            // // https://graphtoy.com/
+            // function smoothstep(min, max, value) {
+            //     let x = Math.max(0, Math.min(1, (value - min) / (max - min)));
+            //     return x * x * (3 - 2 * x);
+            // };
+
+
+
+            /**/
+
+            delta = 1;
+            max = 30;
+
+            let objects = [];
+            for (let i = 0; i < 10; i++) {
+                let o = {
+                    position: {
+                        x: i * max / 10, // -max + 2 * max * Math.random(),
+                        // y: -max + 1 * max * Math.random(),
+                        // z: -max + 1 * max * Math.random()
+                        y: 0.5 * (-max + 2 * max * Math.random()),
+                        z: -max + 2 * max * Math.random()
+                    },
+                    radius: 0.5 * max //  + 0.5 * max * Math.random()
+                };
+                objects.push(o);
+                let mesh = mesh_sphere.createInstance(instanceId++);
+                mesh.isVisible = false;
+                mesh.position.x = o.position.x;
+                mesh.position.y = o.position.y;
+                mesh.position.z = o.position.z;
+                mesh.scaling.set(2 * o.radius, 2 * o.radius, 2 * o.radius);
+            }
+
+            loop(
+                { min: -max, max: max, delta: delta },
+                { min: -max, max: max, delta: delta },
+                { min: -max, max: max, delta: delta },
+
+                { x: 0, y: 0, z: 0 },  // base_offset,
+                { x: 0, y: 0, z: 0 },  // base_rotation,
+
+                (base, x, y, z, i) => {
+                    let hit = false;
+                    objects.forEach((o) => {
+                        let dx = o.position.x - x;
+                        let dy = o.position.y - y;
+                        let dz = o.position.z - z;
+                        let distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                        if (distance < o.radius) {
+                            hit = true;
+                            return;
+                        }
+                    })
+                    if (!hit)
+                        return;
+
+
+                    hit = false;
+                    objects.forEach((o) => {
+                        let dx = o.position.x - x;
+                        let dy = o.position.y - y;
+                        let dz = o.position.z - z;
+                        let distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                        if (distance < o.radius * 0.9) {
+                            hit = true;
+                            return;
+                        }
+                    })
+                    if (hit)
+                        return;
+
+
+                    // let offset = { x: 0.5 - Math.random(), y: 0.5 - Math.random(), z: 0.5 - Math.random() };
+                    let rotation = { x: Math.sin(x * .5 * Math.PI / max), y: Math.sin(y * .5 * Math.PI / max), z: Math.sin(z * .5 * Math.PI / max) };
+                    // let scaling = { x: 2 * delta * Math.random(), y: 2 * delta * Math.random(), z: 2 * delta * Math.random() };
+
+                    let offset = { x: 0, y: 0, z: 0 };
+                    // let rotation = { x: 0, y: 0, z: 0 };
+                    let scaling = { x: delta, y: delta, z: delta };  // scaling
+
+                    create({ x: x, y: y, z: z }, offset, rotation, scaling, base, mesh_box);
+                }
+            );
+            /**/
+
+            /** /
+                        // Space
+                        let delta = 50;
+                        let max = 200;
+            
+                        loop(
+                            { min: -max, max: max, delta: delta },
+                            { min: -max, max: max, delta: delta },
+                            { min: -max, max: max, delta: delta },
+            
+                            { x: 0, y: 0, z: 0 },  // base_offset,
+                            { x: 0, y: 0, z: 0 },  // base_rotation,
+            
+                            (base, x, y, z, i) => {
+                                if ((x != -max && x != max) &&
+                                    (y != -max && y != max) &&
+                                    (z != -max && z != max))
+                                    return;
+            
+                                let offset = { x: 0, y: 0, z: 0 };  // offset,
+                                let rotation = { x: 0, y: 0, z: 0 };  // rotation,
+                                let scaling = { x: delta, y: delta, z: delta };  // scaling
+                                create({ x: x, y: y, z: z }, offset, rotation, scaling, base, mesh_box);
+                            }
+                        );
+                        /**/
+
+
+            // // top & bottom
+            // delta = 5;
+            // max = 10;
+            // loop(
+            //     { min: -5 * max, max: 5 * max, delta: delta },
+            //     { min: -max, max: max, delta: 2 * max }, // delta: 2 * max },
+            //     { min: -5 * max, max: 5 * max, delta: delta },
+
+            //     { x: 0, y: 0, z: 0 },  // base_offset,
+            //     { x: 0, y: 0, z: 0 },  // base_rotation,
+
+            //     (base, x, y, z, i) => {
+            //         // if (x % 4 == 0)
+            //         //     return;
+
+            //         // if (x % 2 == 0 || z % 2 == 0)
+            //         //     return;
+            //         // if ((x > -max && x < max - 1) &&
+            //         //     (y > -max && y < max - 1) &&
+            //         //     (z > -max && z < max - 1))
+            //         //     return;
+
+            //         let offset = { x: 0, y: 0, z: 0 };  // offset,
+            //         let rotation = { x: 0, y: 0, z: 0 };  // rotation,
+            //         let scaling = { x: delta, y: .5, z: delta };  // scaling
+            //         create({ x: x, y: y, z: z }, offset, rotation, scaling, base, mesh_box);
+            //     }
+            // );
+
+            /** /
+                        // cage
+                        delta = 5;
+                        max = 100;
+                        loop(
+                            { min: -max, max: max, delta: delta },
+                            { min: -max, max: max, delta: delta },
+                            { min: -max, max: max, delta: delta },
+            
+                            { x: 0, y: 0, z: 0 },  // base_offset,
+                            { x: 0, y: 0, z: 0 },  // base_rotation,
+            
+                            (base, x, y, z, i) => {
+                                if ((x != -max && x != max) &&
+                                    (y != -max && y != max) &&
+                                    (z != -max && z != max))
+                                    return;
+            
+                                if (x % 2 == 0 && y % 2 == 0 && z % 2 == 0)
+                                    return;
+            
+                                let offset = { x: 0, y: 0, z: 0 };  // offset,
+                                let rotation = { x: 0, y: 0, z: 0 };  // rotation,
+                                let scaling = { x: delta, y: delta, z: delta };  // scaling
+                                create({ x: x, y: y, z: z }, offset, rotation, scaling, base, mesh_box);
+                            }
+                        );
+            
+            
+            
+                        // // top & bottom
+                        delta = 5;
+                        max = 10;
+                        loop(
+                            { min: -5 * max, max: 5 * max, delta: delta },
+                            { min: -max, max: max, delta: 2 * max }, // delta: 2 * max },
+                            { min: -5 * max, max: 5 * max, delta: delta },
+            
+                            { x: 0, y: 0, z: 0 },  // base_offset,
+                            { x: 0, y: 0, z: 0 },  // base_rotation,
+            
+                            (base, x, y, z, i) => {
+                                // if (x % 4 == 0)
+                                //     return;
+            
+                                // if (x % 2 == 0 || z % 2 == 0)
+                                //     return;
+                                // if ((x > -max && x < max - 1) &&
+                                //     (y > -max && y < max - 1) &&
+                                //     (z > -max && z < max - 1))
+                                //     return;
+            
+                                let offset = { x: 0, y: 0, z: 0 };  // offset,
+                                let rotation = { x: 0, y: 0, z: 0 };  // rotation,
+                                let scaling = { x: delta, y: .5, z: delta };  // scaling
+                                create({ x: x, y: y, z: z }, offset, rotation, scaling, base, mesh_box);
+                            }
+                        );
+                        /**/
+
+
+            /** /
+            delta = 3;
+            max = delta * delta;
+            loop(
+                { min: -max, max: max, delta: delta },
+                { min: -max, max: max, delta: delta },
+                { min: -max, max: max, delta: delta },
+
+                { x: 0, y: 0, z: 0 },   // base_offset,
+                { x: 0, y: 0, z: 0 },   // base_rotation,
+
+                (base, x, y, z, i) => {
+                    // let xf = delta + delta * smoothstep(0, 0.7, Math.sin(x))
+                    // let yf = delta + delta * smoothstep(0, 0.7, Math.sin(y))
+                    // let zf = delta + delta * smoothstep(0, 0.7, Math.sin(z))
+
+                    // let xf = max * smoothstep(0, 0.7, Math.sin(x)) % delta;
+                    // let yf = max * smoothstep(0, 0.7, Math.sin(y)) % delta;
+                    // let zf = max * smoothstep(0, 0.7, Math.sin(z)) % delta;
+
+
+                    if ((x >= -delta && x <= delta) && (y >= -delta && y <= delta) && (z >= -delta && z <= delta))
+                        return;
+
+                    let xf = Math.abs(x % (10));
+                    let yf = Math.abs(y % (10));
+                    let zf = Math.abs(z % (10));
+
+                    // console.log(xf, yf, zf);
+
+                    // &&
+                    //     (yf > 2 && yf < 8) &&
+                    //     (zf > 2 && zf < 8))
+
+                    if ((xf > 0 && xf <= 9) && (yf > 0 && yf <= 9) && (zf > 0 && zf < 9))
+                        return;
+
+                    // if ((x > -max && x < max) && (y > -max && y < max)) //  && (z > -max && z < max))
+                    //     return;
+                    // // if ((x > -max && x < max) && (y > -max && y < max) && (z > -max && z < max))
+                    //     return;
+
+                    // let s = Math.sqrt(x * x + y * y + z * z);
+                    // if (s > max * .9 || s < max * 0.8)
+                    //     return;
+
+                    // if (Math.random() > 0.9)
+                    //     return;
+
+                    let offset = { x: 0, y: 0, z: 0 };  // offset,
+                    let rotation = { x: 0, y: 0, z: 0 };  // rotation,
+                    let scaling = { x: delta, y: delta, z: delta };  // scaling
+                    create({ x: x, y: y, z: z }, offset, rotation, scaling, base, mesh_box);
+                },
+
+                // // range x
+                // (range) => {
+                //     // range.min = -max;
+                //     // range.max = max * 3;
+                //     // range.delta = delta;
+                // },
+
+                // // range y
+                // (range, x) => {
+                //     // range.min = x;
+                //     // range.max = x + max;
+                //     // range.delta = 1;
+
+
+                //     // range.min = -max + x;
+                //     // range.max = max - x;
+                //     // range.delta = delta;
+
+                //     // range.min = -max * Math.abs(Math.sin(x * .25));
+                //     // range.max = -range.min; // max * Math.sin(x * 0.5);
+                //     // range.delta = delta;
+                // },
+
+                // // range z
+                // (range, x, y) => {
+                //     // range.min = -max;
+                //     // range.max = max * 5;
+                //     // range.delta = delta;
+                // }
+            );
+            /**/
+
+            return scene;
+        }
+
+
+
+
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

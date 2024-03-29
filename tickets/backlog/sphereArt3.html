@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>ai</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <!-- <script src="https://cdn.babylonjs.com/cannon.js"></script> -->
+    <!-- <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+    <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script> -->
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+
+        function getFibonacciSpherePoints(samples, radius, randomize) {
+            samples = samples || 1;
+            radius = radius || 1;
+            randomize = randomize || true;
+            let random = 1;
+            if (randomize === true) {
+                random = Math.random() * samples;
+            }
+
+            let points = []
+            let offset = 2 / samples
+            let increment = Math.PI * (3 - Math.sqrt(5));
+
+            for (let i = 0; i < samples; i += 3) {
+                let y = ((i * offset) - 1) + (offset / 2);
+                let distance = Math.sqrt(1 - Math.pow(y, 2));
+                let phi = ((i + random) % samples) * increment;
+                let x = Math.cos(phi) * distance;
+                let z = Math.sin(phi) * distance;
+                x = x * radius;
+                y = y * radius;
+                z = z * radius;
+                let point = {
+                    'x': x,
+                    'y': y,
+                    'z': z
+                }
+                points.push(point);
+            }
+            return points;
+        }
+
+        let createScene = function () {
+            let bgcolor = BABYLON.Color3.FromHexString('#888888');
+
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = bgcolor;
+
+            let camera = new BABYLON.ArcRotateCamera("", 3 * Math.PI / 2, Math.PI / 2.5, 80, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+
+            let light1 = new BABYLON.SpotLight("light1",
+                new BABYLON.Vector3(0, 0, 0),
+                new BABYLON.Vector3(1, 0, 0),
+                0.3 * Math.PI,
+                2, scene);
+            light1.intensity = .25;
+            light1.diffuse = BABYLON.Color3.FromHexString('#ff000');
+
+            let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+            sky.intensity = 0.25;
+            sky.diffuse = bgcolor;
+
+
+            let material = new BABYLON.StandardMaterial("TextPlaneMaterial", this.scene);
+            material.backFaceCulling = false;
+
+            class Triangle {
+                constructor(p1, p2, p3) {
+                    let customMesh = new BABYLON.Mesh("", scene);
+                    customMesh.material = material;
+                    let positions = [
+                        p1.x, p1.y, p1.z,
+                        p2.x, p2.y, p2.z,
+                        p3.x, p3.y, p3.z
+                    ];
+                    let indices = [
+                        0, 1, 2
+                    ];
+                    let vertexData = new BABYLON.VertexData();
+                    vertexData.positions = positions;
+                    vertexData.indices = indices;
+                    vertexData.applyToMesh(customMesh);
+                }
+            }
+
+
+            let numberOfPoints = 200;
+            let radiusOfSphere = 30;
+            let fibonacciSpherePoints = getFibonacciSpherePoints(numberOfPoints, radiusOfSphere);
+
+            let mat2 = new BABYLON.StandardMaterial("mat", scene);
+            // mat2.alpha = 0.5;
+            // mat2.wireframe = true;
+            // let sphere2 = BABYLON.MeshBuilder.CreateSphere("", { diameter: radiusOfSphere * 2, segments: 3 * 3 * 3 * 2, updatable: true }, scene);
+            // sphere2.material = mat2;
+
+
+
+            // for (let i = 0; i < fibonacciSpherePoints.length; i++) {
+            //     let point = fibonacciSpherePoints[i];
+
+            //     if (point.x > radiusOfSphere * 0.25) continue;
+
+            //     let sphere = BABYLON.Mesh.CreateSphere("Sphere", 3, 1, scene, true, BABYLON.Mesh.DOUBLESIDE);
+            //     sphere.position.x = point.x;
+            //     sphere.position.y = point.y;
+            //     sphere.position.z = point.z;
+            // }
+
+
+
+            for (let i = 0; i < fibonacciSpherePoints.length; i += 1) {
+                // for (let i = 0; i < 6; i += 3) {
+                let point1 = fibonacciSpherePoints[i];
+                let point2 = fibonacciSpherePoints[i + 1];
+                let point3 = fibonacciSpherePoints[i + 2];
+
+
+
+                // if (point1.x > radiusOfSphere * 0.25) continue;
+
+                let sphere = BABYLON.Mesh.CreateSphere("Sphere", 3, 1, scene, true, BABYLON.Mesh.DOUBLESIDE);
+                sphere.position.x = point1.x;
+                sphere.position.y = point1.y;
+                sphere.position.z = point1.z;
+                sphere.isVisible = false;
+
+
+                if (point2 == undefined || point3 == undefined)
+                    break;
+
+                new Triangle(point1, point2, point3);
+            }
+
+            return scene;
+        };
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>thin instance wrapper</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/cannon.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+
+        // 29.03.24 CodingCrusader - Happy Easter
+
+        const createScene = function () {
+            const scene = new BABYLON.Scene(engine);
+            // scene.debugLayer.show();
+            let bgcolor = BABYLON.Color3.FromHexString('#000000');
+            scene.clearColor = bgcolor;
+            scene.ambientColor = bgcolor;
+            scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR;
+            scene.fogColor = bgcolor;
+            scene.fogDensity = 0.03;
+            scene.fogStart = 60.0;
+            scene.fogEnd = 170.0;
+
+
+            var camera = new BABYLON.ArcRotateCamera("camera",
+                BABYLON.Tools.ToRadians(90),
+                BABYLON.Tools.ToRadians(65),
+                20, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+            camera.upperBetaLimit = null;
+            camera.lowerBetaLimit = null;
+            camera.angularSensibilityX = 2000;
+            camera.angularSensibilityY = 2000;
+            camera.wheelPrecision = 50; //Mouse wheel speed
+            camera.radius = 10;
+
+            let skyLight = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+            skyLight.intensity = 0.20;
+
+
+            let light = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            light.intensity = 0.7;
+            light.diffuse = BABYLON.Color3.FromHexString('#ff9944');
+
+
+            var rad1 = BABYLON.MeshBuilder.CreateSphere("box", { diameter: 0.5 });
+            rad1.material = new BABYLON.StandardMaterial("bmat", scene);
+            rad1.material.diffuseColor = new BABYLON.Color3(0.0, 1.0, 0.0);
+            rad1.material.emissiveColor = new BABYLON.Color3(1, 1, 1);
+            rad1.material.backFaceCulling = false;
+            rad1.scalingDeterminant *= 2;
+            rad1.rotation.y = Math.PI * 0.5;
+            rad1.protected = true;
+
+            var godrays = new BABYLON.VolumetricLightScatteringPostProcess('godrays', 1.0, camera, rad1, 100, BABYLON.Texture.BILINEAR_SAMPLINGMODE, engine, false);
+            godrays._volumetricLightScatteringRTT.renderParticles = false; // true;
+            godrays.exposure = 0.1;
+            godrays.decay = 0.96815;
+            godrays.weight = 0.98767;
+            godrays.density = 0.996;
+
+
+
+            function createTriangles(mesh) {
+                let positions = mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+                let indices = mesh.getIndices();
+
+                let material = new BABYLON.StandardMaterial("TextPlaneMaterial", this.scene);
+                material.backFaceCulling = false;
+                material.specularColor = new BABYLON.Color3(0, 0, 0);
+
+                for (let i = 0; i < indices.length; i += 3 * 3) {
+                    var itemMesh = new BABYLON.Mesh("custom", scene);
+                    itemMesh.material = material;
+                    let vertexData = new BABYLON.VertexData();
+                    vertexData.indices = [0, 1, 2];
+                    vertexData.positions = [
+                        positions[3 * indices[i + 0] + 0],
+                        positions[3 * indices[i + 0] + 1],
+                        positions[3 * indices[i + 0] + 2],
+
+                        positions[3 * indices[i + 1] + 0],
+                        positions[3 * indices[i + 1] + 1],
+                        positions[3 * indices[i + 1] + 2],
+
+                        positions[3 * indices[i + 2] + 0],
+                        positions[3 * indices[i + 2] + 1],
+                        positions[3 * indices[i + 2] + 2]
+                    ];
+                    vertexData.applyToMesh(itemMesh, true);
+                }
+            }
+
+
+
+            const meshEgg = BABYLON.Mesh.CreateIcoSphere("icosphere", {
+                radius: 1, subdivisions: 8, radiusX: 1, radiusY: 1.5, radiusZ: 1, updatable: true
+            });
+
+            var positions = meshEgg.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+
+            var numberOfVertices = positions.length / 3;
+            var amount = 1.0
+            for (var i = 0; i < numberOfVertices; i++) {
+                amount = 0.85 + (2 - positions[i * 3 + 1]) * 0.11
+                positions[i * 3] *= amount
+                positions[i * 3 + 2] *= amount
+            }
+            meshEgg.updateVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
+            meshEgg.isVisible = false;
+            createTriangles(meshEgg);
+
+            let camin = true
+
+            scene.registerBeforeRender(function () {
+                camera.alpha += 0.005
+
+                if (camin == true) {
+                    camera.radius -= 0.01
+                }
+                if (camera.radius < 5.1) {
+                    camin = false
+                }
+                if (camin == false && camera.radius < 20) {
+                    camera.radius += 0.01
+                }
+                if (camera.radius > 19.9) {
+                    camin = true
+                }
+            });
+            scene.onPointerObservable.add((pointerInfo) => {
+                switch (pointerInfo.type) {
+                    case BABYLON.PointerEventTypes.POINTERDOWN:
+                        if (!engine.isFullscreen) {
+                            engine.enterFullscreen();
+                        }
+                        break;
+                }
+            });
+
+
+            return scene;
+        }
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

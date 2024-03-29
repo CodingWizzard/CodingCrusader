@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>ai</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <!-- <script src="https://cdn.babylonjs.com/cannon.js"></script> -->
+    <!-- <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+    <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script> -->
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+
+        // function getFibonacciSpherePoints(samples, radius, randomize) {
+        //     samples = samples || 1;
+        //     radius = radius || 1;
+        //     randomize = randomize || true;
+        //     let random = 1;
+        //     if (randomize === true) {
+        //         random = Math.random() * samples;
+        //     }
+
+        //     let points = []
+        //     let offset = 2 / samples
+        //     let increment = Math.PI * (3 - Math.sqrt(5));
+
+        //     for (let i = 0; i < samples; i += 3) {
+        //         let y = ((i * offset) - 1) + (offset / 2);
+        //         let distance = Math.sqrt(1 - Math.pow(y, 2));
+        //         let phi = ((i + random) % samples) * increment;
+        //         let x = Math.cos(phi) * distance;
+        //         let z = Math.sin(phi) * distance;
+        //         x = x * radius;
+        //         y = y * radius;
+        //         z = z * radius;
+        //         let point = {
+        //             'x': x,
+        //             'y': y,
+        //             'z': z
+        //         }
+        //         points.push(point);
+        //     }
+        //     return points;
+        // }
+
+        let createScene = function () {
+            let bgcolor = BABYLON.Color3.FromHexString('#888888');
+
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = bgcolor;
+
+            let camera = new BABYLON.ArcRotateCamera("", 3 * Math.PI / 2, Math.PI / 2.5, 80, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+
+            let light1 = new BABYLON.SpotLight("light1",
+                new BABYLON.Vector3(0, 0, 0),
+                new BABYLON.Vector3(1, 0, 0),
+                0.3 * Math.PI,
+                2, scene);
+            light1.intensity = .25;
+            light1.diffuse = BABYLON.Color3.FromHexString('#ff000');
+
+            let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+            sky.intensity = 0.25;
+            sky.diffuse = bgcolor;
+
+
+            let material = new BABYLON.StandardMaterial("TextPlaneMaterial", scene);
+            material.backFaceCulling = false;
+
+            let positions = [];
+            let indices = [];
+            let idx = 0;
+            let addPoses = (p1, p2, p3) => {
+                positions.push(p1.x);
+                positions.push(p1.y);
+                positions.push(p1.z);
+
+                positions.push(p2.x);
+                positions.push(p2.y);
+                positions.push(p2.z);
+
+                positions.push(p3.x);
+                positions.push(p3.y);
+                positions.push(p3.z);
+
+                indices.push(idx++);
+                indices.push(idx++);
+                indices.push(idx++);
+            }
+
+
+            let boxSize = 15;
+            let minX = -0.5 * boxSize;
+            let minY = -0.5 * boxSize;
+            let minZ = -0.5 * boxSize;
+
+            let maxX = 0.5 * boxSize;
+            let maxY = 0.5 * boxSize;
+            let maxZ = 0.5 * boxSize;
+
+            // let box = BABYLON.Mesh.CreateBox("Sphere", boxSize, scene);
+            let box = BABYLON.MeshBuilder.CreateBox("point", { size: boxSize }, scene);
+            box.position.set(5, 5, 5);
+            box.material = new BABYLON.StandardMaterial("TextPlaneMaterial", this.scene);
+            box.material.alpha = 0.5;
+            box.rotation.x = 0.25 * Math.PI;
+            box.computeWorldMatrix(true);
+            box.updateFacetData();
+
+            let worldMatrix = box.getWorldMatrix();
+            let inverseWorldMatrix = BABYLON.Matrix.Invert(worldMatrix);
+
+
+            let inBox = (p) => {
+                let pointInCubeSpace = BABYLON.Vector3.TransformCoordinates(p, inverseWorldMatrix);
+                return (
+                    pointInCubeSpace.x >= minX && pointInCubeSpace.x <= maxX &&
+                    pointInCubeSpace.y >= minY && pointInCubeSpace.y <= maxY &&
+                    pointInCubeSpace.z >= minZ && pointInCubeSpace.z <= maxZ) ? 1 : 0;
+            }
+
+            let p1 = new BABYLON.Vector3.Zero();
+            let p2 = new BABYLON.Vector3.Zero();
+            let p3 = new BABYLON.Vector3.Zero();
+            let p4 = new BABYLON.Vector3.Zero();
+
+            let offset = new BABYLON.Vector3(2, 2, 2);
+
+
+            let r = 10;
+            let delta = 0.05;
+            for (let theta = 0 + 2 * delta; theta <= Math.PI - 2 * delta; theta += delta) {
+                for (let omega = 0; omega <= 2 * Math.PI; omega += delta) {
+                    p1.x = r * Math.sin(theta) * Math.cos(omega);
+                    p1.y = r * Math.sin(theta) * Math.sin(omega);
+                    p1.z = r * Math.cos(theta);
+
+                    let theta2 = theta + delta * 1;
+                    let omega2 = omega + delta * 0;
+                    p2.x = r * Math.sin(theta2) * Math.cos(omega2);
+                    p2.y = r * Math.sin(theta2) * Math.sin(omega2);
+                    p2.z = r * Math.cos(theta2);
+
+                    let theta3 = theta + delta * 0;
+                    let omega3 = omega + delta * 1;
+                    p3.x = r * Math.sin(theta3) * Math.cos(omega3);
+                    p3.y = r * Math.sin(theta3) * Math.sin(omega3);
+                    p3.z = r * Math.cos(theta3);
+
+                    let theta4 = theta + delta * 1;
+                    let omega4 = omega + delta * 1;
+                    p4.x = r * Math.sin(theta4) * Math.cos(omega4);
+                    p4.y = r * Math.sin(theta4) * Math.sin(omega4);
+                    p4.z = r * Math.cos(theta4);
+
+                    let count = inBox(p1) + inBox(p2);
+                    if (count >= 2) {
+                        p1 = p1.addInPlace(offset);
+                        p2 = p2.addInPlace(offset);
+                        p3 = p3.addInPlace(offset);
+                        p4 = p4.addInPlace(offset);
+                    }
+
+                    addPoses(p1, p2, p3);
+                    addPoses(p2, p3, p4);
+                }
+            }
+
+            let customMesh = new BABYLON.Mesh("custom", scene);
+            customMesh.material = material;
+
+            let vertexData = new BABYLON.VertexData();
+            vertexData.positions = positions;
+            vertexData.indices = indices;
+            vertexData.applyToMesh(customMesh);
+
+
+            return scene;
+        };
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

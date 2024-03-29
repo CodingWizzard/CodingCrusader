@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>my marshing cubes</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/Oimo.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        /*
+        12.02.21 necip's framework
+            Only two things are necessary to generate an arbitrary shape:
+
+            1. points in space
+            2. connections of the points
+
+            This is the basic framework to build a triangle from four points arbitrarily placed in space.
+
+            You can drag the spheres.
+        */
+
+
+        let createScene = function () {
+
+            let scene = new BABYLON.Scene(engine);
+
+            let bgcolor = BABYLON.Color3.FromHexString('#002233');
+            scene.clearColor = bgcolor;
+            scene.ambientColor = bgcolor;
+            scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR;
+            scene.fogColor = bgcolor;
+            scene.fogDensity = 0.03;
+            scene.fogStart = 20.0;
+            scene.fogEnd = 170.0;
+
+            let camera = new BABYLON.ArcRotateCamera("camera", BABYLON.Tools.ToRadians(-90), BABYLON.Tools.ToRadians(60), 20, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+
+            
+            let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+            sky.intensity = 0.5;
+            sky.diffuse = bgcolor;
+
+            let lightSphere = BABYLON.Mesh.CreateSphere("sphere1", 16, 0.1, scene);
+            let lightSphereMat = new BABYLON.StandardMaterial("mat", scene);
+            lightSphere.material = lightSphereMat;
+            lightSphereMat.emissiveColor = BABYLON.Color3.Yellow();
+            lightSphereMat.linkEmissiveWithDiffuse = true;
+            lightSphere.position.y = 5.0;
+            
+            let light = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            light.intensity = 0.7;
+            light.diffuse = BABYLON.Color3.FromHexString('#ff9944');
+            light.position = lightSphere.getAbsolutePosition();
+
+            // let shadowGenerator = new BABYLON.ShadowGenerator(1024, light);
+            // shadowGenerator.setDarkness(0.2);
+            // shadowGenerator.usePoissonSampling = true;
+            // shadowGenerator.useBlurVarianceShadowMap = true;
+            // shadowGenerator.blurBoxOffset = 1.0;
+            // shadowGenerator.blurScale = 150.0;
+            // shadowGenerator.bias = 0.00001;
+
+            let customProcTextmacadam = new BABYLON.RoadProceduralTexture("customtext", 512, scene);
+            let groundMat = new BABYLON.StandardMaterial("gmat", scene);
+            groundMat.diffuseTexture = customProcTextmacadam;
+            groundMat.diffuseTexture.uScale = 10;
+            groundMat.diffuseTexture.vScale = 10;
+            groundMat.specularPower = 1;
+
+            // let ground = BABYLON.MeshBuilder.CreateBox("", { width: 500, height: 3, depth: 500 }, scene);
+            // ground.position = new BABYLON.Vector3(0, 0, 0);
+            // ground.material = groundMat;
+            // ground.receiveShadows = true;
+            // ground.position.y = -2;
+
+
+            class Liner {
+                constructor(scene, mesh1, mesh2) {
+                    this.scene = scene;
+                    this.mesh1 = mesh1;
+                    this.mesh2 = mesh2;
+                    this.bankLine = null;
+                }
+
+                update() {
+                    if (this.bankLine)
+                        this.bankLine.dispose();
+
+                    let max = 1;
+                    let dx = (this.mesh2.position.x - this.mesh1.position.x) / max;
+                    let dy = (this.mesh2.position.y - this.mesh1.position.y) / max;
+                    let dz = (this.mesh2.position.z - this.mesh1.position.z) / max;
+                    let bankPath = [];
+                    for (let i = 0; i <= max; i++) {
+                        bankPath.push(new BABYLON.Vector3(this.mesh1.position.x + i * dx, this.mesh1.position.y + i * dy, this.mesh1.position.z + i * dz));
+                    }
+
+                    this.bankLine = BABYLON.MeshBuilder.CreateLines('', { points: bankPath }, this.scene);
+                }
+            }
+
+            let attachDragBehavior = (mesh) => {
+                let pointerDragBehavior = new BABYLON.PointerDragBehavior({});
+                pointerDragBehavior.useObjectOrientationForDragging = false;
+                mesh.addBehavior(pointerDragBehavior);
+            }
+
+            function createMesh(pos, size, mass) {
+                let mesh = BABYLON.MeshBuilder.CreateSphere("ballon", { diameter: size, segments: 12 }, scene);
+                mesh.position.set(pos.x, pos.y, pos.z);
+                // shadowGenerator.getShadowMap().renderList.push(mesh);
+                attachDragBehavior(mesh);
+                return mesh;
+            }
+
+            function connectMesh(mesh1, mesh2) {
+                let oLiner = new Liner(scene, mesh1, mesh2);
+                oLiners.push(oLiner);
+            }
+
+
+            let pointsReady = false;
+
+            let oLiners = [];
+
+            let points = [];
+
+            function createNewTriangles() {
+
+                let f = 1;
+                let pointsNew = [];
+                for(let i=0;i<points.length;i++) {
+                    let mNew = createMesh(new BABYLON.Vector3(f - 0.5*f*Math.random(), f - 0.5*f*Math.random(), f - 0.5*f*Math.random()), 1, 1);
+
+                    pointsNew.push({a: points[i].a, b: mNew, c: points[i].b});
+                    pointsNew.push({a: points[i].a, b: mNew, c: points[i].c});
+                    pointsNew.push({a: points[i].b, b: mNew, c: points[i].c});
+
+                    connectMesh(points[i].a, points[i].b);
+                    connectMesh(points[i].a, points[i].c);
+                    connectMesh(points[i].b, points[i].c);
+
+                    connectMesh(points[i].a, mNew);
+                    connectMesh(points[i].b, mNew);
+                    connectMesh(points[i].c, mNew);
+                }
+
+                pointsNew.forEach( (p,i) => {
+                    points.push(p);
+                })
+            }
+
+            // createNewTriangles();
+
+
+
+            points.push({
+                a: createMesh(new BABYLON.Vector3(Math.random(), 1 + Math.random(), Math.random()), 1, 1),
+                b: createMesh(new BABYLON.Vector3(Math.random(), 1 + Math.random(), Math.random()), 1, 1),
+                c: createMesh(new BABYLON.Vector3(Math.random(), 1 + Math.random(), Math.random()), 1, 1)
+            });
+
+            connectMesh(points[0].a, points[0].b);
+            connectMesh(points[0].a, points[0].c);
+            connectMesh(points[0].b, points[0].c);
+
+            points.push({
+                a: createMesh(new BABYLON.Vector3(Math.random(), 1 + Math.random(), Math.random()), 1, 1),
+                b: createMesh(new BABYLON.Vector3(Math.random(), 1 + Math.random(), Math.random()), 1, 1),
+                c: createMesh(new BABYLON.Vector3(Math.random(), 1 + Math.random(), Math.random()), 1, 1)
+            });
+
+            points.push({
+                a: createMesh(new BABYLON.Vector3(Math.random(), 1 + Math.random(), Math.random()), 1, 1),
+                b: createMesh(new BABYLON.Vector3(Math.random(), 1 + Math.random(), Math.random()), 1, 1),
+                c: createMesh(new BABYLON.Vector3(Math.random(), 1 + Math.random(), Math.random()), 1, 1)
+            });
+
+          
+
+
+            for(let i1=0;i1<points.length -1;i1++) {                
+                let i2 = i1+1;
+                connectMesh(points[i1].a, points[i2].a);
+                connectMesh(points[i1].a, points[i2].b);
+                connectMesh(points[i1].a, points[i2].c);
+
+                connectMesh(points[i1].b, points[i2].a);
+                connectMesh(points[i1].b, points[i2].b);
+                connectMesh(points[i1].b, points[i2].c);
+
+                connectMesh(points[i1].c, points[i2].a);
+                connectMesh(points[i1].c, points[i2].b);
+                connectMesh(points[i1].c, points[i2].c);
+            }
+
+
+            let i1=points.length -1;
+            let i2=0;
+            connectMesh(points[i1].a, points[i2].a);
+            connectMesh(points[i1].a, points[i2].b);
+            connectMesh(points[i1].a, points[i2].c);
+
+            connectMesh(points[i1].b, points[i2].a);
+            connectMesh(points[i1].b, points[i2].b);
+            connectMesh(points[i1].b, points[i2].c);
+
+            connectMesh(points[i1].c, points[i2].a);
+            connectMesh(points[i1].c, points[i2].b);
+            connectMesh(points[i1].c, points[i2].c);
+
+            
+
+            // oLiners = [];
+            // createNewTriangles();
+
+            // oLiners = [];
+            // createNewTriangles();
+
+            pointsReady = true;
+
+
+
+            function movePoints() {
+                let md = 2; // max distance
+                    let steps = 10;
+
+                    function move(m1, m2) {
+                        let dx = m1.position.x - m2.position.x;
+                        let dy = m1.position.y - m2.position.y;
+                        let dz = m1.position.z - m2.position.z;
+                        let h = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                        let vh = md / h;
+                        let dx2 = dx - dx * vh;
+                        let dy2 = dy - dy * vh;
+                        let dz2 = dz - dz * vh;
+
+                        m1.position.x -= dx2 / steps;
+                        m1.position.y -= dy2 / steps;
+                        m1.position.z -= dz2 / steps;
+                    }
+
+                    for (let i = 0; i < oLiners.length; i++) {
+                        oLiners[i].update();
+                        move(oLiners[i].mesh1, oLiners[i].mesh2);
+                    }
+            }
+
+            // movePoints();
+
+            // let t = 0;
+            scene.registerBeforeRender(() => {
+                // lightSphere.position.x += 0.01 * Math.sin(t);
+                // lightSphere.position.y += 0.01 * Math.sin(t);
+                // lightSphere.position.z += 0.01 * Math.cos(t);
+                // light.position = lightSphere.getAbsolutePosition();
+                // light.intensity = 0.5 + Math.random() * 0.05;
+
+                if (pointsReady) {
+                    movePoints();
+                }
+
+                // t += 0.01;
+            });
+
+
+            return scene;
+        };
+
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

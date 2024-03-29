@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>dots</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <!-- <script src="https://cdn.babylonjs.com/cannon.js"></script> -->
+    <!-- <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+    <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script> -->
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        // 03.05.21 Necip's Renderer
+
+        let canvas = document.getElementById("renderCanvas");
+
+
+
+        // https://forum.babylonjs.com/t/babylon-js-big-bang/3689
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+
+            let bgcolor = BABYLON.Color3.FromHexString('#000000');
+            scene.clearColor = bgcolor;
+            scene.ambientColor = bgcolor;
+
+            let camera = new BABYLON.ArcRotateCamera("camera1", 0, 0, 0, new BABYLON.Vector3(0, 0, -0), scene);
+            camera.setPosition(new BABYLON.Vector3(0, 0, -60));
+            camera.attachControl(canvas, true);
+
+            let light = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 0, 0), scene);
+
+
+
+            let max = 20;
+            let max2 = max/2;
+            let s = 200;
+            let r = 10;
+            let t = 0;
+          
+
+            let sphere = BABYLON.MeshBuilder.CreateSphere("", { diameter: 2*r }, scene);
+            sphere.material = new BABYLON.StandardMaterial("mat", scene);
+            sphere.material.alpha = 0.5;
+
+            
+            //Create a custom mesh  
+            let customMesh = new BABYLON.Mesh("custom", scene);
+            customMesh.computeWorldMatrix();
+            customMesh.isPickable = false;
+
+            let pointsCount = 10000;
+
+            let positions = new Array(3 * pointsCount);
+            let colors = new Array(4 * pointsCount);
+
+            positions.fill(0);
+            colors.fill(0);
+
+            let vertexData = new BABYLON.VertexData();
+
+            //Assign positions
+            vertexData.positions = positions;
+            vertexData.colors = colors;
+
+            //Apply vertexData to custom mesh
+            vertexData.applyToMesh(customMesh, true);
+
+            let mat = new BABYLON.StandardMaterial("mat", scene);
+            mat.emissiveColor = new BABYLON.Color3(1, 1, 1);
+            mat.disableLighting = true;
+            mat.pointsCloud = true;
+            mat.pointSize = 5;
+            customMesh.material = mat;
+
+
+
+            let lines=[];
+
+            // // flat 2D plane to 3D sphere
+            // for (let i=-max;i<max;i+=2) {
+            //     lines.push({
+            //         x1:-max,y1:r,z1:i, 
+            //         x2:max,y2:r,z2:i, 
+            //         sx:s,sy:s,sz:s, 
+            //         dx:0,dy:0,dz:0, 
+            //         x:0,y:0,z:0});
+
+            //     lines.push({
+            //         x1:i,y1:r,z1:-max, 
+            //         x2:i,y2:r,z2:max, 
+            //         sx:s,sy:s,sz:s, 
+            //         dx:0,dy:0,dz:0, 
+            //         x:0,y:0,z:0});
+            // }
+
+
+            // for (let i=0;i<100;i++) {
+            //     lines.push({x1:0,y1:0,z1:0, x2:0,y2:0,z2:0, sx:1,sy:1,sz:1, dx:0,dy:0,dz:0, x:0,y:0,z:0})
+            // }
+
+            // for (let i=0;i<10;i++) {
+            //     lines.push({
+            //         x1:-max,y1:r+i*0.1,z1:-max, 
+            //         x2:max,y2:r+i*0.1,z2:max, 
+            //         sx:s,sy:s,sz:s, 
+            //         dx:0,dy:0,dz:0, 
+            //         x:0,y:0,z:0});
+            // }
+
+
+            // lines.push({
+            //         x1:0,y1:r,z1:-max, 
+            //         x2:0,y2:r,z2:max, 
+            //         sx:s,sy:s,sz:s, 
+            //         dx:0,dy:0,dz:0, 
+            //         x:0,y:0,z:0});
+
+            // lines.push({
+            //         x1:max2,y1:r,z1:0, 
+            //         x2:max2,y2:r,z2:max*0.25, 
+            //         sx:s,sy:s,sz:s, 
+            //         dx:0,dy:0,dz:0, 
+            //         x:0,y:0,z:0});
+
+
+
+            // Demo: Random lines
+            for (let i=0;i<10;i++) {
+                let x1 = -max*Math.random();
+                let x2 = x1 + 0.25*max*Math.random();
+                let z1 = -max*Math.random();
+                let z2 = x1 + 0.25*max*Math.random();
+                lines.push({                    
+                    x1:x1,y1:r,z1:z1, 
+                    x2:x2,y2:r,z2:z2, 
+                    sx:s,sy:s,sz:s,
+                    dx:0,dy:0,dz:0, 
+                    x:0,y:0,z:0});
+            }
+
+
+            lines.forEach( (line, idx) => {
+                line.x = line.x1;
+                line.y = line.y1;
+                line.z = line.z1;
+
+                line.dx = (line.x2 - line.x1) / line.sx;
+                line.dy = (line.y2 - line.y1) / line.sy;
+                line.dz = (line.z2 - line.z1) / line.sz;
+            })
+
+
+            // draw sphere dots
+            // for (let x=0;x<10;x++) {
+            //     for (let y=0;y<10;y++) {
+            //         let z=0;
+
+            //         if (p >= pointsCount -1)
+            //             p = 0;
+
+            //         let rho = 10; // Math.sqrt((line.x*line.x) + (line.y*line.y) + (line.z*line.z));
+            //         let phi = Math.atan2(y, x);
+            //         let theta = Math.acos(z / rho);
+            //         positions[3 * p] += rho*Math.sin(theta) * Math.cos(phi);
+            //         positions[3 * p + 1] += rho*Math.sin(theta) * Math.sin(phi);
+            //         positions[3 * p + 2] += rho*Math.cos(theta);
+
+            //         p++;
+            //     }
+            // }
+            
+            let p = 0;
+            let render = () => {
+                lines.forEach( (line, idx) => {
+                    if (p >= pointsCount -1)
+                        return;
+
+                    // Demo: straight line
+                    // positions[3 * p] = line.x;
+                    // positions[3 * p + 1] = line.y;
+                    // positions[3 * p + 2] = line.z;
+
+                    // Demo: bend straight line to half bow
+                    // positions[3 * p + 1] += .25*rho*Math.sin(Math.PI*line.x/max); // (line.x2-line.x)*Math.PI/(line.y2-line.y1));
+
+                    // demo: convert 2D to sphere        
+                    // https://stackoverflow.com/questions/30271693/converting-between-cartesian-coordinates-and-spherical-coordinates
+                    let rho = line.y;
+                    
+                    // bend straight line to curve
+                    // rho += 3*Math.sin((line.x2-line.x)*0.5*Math.PI/(line.x2-line.x1));
+                    rho = line.y+ Math.abs(3*Math.sin((line.x2-line.x)*1*Math.PI/(line.x2-line.x1)));
+
+                    let phi = 1*Math.PI*line.x/max;
+                    let theta = 2*Math.PI*line.z/max;
+                    positions[3 * p] = rho*Math.sin(theta) * Math.cos(phi);
+                    positions[3 * p + 1] = rho*Math.sin(theta) * Math.sin(phi);
+                    positions[3 * p + 2] = rho*Math.cos(theta);
+
+                    colors[4 * p] = 1;
+                    colors[4 * p + 1] = 0;
+                    colors[4 * p + 2] = 0;
+                    colors[4 * p + 3] = 0;
+
+                    line.x += line.dx;
+                    line.y += line.dy;
+                    line.z += line.dz;
+
+
+                    if (line.x > line.x2)
+                        line.x = line.x2;
+                    if (line.y > line.y2)
+                        line.y = line.y2;
+                    if (line.z > line.z2)
+                        line.z = line.z2;       
+                   
+                    p++;
+                })
+
+                customMesh.updateVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
+                customMesh.updateVerticesData(BABYLON.VertexBuffer.ColorKind, colors);
+            }
+
+
+            render();
+
+            scene.registerAfterRender(function () {
+
+                render();
+                t += 0.1;
+            })
+
+            return scene;
+        }
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

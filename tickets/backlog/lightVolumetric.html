@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Soft Cloth Simulator</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+
+        // Hello darkness, my old friend.
+        const createScene = async function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = BABYLON.Color3.FromHexString('#000000')
+
+            const havokInstance = await HavokPhysics();
+            const hk = new BABYLON.HavokPlugin(true, havokInstance);
+            scene.enablePhysics(new BABYLON.Vector3(0, -9.8 * 0, 0), hk);
+
+            let camera = new BABYLON.ArcRotateCamera("camera1",
+                BABYLON.Tools.ToRadians(-80),
+                BABYLON.Tools.ToRadians(80),
+                300,
+                new BABYLON.Vector3(0, 0, 0), scene);
+            camera.attachControl(canvas, true);
+
+            let light = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            light.intensity = 0.8;
+            let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 0, 0), scene);
+            sky.intensity = 0.8;
+
+            var gl = new BABYLON.GlowLayer("glow", scene);
+            gl.intensity = .2;
+
+
+            let matCustomMesh = new BABYLON.StandardMaterial("mat", scene);
+            matCustomMesh.emissiveColor = BABYLON.Color3.White();
+            matCustomMesh.alpha = 0.5;
+            matCustomMesh.backFaceCulling = false;
+            // matCustomMesh.wireframe = true;
+
+            let matPhysicsPoint = new BABYLON.StandardMaterial("mat", scene);
+            matPhysicsPoint.emissiveColor = BABYLON.Color3.Green();
+            // matPhysicsPoint.alpha = 0.5;
+
+            let matBoxAlpha = new BABYLON.StandardMaterial("mat", scene);
+            // matWall.emissiveColor = BABYLON.Color3.Teal();
+            matBoxAlpha.alpha = 0.3;
+
+            let matBoxDarkness = new BABYLON.StandardMaterial("mat", scene);
+            matBoxDarkness.emissiveColor = BABYLON.Color3.Gray();
+            matBoxDarkness.alpha = 0.5;
+            matBoxDarkness.backFaceCulling = false;
+
+            let matWall = new BABYLON.StandardMaterial("mat", scene);
+            matWall.emissiveColor = BABYLON.Color3.Teal();
+            matWall.alpha = 0.2;
+            matWall.wireframe = true;
+
+            let matBox = new BABYLON.StandardMaterial("mat", scene);
+            matBox.emissiveColor = BABYLON.Color3.Green();
+            // matBox.alpha = 0.5;
+            // matWall.wireframe = true;
+
+            let matLight = new BABYLON.StandardMaterial("mat", scene);
+            // matLight.emissiveColor = BABYLON.Color3.White();
+            matLight.diffuseColor = BABYLON.Color3.White();
+
+
+            let createPoint = (p, material, mass, radius, segments) => {
+                if (segments == undefined)
+                    segments = 1;
+
+                let mesh = BABYLON.MeshBuilder.CreateSphere("", { diameter: 2 * radius, segments: segments }, scene);
+                mesh.material = material;
+                mesh.position.copyFrom(p);
+                // mesh.isVisible = false;
+
+                mesh.agg = new BABYLON.PhysicsAggregate(
+                    mesh,
+                    BABYLON.PhysicsShapeType.SPHERE,
+                    { mass: mass, restitution: 0.5 },
+                    scene
+                );
+                mesh.agg.body.disablePreStep = false;
+
+
+                mesh.physicsBody.setCollisionCallbackEnabled(true);
+                mesh.physicsBody.getCollisionObservable().add((data, state) => {
+                    mesh.physicsBody.setLinearVelocity(BABYLON.Vector3.Zero());
+                    mesh.physicsBody.setAngularVelocity(BABYLON.Vector3.Zero());
+                });
+
+                return mesh;
+            }
+
+
+            let createBox = (p, width, height, depth, mat, agg) => {
+                let mesh = BABYLON.MeshBuilder.CreateBox("", { width: width, height: height, depth: depth }, scene);
+                mesh.material = mat;
+                mesh.position.copyFrom(p);
+
+                if (agg === true) {
+                    mesh.agg = new BABYLON.PhysicsAggregate(
+                        mesh,
+                        BABYLON.PhysicsShapeType.BOX,
+                        { mass: 0, restitution: 0.5 },
+                        scene
+                    );
+                }
+
+                return mesh;
+            }
+
+            let createWall = (width, height, depth, mat) => {
+
+                let delta = 1;
+                let mesh = undefined;
+
+                mesh = BABYLON.MeshBuilder.CreateBox("", { width: width, height: height, depth: delta }, scene);
+                mesh.material = mat;
+                mesh.position.z = -0.5 * depth;
+                mesh.agg = new BABYLON.PhysicsAggregate(
+                    mesh,
+                    BABYLON.PhysicsShapeType.BOX,
+                    { mass: 0, restitution: 0.5 },
+                    scene
+                );
+
+
+
+
+                mesh = BABYLON.MeshBuilder.CreateBox("", { width: width, height: height, depth: delta }, scene);
+                mesh.material = matWall;
+                mesh.position.z = 0.5 * depth;
+                mesh.agg = new BABYLON.PhysicsAggregate(
+                    mesh,
+                    BABYLON.PhysicsShapeType.BOX,
+                    { mass: 0, restitution: 0.5 },
+                    scene
+                );
+
+
+
+                mesh = BABYLON.MeshBuilder.CreateBox("", { width: delta, height: height, depth: depth }, scene);
+                mesh.material = matWall;
+                mesh.position.x = width * 0.5;
+                // mesh.position.z += 0.25 * depth;
+                mesh.agg = new BABYLON.PhysicsAggregate(
+                    mesh,
+                    BABYLON.PhysicsShapeType.BOX,
+                    { mass: 0, restitution: 0.5 },
+                    scene
+                );
+
+
+                mesh = BABYLON.MeshBuilder.CreateBox("", { width: delta, height: height, depth: depth }, scene);
+                mesh.material = matWall;
+                mesh.position.x = -width * 0.5;
+                mesh.agg = new BABYLON.PhysicsAggregate(
+                    mesh,
+                    BABYLON.PhysicsShapeType.BOX,
+                    { mass: 0, restitution: 0.5 },
+                    scene
+                );
+
+
+
+                mesh = BABYLON.MeshBuilder.CreateBox("", { width: width, height: delta, depth: depth }, scene);
+                mesh.material = matWall;
+                mesh.position.y = height * 0.5;
+                mesh.agg = new BABYLON.PhysicsAggregate(
+                    mesh,
+                    BABYLON.PhysicsShapeType.BOX,
+                    { mass: 0, restitution: 0.5 },
+                    scene
+                );
+
+
+                mesh = BABYLON.MeshBuilder.CreateBox("", { width: width, height: delta, depth: depth }, scene);
+                mesh.material = matWall;
+                mesh.position.y = -height * 0.5;
+                mesh.agg = new BABYLON.PhysicsAggregate(
+                    mesh,
+                    BABYLON.PhysicsShapeType.BOX,
+                    { mass: 0, restitution: 0.5 },
+                    scene
+                );
+            }
+
+
+            class Skin {
+                constructor(radius) {
+
+                    let minC = 0;
+                    let maxC = 30;
+                    let minF = 1;
+                    let maxF = 20;
+                    let meshes = [];
+
+                    let p1 = new BABYLON.Vector3.Zero();
+                    for (let f = minF; f < maxF; f++) {
+                        meshes[f] = [];
+
+                        let df = ((maxF - minF) * 0.5 - f);
+                        let diam = Math.sqrt(radius * radius - df * df);
+
+                        for (let i = minC; i < maxC; i++) {
+                            p1.set(
+                                diam * Math.sin(i * 2 * Math.PI / maxC),
+                                f - 0.5 * (maxF - minF),
+                                diam * Math.cos(i * 2 * Math.PI / maxC));
+
+                            let mesh = createPoint(p1, matPhysicsPoint, 1, 0.2);
+                            mesh.isVisible = false;
+                            meshes[f][i] = mesh;
+                        }
+                    }
+
+
+                    // for (let f = minF; f < maxF - 1; f++) {
+                    //     for (let i = minC; i < maxC - 1; i++) {
+                    //         // let distC = BABYLON.Vector3.Distance(meshes[f][i].position, meshes[f][i + 1].position);
+                    //         let distC = 1;
+                    //         let armDistanceJointC = new BABYLON.DistanceConstraint(distC, scene);
+                    //         meshes[f][i].agg.body.addConstraint(meshes[f][i + 1].agg.body, armDistanceJointC);
+
+                    //         // let distF = BABYLON.Vector3.Distance(meshes[f][i].position, meshes[f + 1][i].position);
+                    //         let distF = distC;
+                    //         let armDistanceJointF = new BABYLON.DistanceConstraint(distF, scene);
+                    //         meshes[f][i].agg.body.addConstraint(meshes[f + 1][i].agg.body, armDistanceJointF);
+                    //     }
+                    // }
+
+
+                    /* */
+                    let positions = [];
+                    let indices = [];
+                    let idx = 0;
+                    let addPoses = (p1, p2, p3) => {
+                        positions.push(p1.x);
+                        positions.push(p1.y);
+                        positions.push(p1.z);
+
+                        positions.push(p2.x);
+                        positions.push(p2.y);
+                        positions.push(p2.z);
+
+                        positions.push(p3.x);
+                        positions.push(p3.y);
+                        positions.push(p3.z);
+
+                        indices.push(idx++);
+                        indices.push(idx++);
+                        indices.push(idx++);
+                    }
+
+                    let customMesh = new BABYLON.Mesh("custom", scene);
+                    customMesh.material = matCustomMesh;
+                    let vertexData = new BABYLON.VertexData();
+
+                    let p0 = new BABYLON.Vector3.Zero();
+                    // scene.registerBeforeRender(() => {
+                    //     for (let f = minF; f < maxF; f++) {
+                    //         for (let i = minC; i < maxC; i++) {
+                    //             let mesh = meshes[f][i];
+
+                    //             let dir = p0.subtract(mesh.position).normalize();
+                    //             mesh.agg.body.applyImpulse(dir.scale(-.1), new BABYLON.Vector3(0, 0, 0));
+                    //         }
+                    //     }
+                    // });
+
+
+                    let step = 0;
+                    setTimeout(() => {
+                        step = 1;
+                    }, 5000)
+
+
+
+                    for (let f = minF; f < maxF; f++) {
+                        for (let i = minC; i < maxC; i++) {
+                            let mesh = meshes[f][i];
+
+                            let dir = p0.subtract(mesh.position).normalize();
+                            mesh.agg.body.applyImpulse(dir.scale(-10), new BABYLON.Vector3(0, 0, 0));
+                        }
+                    }
+
+
+                    let showNormals = (mesh) => {
+
+                        mesh.updateFacetData();
+                        var positions = mesh.getFacetLocalPositions();
+                        var normals = mesh.getFacetLocalNormals();
+
+                        var lines = [];
+                        for (var i = 0; i < positions.length; i++) {
+                            var line = [positions[i], positions[i].add(normals[i])];
+                            lines.push(line);
+                        }
+                        var lineSystem = BABYLON.MeshBuilder.CreateLineSystem("ls", { lines: lines }, scene);
+                        lineSystem.color = BABYLON.Color3.Green();
+
+                    }
+
+
+                    scene.registerBeforeRender(() => {
+                        // return;
+                        if (step == 2) return;
+                        if (step == 1) {
+
+
+                            // showNormals(customMesh);
+                            // return;
+
+                            // BABYLON.VertexData.ComputeNormals(positions, indices, vertexData.normals);
+
+                            // showNormals(customMesh);
+
+
+                            let meshDarkness = createBox(new BABYLON.Vector3(0, 0, 0), 50 + 2, 80 + 2, 120 + 2, matBoxDarkness, false);
+
+                            let sphereCSG = BABYLON.CSG.FromMesh(customMesh);
+                            let boxCSG = BABYLON.CSG.FromMesh(meshDarkness);
+                            // let booleanCSG = sphereCSG.subtract(boxCSG);
+                            let booleanCSG = boxCSG.subtract(sphereCSG);
+                            let newMesh = booleanCSG.toMesh("newMesh", null, scene);
+                            newMesh.material = matBoxDarkness;
+                            // newMesh.scaling.scaleInPlace(1.1);
+
+
+                            // matWall.alpha = 1;
+                            matWall.wireframe = false;
+                            // showNormals(newMesh);
+
+
+                            // sphereCSG.isVisible = false;
+                            // boxCSG.isVisible = false;
+                            meshDarkness.isVisible = false;
+                            customMesh.isVisible = false;
+
+
+
+                            step = 2;
+                            return;
+                        }
+
+
+                        positions = [];
+                        indices = [];
+                        idx = 0;
+
+                        for (let f = minF; f < maxF; f++) {
+                            for (let i = minC; i < maxC; i++) {
+                                let mesh = meshes[f][i];
+
+                                // let dir = p0.subtract(mesh.position).normalize();
+                                // mesh.agg.body.applyImpulse(dir.scale(-.1), new BABYLON.Vector3(0, 0, 0));
+
+                                if (i > minC && f > minF) {
+                                    addPoses(
+                                        meshes[f - 1][i - 1].position,
+                                        meshes[f - 1][i].position,
+                                        meshes[f][i - 1].position);
+
+                                    addPoses(
+                                        meshes[f][i].position,
+                                        meshes[f - 1][i].position,
+                                        meshes[f][i - 1].position);
+                                }
+
+                            }
+
+                            if (f > minF) {
+                                addPoses(
+                                    meshes[f - 1][maxC - 1].position,
+                                    meshes[f + 0][maxC - 1].position,
+                                    meshes[f - 1][minC].position);
+
+                                addPoses(
+                                    meshes[f + 0][maxC - 1].position,
+                                    meshes[f - 1][minC].position,
+                                    meshes[f + 0][minC].position);
+                            }
+                        }
+
+                        vertexData.positions = positions;
+                        vertexData.indices = indices;
+                        vertexData.normals = [];
+                        // BABYLON.VertexData.ComputeNormals(positions, indices, vertexData.normals);
+                        // var normals = BABYLON.MeshBuilder.CreateNormalsViewer(customMesh, 0.1, scene);
+                        vertexData.applyToMesh(customMesh);
+
+                    })
+
+                    this.mesh = customMesh;
+                }
+            }
+
+
+
+            // createBox(new BABYLON.Vector3(0, 0, 0), 50 + 2, 80 + 2, 120 + 2, matBoxAlpha, false);
+            createWall(50, 80, 120, matWall);
+
+            createBox(new BABYLON.Vector3(10, 0, 0), 5, 15, 20, matBox, true);
+            createBox(new BABYLON.Vector3(-10, 0, 0), 5, 15, 20, matBox, true);
+
+            createPoint(new BABYLON.Vector3.Zero(), matLight, 0, 3, 27);
+
+            new Skin(10);
+
+            return scene;
+        };
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(function () {
+                if (scene) {
+                    scene.render();
+                }
+            });
+        });
+
+
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

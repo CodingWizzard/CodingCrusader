@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>architect</title>
+
+
+
+    <!-- DatGUI -->
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script> -->
+
+    <!-- <script src="/libs/jszip.min.js"></script>
+       <script src="/libs/fileSaver.js"></script> -->
+
+    <!-- jQuery -->
+    <!-- <script src="https://code.jquery.com/jquery.js"></script> -->
+    <!-- <script src="https://rawcdn.githack.com/jeromeetienne/jquery-qrcode/master/jquery.qrcode.min.js"></script> -->
+
+
+    <!-- 
+    <script src="https://preview.babylonjs.com/recast.js"></script>
+    <script src="https://preview.babylonjs.com/cannon.js"></script>
+    
+    <script src="https://preview.babylonjs.com/earcut.min.js"></script> -->
+
+    <!-- Babylon.js -->
+    <script src="https://preview.babylonjs.com/babylon.js"></script>
+    <!-- <script src="https://preview.babylonjs.com/ammo.js"></script> -->
+    <script src="https://preview.babylonjs.com/Oimo.js"></script>
+    <script src="https://preview.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+
+    <!-- <script src="./vendor/require.js"></script> -->
+    <script src="https://cdn.jsdelivr.net/npm/tweakpane@3.0.5/dist/tweakpane.min.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+
+
+
+    <!-- <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+    <script src="https://preview.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+    <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://preview.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+    
+    <script src="https://preview.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+    <script src="https://preview.babylonjs.com/nodeEditor/babylon.nodeEditor.js"></script>
+    <script src="https://preview.babylonjs.com/guiEditor/babylon.guiEditor.js"></script> -->
+
+    <!-- Extensions -->
+    <!-- <script
+        src="https://rawcdn.githack.com/BabylonJS/Extensions/f43ab677b4bca0a6ab77132d3f785be300382760/ClonerSystem/src/babylonx.cloner.js">
+        </script>
+    <script
+        src="https://rawcdn.githack.com/BabylonJS/Extensions/785013ec55b210d12263c91f3f0a2ae70cf0bc8a/CompoundShader/src/babylonx.CompoundShader.js">
+        </script> -->
+
+    <!-- <script src="https://console3.babylonjs.xyz/console3-playground.js"></script> -->
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        #fps {
+            position: absolute;
+            background-color: black;
+            /* border: 2px solid red; */
+            text-align: center;
+            font-size: 16px;
+            color: white;
+            top: 15px;
+            right: 10px;
+            width: 60px;
+            height: 20px;
+        }
+    </style>
+
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="fps">0</div>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+        let divFps = document.getElementById("fps")
+
+
+        let desiredFps = 3;
+        let interval = 1000 / (10 * desiredFps);
+
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+
+            let DELTA = 2;
+            let MAX = 10;
+            let g = 1;
+            let gstep = 0.01;
+
+
+
+            // scene.debugLayer.show();
+            let bgcolor = BABYLON.Color3.FromHexString('#333333');
+            scene.clearColor = bgcolor;
+            scene.ambientColor = bgcolor;
+            // scene.ambientTexture = material.ambientTexture;
+
+
+            // scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR;
+            // scene.fogColor = bgcolor;
+            // scene.fogDensity = 0.03;
+            // scene.fogStart = 60.0;
+            // scene.fogEnd = 170.0;
+
+            let camera = new BABYLON.ArcRotateCamera("camera1", 0, 0, 0, new BABYLON.Vector3(0, 0, 0), scene);
+            camera.setPosition(new BABYLON.Vector3(0, 0, -20));
+            camera.attachControl(canvas, true);
+
+            let skyLight = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+            skyLight.intensity = 0.20;
+
+            let lightSphere = BABYLON.Mesh.CreateSphere("sphere1", 16, 0.1, scene);
+            let lightSphereMat = new BABYLON.StandardMaterial("mat", scene);
+            lightSphere.material = lightSphereMat;
+            lightSphereMat.emissiveColor = BABYLON.Color3.Yellow();
+            lightSphereMat.linkEmissiveWithDiffuse = true;
+            lightSphere.position.y = -1.0;
+
+            let light = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            light.intensity = 0.7;
+            light.diffuse = BABYLON.Color3.FromHexString('#ff9944');
+
+            // let light = new BABYLON.HemisphericLight("hemiLight", new BABYLON.Vector3(-1, 1, 0), scene);
+            // light.diffuse = new BABYLON.Color3(1, 0, 0);
+            // light.specular = new BABYLON.Color3(0, 1, 0);
+            // light.groundColor = new BABYLON.Color3(0, 1, 0);
+
+
+            // // let rad1 = BABYLON.Mesh.CreatePlane("rad1", 1, scene);
+            // let rad1 = BABYLON.MeshBuilder.CreateBox("box", { width: 1, height: 1, depth: 1 });
+            // rad1.material = new BABYLON.StandardMaterial("bmat", scene);
+            // rad1.material.diffuseColor = new BABYLON.Color3(0.0, 1.0, 0.0);
+            // rad1.material.emissiveColor = new BABYLON.Color3(1, 1, 1);
+            // rad1.material.backFaceCulling = false;
+            // rad1.scalingDeterminant *= 2;
+            // rad1.rotation.y = Math.PI * 0.5;
+            // rad1.protected = true;
+
+            // let godrays = new BABYLON.VolumetricLightScatteringPostProcess('godrays', 1.0, camera, rad1, 100, BABYLON.Texture.BILINEAR_SAMPLINGMODE, engine, false);
+            // godrays._volumetricLightScatteringRTT.renderParticles = false; // true;
+            // godrays.exposure = 0.1;
+            // godrays.decay = 0.96815;
+            // godrays.weight = 0.98767;
+            // godrays.density = 0.996;
+
+
+            // let shadowGenerator1 = new BABYLON.ShadowGenerator(1024, light);
+            // shadowGenerator1.setDarkness(0.2);
+            // shadowGenerator1.usePoissonSampling = true;
+            // shadowGenerator1.useBlurVarianceShadowMap = true;
+            // shadowGenerator1.blurBoxOffset = 1.0;
+            // shadowGenerator1.blurScale = 150.0;
+            // // shadowGenerator1.bias = 0.00001;
+
+
+            let t = 0;
+            scene.registerBeforeRender(function () {
+                lightSphere.position.x += 0.1 * Math.sin(t);
+                lightSphere.position.y += 0.1 * Math.sin(t);
+                lightSphere.position.z += 0.1 * Math.cos(t);
+
+                light.position = lightSphere.getAbsolutePosition();
+                // rad1.position = lightSphere.getAbsolutePosition();
+                // rad1.rotation.x += 0.01;
+                // rad1.rotation.y += 0.01;
+                // rad1.rotation.z += 0.01;
+
+                t += 0.01;
+            });
+
+
+            // let brickWallDiffURL = "http://i.imgur.com/Rkh1uFK.png"; // "assets/Rkh1uFK.png";
+            // let brickWallNHURL = "http://i.imgur.com/GtIUsWW.png"; // "assets/GtIUsWW.png";
+            let brickWallDiffURL = "assets/Rkh1uFK.png";
+            let brickWallNHURL = "assets/GtIUsWW.png";
+
+            let wallDiffuseTexture = new BABYLON.Texture(brickWallDiffURL, scene);
+            let wallNormalsHeightTexture = new BABYLON.Texture(brickWallNHURL, scene);
+            let normalsHeightTexture = wallNormalsHeightTexture;
+
+            let material = new BABYLON.StandardMaterial("mtl01", scene);
+            material.diffuseTexture = wallDiffuseTexture;
+            material.bumpTexture = wallNormalsHeightTexture;
+            material.useParallax = true;
+            material.useParallaxOcclusion = true;
+            material.parallaxScaleBias = 0.1;
+            material.specularPower = 1000.0;
+            material.specularColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+            // material.alpha = 0.8;
+
+
+            // let material = new BABYLON.StandardMaterial("grass2", scene);
+            // // material.diffuseTexture = new BABYLON.Texture("assets/grass.png", scene);   // https://playground.babylonjs.com/textures/grass.png
+            // // material.emissiveTexture = new BABYLON.Texture("assets/grass.png", scene);   // https://playground.babylonjs.com/textures/grass.png
+            // // material.diffuseColor = new BABYLON.Color3(1, 0, 0);
+            // material.ambientTexture = new BABYLON.Texture("assets/grass.png", scene);
+            // material.diffuseColor = new BABYLON.Color3(1, 0, 0);
+
+
+            // let mesh_boxSpace = BABYLON.MeshBuilder.CreateBox("box", { size: (2 * MAX) * 1.1, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+            // mesh_boxSpace.material = new BABYLON.StandardMaterial("mtl01", scene);
+            // mesh_boxSpace.material.alpha = 0.4,
+            //     mesh_boxSpace.protected = true;
+
+
+            // let ground = BABYLON.MeshBuilder.CreateBox("", { width: 1500, height: 3, depth: 1500 }, scene);
+            // ground.position = new BABYLON.Vector3(0, 0, 0);
+            // ground.receiveShadows = true;
+            // ground.position.y = -MAX;
+
+            let mesh_plane = BABYLON.MeshBuilder.CreatePlane("plane", { width: 1, height: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE }, scene);
+            mesh_plane.isVisible = false;
+            mesh_plane.material = material;
+            mesh_plane.protected = true;
+
+            let mesh_box = BABYLON.MeshBuilder.CreateBox("box", { size: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+            mesh_box.isVisible = false;
+            mesh_box.material = material;
+            mesh_box.protected = true;
+
+            let mesh_sphere1 = BABYLON.MeshBuilder.CreateSphere("sphere1", { slice: 1, arc: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+            mesh_sphere1.isVisible = false;
+            mesh_sphere1.material = material;
+            mesh_sphere1.protected = true;
+
+            let mesh_sphere2 = BABYLON.MeshBuilder.CreateSphere("sphere2", { slice: 0.5, arc: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+            mesh_sphere2.isVisible = false;
+            mesh_sphere2.material = material;
+            mesh_sphere2.protected = true;
+
+
+            let material_sphere = new BABYLON.StandardMaterial("mtl01", scene);
+            let mesh_sphere = BABYLON.MeshBuilder.CreateSphere("sphere1", { slice: 1, arc: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+            mesh_sphere.isVisible = false;
+            mesh_sphere.material = material_sphere;
+            mesh_sphere.protected = true;
+
+
+
+            let instanceId = 0;
+            let animations = [];
+
+            let iBuffer = -1;
+            let buffer = [];
+
+
+            let dots = [];
+            for (let x = -MAX; x <= MAX; x += 1) {
+                dots[x] = [];
+                for (let y = -MAX; y <= MAX; y += 1) {
+                    dots[x][y] = [];
+                    for (let z = -MAX; z <= MAX; z += 1) {
+                        dots[x][y][z] = 0.5 - Math.random();
+                    }
+                }
+            }
+
+
+            let create = (position, offset, rotation, scaling, base, mesh_mother) => {
+
+                iBuffer++;
+                let mesh = null;
+                if (iBuffer > buffer.length - 1) {
+                    mesh = mesh_mother.createInstance(instanceId++);
+                    mesh.parent = base;
+                    mesh.protected = true;
+                    // shadowGenerator1.getShadowMap().renderList.push(mesh);
+
+                    buffer[iBuffer] = mesh;
+                }
+                else {
+                    mesh = buffer[iBuffer];
+                }
+
+                mesh.position.set(position.x + offset.x, position.y + offset.y, position.z + offset.z);
+                mesh.rotation.set(rotation.x, rotation.y, rotation.z);
+                mesh.scaling.set(scaling.x, scaling.y, scaling.z);
+                mesh.isVisible = true;
+
+                // animations.push(
+                //     {
+                //         object: mesh.position,
+                //         attributes: ["y"],
+                //         state: "init",  // running, finished
+                //         type: "reverse",
+                //         old_values: [0],   // set on init
+                //         target_values: [
+                //             -max
+                //         ],
+                //         delta: -0.1 * Math.random(),
+                //         count: 0
+                //     })
+
+                // animations.push(
+                //     {
+                //         object: mesh.rotation,
+                //         attributes: ["y"],
+                //         state: "init",  // running, finished
+                //         type: "reverse",
+                //         old_values: [0],   // set on init
+                //         target_values: [
+                //             2 * Math.PI
+                //         ],
+                //         delta: 0.1 * Math.random(),
+                //         count: 0
+                //     })
+
+                return mesh;
+            }
+
+            let loop = (
+                range_x,
+                range_y,
+                range_z,
+                base_offset,
+                base_rotation,
+                callback
+            ) => {
+
+                if (range_x.delta == 0) range_x.delta = 1;
+                if (range_y.delta == 0) range_y.delta = 1;
+                if (range_z.delta == 0) range_z.delta = 1;
+
+                let base = mesh_box.createInstance(instanceId++);   // todo: abstract mesh 
+                base.isVisible = false;
+                base.position.set(base_offset.x, base_offset.y, base_offset.z);
+                base.rotation.set(base_rotation.x, base_rotation.y, base_rotation.z);
+
+                let i = 0;
+                for (let x = range_x.min; x <= range_x.max; x += range_x.delta) {
+                    for (let y = range_y.min; y <= range_y.max; y += range_y.delta) {
+                        for (let z = range_z.min; z <= range_z.max; z += range_z.delta) {
+                            callback(base, x, y, z, i++)
+                        }
+                    }
+                }
+            }
+
+            /**/
+
+
+
+            // let objects = [];
+            // for (let i = 0; i < 15; i++) {
+            //     let o = {
+            //         position: {
+            //             x: i * max / 10,
+            //             y: 0.5 * (-max + 2 * max * Math.random()),
+            //             z: 0.5 * (-max + 2 * max * Math.random())
+            //         },
+            //         radius: 0.5 * max
+            //     };
+            //     objects.push(o);
+            //     let mesh = mesh_sphere.createInstance(instanceId++);
+            //     mesh.isVisible = false;
+            //     mesh.position.x = o.position.x;
+            //     mesh.position.y = o.position.y;
+            //     mesh.position.z = o.position.z;
+            //     mesh.scaling.set(2 * o.radius, 2 * o.radius, 2 * o.radius);
+            // }
+
+            // let xmin = -max;
+
+
+            // https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
+            let length3 = (p) => {
+                return Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+            }
+
+            let length2 = (p) => {
+                return Math.sqrt(p.x * p.x + p.y * p.y);
+            }
+
+            let abs3 = (p) => {
+                p.x = Math.abs(p.x);
+                p.y = Math.abs(p.y);
+                p.z = Math.abs(p.z);
+                return p;
+            }
+
+            let sub2 = (p, b) => {
+                p.x -= b.x;
+                p.y -= b.y;
+                return p;
+            }
+
+            let sub3 = (p, b) => {
+                p.x -= b.x;
+                p.y -= b.y;
+                p.z -= b.z;
+                return p;
+            }
+
+            let max = (p, q) => {
+                return (p > q) ? p : q;
+            }
+
+            let max3 = (p, q) => {
+                return (p.x > q.x && p.y > q.y && p.z > q.z) ? p : q;
+            }
+
+            let min = (p, q) => {
+                return (p < q) ? p : q;
+            }
+
+            let sdSphere = (p, q, s) => {
+                let d = sub3(p, q);
+                return length3(d) - s;
+            }
+
+            let MAX_ITERATION = 60.
+            function mandelbrot(c) {
+                let z = new BABYLON.Vector2(0, 0);
+                let v = new BABYLON.Vector2(0, 0);
+                z.x = c.x;
+                z.y = c.y;
+                let count = 0.0;
+                for (let i = 0.0; i < MAX_ITERATION; i++) {
+                    v.x = z.x * z.x - z.y * z.y + c.x;
+                    v.y = 2.0 * z.x * z.y + c.y;
+                    z.x = v.x;
+                    z.y = v.y;
+                    if (Math.sqrt(z.x * z.x + z.y * z.y) > 2.0) break;
+                    count += 1.0;
+                }
+
+                v.x = z.x * count / MAX_ITERATION;
+                v.y = z.y * count / MAX_ITERATION;
+                let re = Math.sqrt(v.x * v.x + v.y * v.y);
+                if (re <= 0.0)
+                    return 1.;
+                return re;
+                // return Math.abs(re);
+            }
+
+
+            // https://www.youtube.com/watch?v=aNR4n0i2ZlM
+            // https://www.shadertoy.com/view/4lK3Rc
+
+            // https://en.wikipedia.org/wiki/List_of_mathematical_functions
+            // https://en.wikipedia.org/wiki/Heaviside_step_function
+
+            let radius = 10;
+            let c = new BABYLON.Vector2(0, 0)
+            let m = 0;
+            // let sdSphereDeformed = (p, q, s) => {
+
+            //     let d = sub3(p, q)
+            //     d.x *= g;
+            //     d.y *= g;
+            //     d.z *= g;
+
+            //     return length3(d) - s;
+            // }
+
+            // blend
+
+            // float opUnion( float d1, float d2 )
+            // {
+            //     return min(d1,d2);
+            // }
+
+            // float opSubtraction( float d1, float d2 )
+            // {
+            //     return max(-d1,d2);
+            // }
+
+            // float opIntersection( float d1, float d2 )
+            // {
+            //     return max(d1,d2);
+            // }
+
+            let opSmoothUnion = (d1, d2, k) => {
+                let h = max(k - Math.abs(d1 - d2), 0.0);
+                return Math.min(d1, d2) - h * h * 0.25 / k;
+            }
+
+            // float opSmoothSubtraction( float d1, float d2, float k )
+            // {
+            //     float h = max(k-abs(-d1-d2),0.0);
+            //     return max(-d1, d2) + h*h*0.25/k;
+            // 	//float h = clamp( 0.5 - 0.5*(d2+d1)/k, 0.0, 1.0 );
+            // 	//return mix( d2, -d1, h ) + k*h*(1.0-h);
+            // }
+
+            // float opSmoothIntersection( float d1, float d2, float k )
+            // {
+            //     float h = max(k-abs(d1-d2),0.0);
+            //     return max(d1, d2) + h*h*0.25/k;
+            // 	//float h = clamp( 0.5 - 0.5*(d2-d1)/k, 0.0, 1.0 );
+            // 	//return mix( d2, d1, h ) + k*h*(1.0-h);
+            // }
+
+
+
+            // let sdBox = (p, b) => {
+            //     p = abs3(p);
+            //     let d = sub3(p, b);
+            //     return min(max(d.x, max(d.y, d.z)), 0) + length3(max3(d, { x: 0, y: 0, z: 0 }));
+            // }
+
+            let sdCutHollowSphere = (p, r, h, t) => {
+                // sampling independent computations (only depend on shape)
+                let w = Math.sqrt(r * r - h * h);
+
+                // sampling dependant computations
+                let q = { x: length2({ x: p.x, y: p.z }), y: p.y };
+                return ((h * q.x < w * q.y) ? length2(sub2(q, { x: w, y: h })) :
+                    Math.abs(length2(q) - r)) - t;
+            }
+
+            let sdBox = (p, c, s) => {
+
+                let x = max(p.x - c.x - s.x / 2, c.x - p.x - s.x / 2);
+                let y = max(p.y - c.y - s.y / 2, c.y - p.y - s.y / 2);
+                let z = max(p.z - c.z - s.z / 2, c.z - p.z - s.z / 2);
+
+                let d = x;
+                d = max(d, y);
+                d = max(d, z);
+                // console.log(x, y, z);
+                return d;
+            }
+
+            /*
+            let sdf_box = (p, c, s) => {
+                let x = max(
+                    p.x - c.x - float3(s.x / 2., 0, 0),
+                    c.x - p.x - float3(s.x / 2., 0, 0)
+                );
+                let y = max
+                (   p.y - c.y - float3(s.y / 2., 0, 0),
+                    c.y - p.y - float3(s.y / 2., 0, 0)
+                );
+                
+                let z = max
+                (   p.z - c.z - float3(s.z / 2., 0, 0),
+                    c.z - p.z - float3(s.z / 2., 0, 0)
+                );
+                
+                let d = x;
+                d = max(d,y);
+                d = max(d,z);
+                return d;
+            }
+            */
+
+            let view = () => {
+                console.log(g);
+
+                // min = xmin;
+                // max = min + 90;
+                // delta = 3;
+
+                loop(
+                    // { min: -MAX, max: MAX, delta: DELTA },
+                    // { min: -MAX, max: MAX, delta: DELTA },
+                    // { min: -MAX, max: MAX, delta: DELTA },
+                    { min: -MAX, max: MAX, delta: DELTA },
+                    { min: -MAX, max: MAX, delta: DELTA },
+                    { min: -MAX, max: MAX, delta: DELTA },
+
+                    { x: 0, y: 0, z: 0 },  // base_offset,
+                    { x: 0, y: 0, z: 0 },  // base_rotation,
+
+                    (base, x, y, z, i) => {
+                        // if (x % 2 == 0 || y % 2 == 0 || z % 2 == 0)
+                        //     return;
+
+                        // if (sdSphere({ x: x, y: y, z: z }, max * 0.5) > 0)
+                        //     return;
+
+                        // https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
+                        // https://www.shadertoy.com/view/Xds3zN
+                        // if (sdBox(sub3({ x: x, y: y, z: z }, { x: 1, y: 1, z: 1 }), { x: 3, y: 3, z: 3 }) < 0)
+
+                        // if (sdBox({ x: x, y: y, z: z }, { x: 0, y: 0, z: 0 }, { x: 2, y: 5, z: 7 }) > 0)
+                        //     return;
+
+                        // let d1 = sdBox({ x: x, y: y, z: z }, { x: 0, y: -5, z: 0 }, { x: 40, y: 3, z: 40 });
+                        // let d = d1;
+                        // let d2 = sdSphere({ x: x, y: y, z: z }, { x: 4, y: 4, z: 4 }, 8);
+                        // let d3 = sdSphere({ x: x, y: y, z: z }, { x: -4, y: -4, z: -4 }, 8);
+
+                        /* mit blending * /
+                        let dt = opSmoothUnion(d1, d2, 8);
+                        d = min(d, dt);
+
+                        dt = opSmoothUnion(d2, d3, 4);
+                        d = min(d, dt);
+                        /**/
+
+                        /* ohne bleding: * /
+                        d = min(d1, d2);
+                        d = min(d, d3);
+                        /**/
+
+                        let sdDeformed = (p, q, s) => {
+                            let d = sub3(p, q)
+                            d.x *= g;
+                            d.y *= g;
+                            d.z *= g;
+                            return length3(d) - s;
+                        }
+
+                        // let radius = 10;
+                        radius = 1;
+                        let d = sdDeformed({ x: x, y: y, z: z }, { x: 0, y: 0, z: 0 }, radius);
+
+                        // if (d > 1 || d < -1)
+                        //     return;
+
+                        // d = Math.pow(2, d);
+                        let sd = Math.abs(MAX - d) * DELTA / (.5 * MAX);
+
+                        let offset = { x: 0, y: 0, z: 0 };
+                        // let rotation = { x: 0, y: 0, z: 0 };
+                        // let scaling = { x: DELTA + d, y: DELTA + d, z: DELTA + d };
+                        let rotation = { x: sd, y: sd, z: sd };
+                        let scaling = { x: sd, y: sd, z: sd };
+
+
+                        create({ x: x, y: y, z: z }, offset, rotation, scaling, base, mesh_box);
+                    }
+                );
+
+                if (iBuffer >= 0) {
+                    for (; iBuffer < buffer.length; iBuffer++) {
+                        buffer[iBuffer].isVisible = false;
+                    }
+                }
+            }
+
+            /**/
+
+            view();
+
+            // let dispose = () => {
+            //     for (let i = 0; i < scene.meshes.length; i++) {
+
+            //         if (scene.meshes[i].protected === undefined) {
+            //             scene.meshes[i].dispose();
+            //             i--;
+            //         }
+            //     }
+            // }
+
+
+            // Keyboard events
+            let inputMap = {};
+            scene.actionManager = new BABYLON.ActionManager(scene);
+            scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, function (evt) {
+                inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+            }));
+            scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyUpTrigger, function (evt) {
+                inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+            }));
+
+
+            scene.onBeforeRenderObservable.add(() => {
+                if (inputMap["a"]) {
+                    g -= gstep;
+                    //dispose();
+                    iBuffer = -1;
+                    view();
+                }
+
+                if (inputMap["d"]) {
+                    g += gstep;
+                    // dispose();
+                    iBuffer = -1;
+                    view();
+                }
+            });
+
+            /**/
+
+
+            scene.registerBeforeRender(function () {
+
+                animations.forEach((a) => {
+                    if (a.state === "init") {
+                        a.count = 0;
+                        a.attributes.forEach((attribute, index) => {
+                            a.old_values[index] = a.object[attribute];
+                        });
+
+                        a.state = "running";
+                    }
+                    else if (a.state === "running") {
+                        let count_finished = [];
+                        a.attributes.forEach((attribute, index) => {
+                            count_finished[index] = 0;
+                        })
+
+                        a.attributes.forEach((attribute, index) => {
+                            a.object[attribute] = a.old_values[index] + a.count * a.delta;
+
+                            if (a.old_values[index] > a.target_values[index]) {
+                                if (a.object[attribute] <= a.target_values[index]) {
+                                    count_finished[index] = 1;
+                                    a.object[attribute] = a.target_values[index];
+                                }
+                            }
+                            else {
+                                if (a.object[attribute] >= a.target_values[index]) {
+                                    count_finished[index] = 1;
+                                    a.object[attribute] = a.target_values[index];
+                                }
+                            }
+
+                        })
+
+                        let sum_finised = 0;
+                        a.attributes.forEach((attribute, index) => {
+                            sum_finised += count_finished[index];
+                        })
+
+                        if (sum_finised === a.attributes.length) {
+                            a.state = "finished"
+                        }
+
+                        a.count++;
+                    }
+                    else if (a.state === "finished") {
+                        // what to do next depends on type of animation
+                        if (a.type === "oneway") {
+                            // do nothing
+                        }
+                        else if (a.type === "repeat") {
+                            a.attributes.forEach((attribute, index) => {
+                                a.object[attribute] = a.old_values[index];
+                            });
+
+                            a.state = "init";
+                        }
+                        else if (a.type === "reverse") {
+                            a.delta *= -1;
+
+                            a.attributes.forEach((attribute, index) => {
+                                let t = a.target_values[index];
+                                a.target_values[index] = a.old_values[index];
+                                a.old_values[index] = t;
+                            });
+
+                            a.state = "init";
+                        }
+                    }
+                })
+            });
+
+
+            return scene;
+        }
+
+
+
+
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

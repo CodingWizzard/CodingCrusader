@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>ai</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <!-- <script src="https://cdn.babylonjs.com/cannon.js"></script> -->
+    <!-- <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+    <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script> -->
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+
+        let createScene = function () {
+            let bgcolor = BABYLON.Color3.FromHexString('#888888');
+
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = bgcolor;
+
+
+            let diameter = 50;
+            let diameterDelta = 10 * diameter / 100;
+
+            let camera = new BABYLON.ArcRotateCamera("",
+                3 * Math.PI / 2,
+                Math.PI / 2.5,
+                120,
+                BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+
+            let light1 = new BABYLON.SpotLight("light1",
+                new BABYLON.Vector3(0, 0, 0),
+                new BABYLON.Vector3(1, 0, 0),
+                0.3 * Math.PI,
+                2, scene);
+            light1.intensity = .75;
+            light1.diffuse = BABYLON.Color3.FromHexString('#ff000');
+
+            let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+            sky.intensity = 0.75;
+            sky.diffuse = bgcolor;
+
+            let material = new BABYLON.StandardMaterial("TextPlaneMaterial", scene);
+            material.backFaceCulling = false;
+
+            let positions = [];
+            let indices = [];
+            let idx = 0;
+            let addPoses = (p1, p2, p3) => {
+                positions.push(p1.x);
+                positions.push(p1.y);
+                positions.push(p1.z);
+
+                positions.push(p2.x);
+                positions.push(p2.y);
+                positions.push(p2.z);
+
+                positions.push(p3.x);
+                positions.push(p3.y);
+                positions.push(p3.z);
+
+                indices.push(idx++);
+                indices.push(idx++);
+                indices.push(idx++);
+            }
+
+
+
+            let sphereMaterial = new BABYLON.StandardMaterial("triangleMaterial", scene);
+            sphereMaterial.alpha = 0.75;
+
+            // let sphere1 = BABYLON.MeshBuilder.CreateSphere("", { diameter: diameter, segments: 9 * 2 }, scene);
+            // sphere1.material = sphereMaterial;
+
+
+            var sphere1 = BABYLON.MeshBuilder.CreateIcoSphere("testBollMel", {
+                radius: diameter, // 0.995,
+                subdivisions: 16,
+                flat: false
+            }, scene)
+            sphere1.material = sphereMaterial
+            // testboll.material.wireframe = true;
+
+            let sphere1positions = sphere1.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+            var sphere1indices = sphere1.getIndices();
+
+            let p11 = new BABYLON.Vector3.Zero();
+            let p12 = new BABYLON.Vector3.Zero();
+            let p13 = new BABYLON.Vector3.Zero();
+            let p21 = new BABYLON.Vector3.Zero();
+            let p22 = new BABYLON.Vector3.Zero();
+            let p23 = new BABYLON.Vector3.Zero();
+
+
+            let dir = new BABYLON.Vector3.Zero();
+
+            // for (let i = 0; i < 150; i++) {
+            for (let idx = 0; idx < sphere1indices.length; idx += Math.floor(Math.random() * 10)) {
+                // let idx = Math.floor(sphere1indices.length * Math.random()); //  % 3;
+
+                p11.set(sphere1positions[sphere1indices[idx + 0] * 3], sphere1positions[sphere1indices[idx + 0] * 3 + 1], sphere1positions[sphere1indices[idx + 0] * 3 + 2]);
+                p12.set(sphere1positions[sphere1indices[idx + 1] * 3], sphere1positions[sphere1indices[idx + 1] * 3 + 1], sphere1positions[sphere1indices[idx + 1] * 3 + 2]);
+                // p13.set(sphere1positions[sphere1indices[idx + 2] * 3], sphere1positions[sphere1indices[idx + 2] * 3 + 1], sphere1positions[sphere1indices[idx + 2] * 3 + 2]);
+
+                dir = p11.subtract(sphere1.position).normalize().scale(diameterDelta);
+                p21 = p11.add(dir);
+
+                dir = p12.subtract(sphere1.position).normalize().scale(diameterDelta);
+                p22 = p12.add(dir);
+
+                addPoses(p11, p12, p21);
+                addPoses(p12, p21, p22);
+
+                //     // }
+                // }
+
+
+                // dir = p11.subtract(sphere1.position).normalize().scale(diameterDelta);
+                // p21 = p11.add(dir);
+
+                // dir = p12.subtract(sphere1.position).normalize().scale(diameterDelta);
+                // p22 = p12.add(dir);
+
+
+                // // p21.set(sphere2positions[sphere1indices[idx] * 3], sphere2positions[sphere1indices[idx] * 3 + 1], sphere2positions[sphere1indices[idx] * 3 + 2]);
+                // // p22.set(sphere2positions[sphere1indices[idx + 1] * 3], sphere2positions[sphere1indices[idx + 1] * 3 + 1], sphere2positions[sphere1indices[idx + 1] * 3 + 2]);
+                // // // p23.set(sphere2positions[sphere1indices[idx + 2] * 3], sphere2positions[sphere1indices[idx + 2] * 3 + 1], sphere2positions[sphere1indices[idx + 2] * 3 + 2]);
+
+                // addPoses(p11, p12, p21);
+                // addPoses(p12, p21, p22);
+
+                // // addPoses(p11, p13, p21);
+                // // addPoses(p13, p21, p23);
+
+                // // addPoses(p12, p13, p22);
+                // // addPoses(p13, p22, p23);
+            }
+
+
+            let customMesh = new BABYLON.Mesh("custom", scene);
+            customMesh.material = material;
+
+            let vertexData = new BABYLON.VertexData();
+            vertexData.positions = positions;
+            vertexData.indices = indices;
+            vertexData.applyToMesh(customMesh);
+
+
+
+
+            // let meshPlayer = BABYLON.MeshBuilder.CreateSphere("", { diameter: 1, segments: 9 }, scene);
+            // meshPlayer.position.x = -0.6 * diameter;
+            // meshPlayer.position.y = -0.6 * diameter;
+            // meshPlayer.position.z = -0.6 * diameter;
+
+            // // meshPlayer.position.x = diameter * 1;
+            // // meshPlayer.position.z = diameter * 1;
+            // // camera.lockedTarget = meshPlayer;
+            // // camera.parent = meshPlayer;
+
+            // let moveSpeed = 0.1;
+
+            // scene.onKeyboardObservable.add((kbInfo) => {
+            //     switch (kbInfo.type) {
+            //         case BABYLON.KeyboardEventTypes.KEYDOWN:
+            //             switch (kbInfo.event.key) {
+            //                 case "w": // ArrowUp":
+            //                     meshPlayer.position.z += moveSpeed;
+            //                     break;
+            //                 case "x": // "ArrowDown":
+            //                     meshPlayer.position.z -= moveSpeed;
+            //                     break;
+            //                 case "a": // "ArrowLeft":
+            //                     meshPlayer.position.x -= moveSpeed;
+            //                     break;
+            //                 case "d": // "ArrowRight":
+            //                     meshPlayer.position.x += moveSpeed;
+            //                     break;
+            //             }
+            //             break;
+            //     }
+            // });
+
+
+            // // let p0 = new BABYLON.Vector3.Zero();
+            // let dir = new BABYLON.Vector3.Zero();
+            // scene.registerBeforeRender(() => {
+            //     let dist = BABYLON.Vector3.Distance(meshPlayer.position, sphere1.position) - 0.5 * diameter - 0.5;
+            //     if (dist > 0.1) {
+            //         dir = sphere1.position.subtract(meshPlayer.position).normalize().scale(0.1 * Math.sign(dist));
+            //         meshPlayer.position.addInPlace(dir);
+            //     }
+            // });
+
+            return scene;
+        };
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Soft Cloth Simulator</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+
+        const createScene = async function () {
+            let scene = new BABYLON.Scene(engine);
+
+            const havokInstance = await HavokPhysics();
+            const hk = new BABYLON.HavokPlugin(true, havokInstance);
+            scene.enablePhysics(new BABYLON.Vector3(0, -9.8, 0), hk);
+
+            scene.createDefaultCameraOrLight(true, true, true);
+            scene.activeCamera.radius = 50;
+            scene.activeCamera.alpha = 0.5 * Math.PI;
+            scene.activeCamera.angularSensibilityX = 1000;
+            scene.activeCamera.angularSensibilityY = 1000;
+            scene.activeCamera.wheelPrecision = 0.8;
+            // scene.activeCamera.zoomSpeed = 8.0;
+            // scene.activeCamera.panSpeed = 0.4;
+
+            // scene.activeCamera.beta = -0.5 * Math.PI;
+            // scene.clearColor = BABYLON.Color3.FromHexString('#000000')
+
+            let mat1 = new BABYLON.StandardMaterial("mat", scene);
+            mat1.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+            mat1.emissiveColor = BABYLON.Color3.Green();
+            // mat1.alpha = 0.25;
+
+
+
+            let maxSpace = 50;
+            let mGround = BABYLON.MeshBuilder.CreateBox("", { width: 2 * maxSpace + 3, height: 1, depth: 2 * maxSpace + 3 }, scene);
+            mGround.material = mat1;
+            mGround.position.y = -10;
+            mGround.agg = new BABYLON.PhysicsAggregate(
+                mGround,
+                BABYLON.PhysicsShapeType.BOX,
+                { mass: 0, restitution: 0.5 },
+                scene
+            );
+            mGround.agg.body.disablePreStep = false;
+            class Money {
+                constructor() {
+                    // let dir = new BABYLON.Vector3.Zero();
+
+
+                    let p1 = new BABYLON.Vector3.Zero();
+
+                    let createPoint = (p, material, mass, diameter) => {
+                        let mesh = BABYLON.MeshBuilder.CreateSphere("", { diameter: diameter, segments: 3 }, scene);
+                        mesh.material = material;
+                        mesh.position.copyFrom(p);
+                        // mesh.isVisible = false;
+
+                        mesh.agg = new BABYLON.PhysicsAggregate(
+                            mesh,
+                            BABYLON.PhysicsShapeType.SPHERE,
+                            { mass: mass, restitution: 0.5 },
+                            scene
+                        );
+                        mesh.agg.body.disablePreStep = false;
+                        return mesh;
+                    }
+
+
+                    // createPoint(p0, null, 0, 3);
+                    // let meshWind = BABYLON.MeshBuilder.CreateSphere("", { diameter: 3, segments: 3 }, scene);
+                    // meshWind.position.copyFrom(p0);
+
+                    let positions = [];
+                    let indices = [];
+                    let idx = 0;
+                    let addPoses = (p1, p2, p3) => {
+                        positions.push(p1.x);
+                        positions.push(p1.y);
+                        positions.push(p1.z);
+
+                        positions.push(p2.x);
+                        positions.push(p2.y);
+                        positions.push(p2.z);
+
+                        positions.push(p3.x);
+                        positions.push(p3.y);
+                        positions.push(p3.z);
+
+                        indices.push(idx++);
+                        indices.push(idx++);
+                        indices.push(idx++);
+                    }
+                    let customMesh = new BABYLON.Mesh("custom", scene);
+                    customMesh.material = new BABYLON.StandardMaterial("TextPlaneMaterial", scene);
+                    customMesh.material.backFaceCulling = false;
+                    // customMesh.material.wireframe = true;
+
+                    let vertexData = new BABYLON.VertexData();
+
+
+                    let maxC = 10;
+                    let maxF = 2;
+                    let mesh = null;
+                    let meshes = [];
+
+                    let meshLast = null;
+
+                    let distance = 3;
+                    let armDistanceJoint = new BABYLON.DistanceConstraint(distance, scene);
+                    let armDistanceJointCross = new BABYLON.DistanceConstraint(Math.sqrt(2 * distance * distance), scene);
+
+
+                    for (let f = 0; f < maxF; f++) {
+                        meshes[f] = [];
+
+
+                        let diameter = 0.5;
+
+                        for (let i = 0; i < maxC; i++) {
+                            p1.set(i * distance, f * distance, 0.01);
+                            // mesh = createPoint(p1, mat1, f == maxF - 1 ? 0 : 1, diameter);
+                            mesh = createPoint(p1, mat1, 1, diameter);
+                            meshes[f][i] = mesh;
+
+                            if (i > 0) {
+                                mesh.agg.body.addConstraint(meshLast.agg.body, armDistanceJoint);
+                            }
+
+                            if (f > 0) {
+                                mesh.agg.body.addConstraint(meshes[f - 1][i].agg.body, armDistanceJoint);
+                            }
+
+                            if (i > 0 && f > 0) {
+                                meshes[f][i].agg.body.addConstraint(meshes[f - 1][i - 1].agg.body, armDistanceJointCross);
+                                meshes[f - 1][i].agg.body.addConstraint(meshes[f][i - 1].agg.body, armDistanceJointCross);
+                            }
+
+                            meshLast = mesh;
+                        }
+                        // meshes[f][0].agg.body.addConstraint(meshLast.agg.body, armDistanceJointC);
+                    }
+
+                    // let meshSphere = null;
+
+
+                    /**/
+
+                    // let t = 0;
+                    // let p0 = new BABYLON.Vector3(0, -1, 0);
+                    let dir = new BABYLON.Vector3(0, 1, 0);
+                    scene.registerBeforeRender(function () {
+                        // t += 0.01;
+
+                        positions = [];
+                        indices = [];
+                        idx = 0;
+
+                        for (let f = 0; f < maxF; f++) {
+                            for (let i = 0; i < maxC; i++) {
+                                let mesh = meshes[f][i];
+
+                                // if (f == maxF - 1) {
+                                //     mesh.position.x = 1 * f * Math.sin(t + i * 2 * Math.PI / maxC);
+                                //     mesh.position.z = 1 * f * Math.cos(t + i * 2 * Math.PI / maxC);
+                                // }
+
+                                if (i == 0) {
+                                    // let dir = mesh.position.subtract(p0).normalize();
+                                    mesh.agg.body.applyImpulse(dir.scale(1.5), new BABYLON.Vector3(0, 0, 0));
+                                }
+
+                                if (i > 0 && f > 0) {
+                                    addPoses(
+                                        meshes[f - 1][i - 1].position,
+                                        meshes[f - 1][i].position,
+                                        meshes[f][i - 1].position);
+
+                                    addPoses(
+                                        meshes[f][i].position,
+                                        meshes[f - 1][i].position,
+                                        meshes[f][i - 1].position);
+                                }
+
+                            }
+
+                            // if (f > fMin) {
+                            //     addPoses(
+                            //         meshes[f - 1][maxC - 1].position,
+                            //         meshes[f + 0][maxC - 1].position,
+                            //         meshes[f - 1][0].position);
+
+                            //     addPoses(
+                            //         meshes[f + 0][maxC - 1].position,
+                            //         meshes[f - 1][0].position,
+                            //         meshes[f + 0][0].position);
+                            // }
+                        }
+
+                        vertexData.positions = positions;
+                        vertexData.indices = indices;
+                        vertexData.applyToMesh(customMesh);
+                    })
+
+
+                    this.mesh = customMesh;
+                    /* */
+                }
+            }
+
+
+            // let max = 1;
+            // let diameter = max * 2;
+            // for (let i = 0; i < max; i++) {
+            //     let b1 = new Money(new BABYLON.Vector3(0, 0, 0), 1);
+            //     b1.mesh.position.x = diameter * Math.sin(i * 2 * Math.PI / max);
+            //     b1.mesh.position.z = diameter * Math.cos(i * 2 * Math.PI / max);
+            //     b1.mesh.rotation.y = 2 * Math.PI * i / max;
+            // }
+
+            new Money();
+
+            // var gl = new BABYLON.GlowLayer("glow", scene);
+            // gl.intensity = 2;
+
+            // var helper = scene.createDefaultEnvironment();
+            // helper.setMainColor(BABYLON.Color3.Gray());
+            return scene;
+        };
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(function () {
+                if (scene) {
+                    scene.render();
+                }
+            });
+        });
+
+
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>turtle</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <!-- <script src="https://unpkg.com/open3d"></script> -->
+
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+            // scene.debugLayer.show();
+            // scene.clearColor = new BABYLON.Color3(0, 0, 0);
+
+            let camera = new BABYLON.ArcRotateCamera("camera",
+                BABYLON.Tools.ToRadians(0),
+                BABYLON.Tools.ToRadians(90),
+                30,
+                BABYLON.Vector3.Zero(), scene);
+            camera.setTarget(BABYLON.Vector3.Zero());
+            camera.attachControl(canvas, true);
+            camera.upperBetaLimit = null;
+            camera.lowerBetaLimit = null;
+            camera.angularSensibilityX = 2000;
+            camera.angularSensibilityY = 2000;
+            camera.wheelPrecision = 50; //Mouse wheel speed
+
+            let lightHemi = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            lightHemi.intensity = 0.7;
+
+            let light = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            light.intensity = 0.7;
+            light.diffuse = BABYLON.Color3.FromHexString("#ff9944");
+            // light.position.copyFrom(lightSphere.position);
+
+
+            let forward = new BABYLON.Vector3(0, 0, 1);
+
+            class Turtle {
+                constructor(scene) {
+                    this.pen = true;
+
+                    this.mesh1 = BABYLON.MeshBuilder.CreateBox("box", { size: .05 }, scene);
+                    // this.mesh1.material = new BABYLON.StandardMaterial("", scene);
+                    // this.mesh1.material.diffuseColor = new BABYLON.Color3(1, 0, 0);
+
+                    this.mesh2 = BABYLON.MeshBuilder.CreateBox("box", { size: .025 }, scene);
+                    this.mesh2.isVisible = false;
+                    // this.mesh2.material = new BABYLON.StandardMaterial("", scene);
+                    // this.mesh2.material.wireframe = true;
+                    // this.mesh2.material.diffuseColor = new BABYLON.Color3(1, 1, 0);
+
+                    this.visible(false);
+                    // this.pendown(false);
+                }
+
+                // home
+                hm() {
+                    let v0 = new BABYLON.Vector3(0, 0, 0);
+                    this.setPR(v0, v0);
+                    return this;
+                }
+
+                rotate(dx, dy, dz) {
+                    this.mesh2.rotation.copyFrom(this.mesh1.rotation);
+
+                    this.mesh1.rotation.x += BABYLON.Tools.ToRadians(dx);
+                    this.mesh1.rotation.y += BABYLON.Tools.ToRadians(dy);
+                    this.mesh1.rotation.z += BABYLON.Tools.ToRadians(dz);
+                    return this;
+                }
+
+                forward(d) {
+                    this.mesh2.position = this.mesh1.getAbsolutePosition().clone();
+                    this.mesh1.position.addInPlace(this.mesh1.getDirection(forward).normalize().scale(d))
+
+                    if (this.pen)
+                        BABYLON.MeshBuilder.CreateLines("line1", { points: [this.mesh1.position, this.mesh2.position] });
+
+                    return this;
+                }
+
+                pendown(pen) {
+                    this.pen = pen;
+                    return this;
+                }
+
+                visible(visible) {
+                    this.mesh1.isVisible = visible;
+                    this.mesh2.isVisible = visible;
+                }
+
+                setPR(position, rotation) {
+                    this.mesh1.position.copyFrom(position);
+                    this.mesh1.rotation.copyFrom(rotation);
+
+                    this.mesh2.position.copyFrom(position);
+                    this.mesh2.rotation.copyFrom(rotation);
+
+                    return this;
+                }
+
+                set(t) {
+                    this.mesh1.position.copyFrom(t.mesh1.position);
+                    this.mesh1.rotation.copyFrom(t.mesh1.rotation);
+
+                    this.mesh2.position.copyFrom(t.mesh2.position);
+                    this.mesh2.rotation.copyFrom(t.mesh2.rotation);
+
+                    return this;
+                }
+
+                setPos(x, y, z) {
+                    this.mesh1.position.set(x, y, z);
+                    this.mesh2.position.set(x, y, z);
+                    return this;
+                }
+
+                setRot(x, y, z) {
+                    this.mesh1.rotation.set(x, y, z);
+                    this.mesh2.rotation.set(x, y, z);
+                    return this;
+                }
+
+
+                la(t) {
+                    this.mesh1.lookAt(t.mesh1.position);
+                    return this;
+                }
+
+                fw(d) {
+                    return this.forward(d);
+                }
+
+                bw(d) {
+                    return this.forward(-d);
+                }
+
+                lt(dx, dy) {
+                    return this.rotate(dx, dy, 0);
+                }
+
+                rt(dx, dy) {
+                    return this.rotate(-dx, -dy, 0);
+                }
+
+                pu() {
+                    return this.pendown(false);
+                }
+
+                pd() {
+                    return this.pendown(true);
+                }
+
+
+                di(t) {
+                    let dx = this.mesh1.position.x - t.mesh1.position.x;
+                    let dy = this.mesh1.position.y - t.mesh1.position.y;
+                    let dz = this.mesh1.position.z - t.mesh1.position.z;
+                    return Math.sqrt(dx * dx + dy * dy + dz * dz);
+                }
+
+                to(t) {
+                    return this.la(t).fw(this.di(t));
+                }
+
+
+                fwDistanceTo(t, f) {
+                    this.la(t);
+                    let di = this.di(t);
+                    return this.fw(di * f);
+                }
+            }
+
+
+
+
+
+
+            /*
+            let x1 = ha.mesh1.position.y;
+            let y1 = ha.mesh1.position.z;
+            ha.pu().fw(10);
+            let x2 = ha.mesh1.position.y;
+            let y2 = ha.mesh1.position.z;
+
+
+            let x3 = hb.mesh1.position.y;
+            let y3 = hb.mesh1.position.z;
+            hb.pu().fw(10);
+            let x4 = hb.mesh1.position.y;
+            let y4 = hb.mesh1.position.z;
+
+
+            let iPoint = line_intersect(x1, y1, x2, y2, x3, y3, x4, y4);
+            console.log(JSON.stringify(iPoint))
+            tm.setPos(
+                0,
+                iPoint.x,
+                iPoint.y,
+            );
+            tm.mesh1.scaling.set(2, 2, 2)
+            */
+
+
+            // Open 3D
+            // https://github.com/ccc159/Open3d
+
+
+            let material = new BABYLON.StandardMaterial("", scene);
+            // material.wireframe = true;
+            material.alpha = 0.25;
+            material.pointsCloud = true;
+            material.pointSize = 2;
+
+            let subdivisions = 9;
+
+            let maxSpheres = 7;
+            let spheres = [];
+
+            let t1 = new Turtle(scene);
+            let t2 = new Turtle(scene);
+            let t3 = new Turtle(scene);
+            let tm = new Turtle(scene);
+
+            t1.pu();
+            t2.pu();
+            t3.pu();
+            tm.pu();
+
+            let deform = (sphere1, sphere2) => {
+                t1.setPos(sphere1.position.x, sphere1.position.y, sphere1.position.z);
+                t2.setPos(sphere2.position.x, sphere2.position.y, sphere2.position.z);
+
+                tm.set(t1).fwDistanceTo(t2, 0.5);
+
+                let positions1 = sphere1.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+                let positions2 = sphere2.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+
+                for (let ip = 0; ip < positions1.length; ip += 3) {
+                    t3.setPos(
+                        t1.mesh1.position.x + positions1[ip],
+                        t1.mesh1.position.y + positions1[ip + 1],
+                        t1.mesh1.position.z + positions1[ip + 2]);
+                    let di = t2.di(t3);
+                    if (di < sphere2.radius) {
+                        positions1[ip] = tm.mesh1.position.x - sphere1.position.x;
+                        positions1[ip + 1] = tm.mesh1.position.y - sphere1.position.y;
+                        positions1[ip + 2] = tm.mesh1.position.z - sphere1.position.z;
+                    }
+
+                    t3.setPos(
+                        t2.mesh1.position.x + positions2[ip],
+                        t2.mesh1.position.y + positions2[ip + 1],
+                        t2.mesh1.position.z + positions2[ip + 2]);
+                    di = t1.di(t3);
+                    if (di < sphere1.radius) {
+                        positions2[ip] = tm.mesh1.position.x - sphere2.position.x;
+                        positions2[ip + 1] = tm.mesh1.position.y - sphere2.position.y;
+                        positions2[ip + 2] = tm.mesh1.position.z - sphere2.position.z;
+                    }
+
+                }
+                sphere1.updateVerticesData(BABYLON.VertexBuffer.PositionKind, positions1);
+                sphere2.updateVerticesData(BABYLON.VertexBuffer.PositionKind, positions2);
+            }
+
+            let moveAwayFromMiddle = (sph) => {
+                t1.setPos(sph.position.x, sph.position.y, sph.position.z);
+                t1.la(tm).bw(.25);
+                sph.position.set(t1.mesh1.position.x, t1.mesh1.position.y, t1.mesh1.position.z)
+            }
+
+            let createCutArea = (sphere1, sphere2) => {
+
+                t1.setPos(sphere1.position.x, sphere1.position.y, sphere1.position.z);
+                t2.setPos(sphere2.position.x, sphere2.position.y, sphere2.position.z);
+
+                let d = 0.5 * Math.abs(sphere1.radius - sphere2.radius);
+
+                tm.pd();
+                tm.set(t1);
+                let dist12 = tm.la(t2).di(t2);
+
+                if (dist12 > sphere1.radius + sphere2.radius)
+                    return;
+
+                let dx = 0.5 * dist12
+                let dy = sphere1.radius;
+                let hy = Math.sqrt(dy * dy - dx * dx)
+
+
+                meshGround = BABYLON.MeshBuilder.CreateDisc("ground", { radius: hy }, scene);
+
+                tm.fw(dx);
+                meshGround.position.set(tm.mesh1.position.x, tm.mesh1.position.y, tm.mesh1.position.z)
+
+                tm.lt(90, 0).pd().fw(hy).pu().rt(90, 0)
+                meshGround.rotation.set(tm.mesh1.rotation.x, tm.mesh1.rotation.y, tm.mesh1.rotation.z)
+
+                // tm.set(t1).la(t2).fw(dx).rt(90, 0).pd().fw(hy).pu()
+            }
+
+            for (let i = 0; i < maxSpheres; i++) {
+                let radius = 3;
+                let sph = BABYLON.Mesh.CreateIcoSphere("icosphere", { radius: radius, subdivisions: subdivisions, updatable: true });
+                sph.position.set(
+                    radius * Math.sin(i * 2 * Math.PI / maxSpheres),
+                    radius * Math.cos(i * 2 * Math.PI / maxSpheres),
+                    radius * Math.sin(i * 4 * Math.PI / maxSpheres));
+                sph.radius = radius;
+                sph.material = material;
+                spheres.push(sph);
+            }
+
+
+            for (let i1 = 0; i1 < maxSpheres; i1++) {
+                for (let i2 = 0; i2 < maxSpheres; i2++) {
+                    if (i1 === i2) continue;
+                    createCutArea(spheres[i1], spheres[i2]);
+                }
+            }
+
+            // createCutArea(spheres[0], spheres[1]);
+            // createCutArea(spheres[1], spheres[2]);
+            // createCutArea(spheres[2], spheres[0]);
+
+
+            /*
+    let t = 0;
+    let desiredFps = 1;
+    let interval = 1000 / (10 * desiredFps);
+    let lastTime = performance.now();
+    function loop() {
+        window.requestAnimationFrame(loop)
+        let currentTime = performance.now();
+        const deltaTime = currentTime - lastTime;
+        if (deltaTime > interval) {
+            lastTime = currentTime - (deltaTime % interval);
+            // gameLogic();
+
+
+            spheres.forEach((s) => {
+                s.dispose();
+            })
+
+            spheres = [];
+
+            t += 0.01;
+            for (let i = 0; i < maxSpheres; i++) {
+                let radius = 2; //  + 2 * Math.random();
+                let sph = BABYLON.Mesh.CreateIcoSphere("icosphere", { radius: radius, subdivisions: subdivisions, updatable: true });
+                sph.position.set(
+                    2 * Math.sin(t * (1 + i)),
+                    2 * Math.cos(3 * t * (1 + i)),
+                    2 * Math.sin(2 * t * (1 + i)));
+                sph.radius = radius;
+                sph.material = material;
+                spheres.push(sph);
+            }
+
+
+            for (let i = 1; i < maxSpheres; i++) {
+                deform(spheres[i - 1], spheres[i]);
+            }
+            deform(spheres[0], spheres[maxSpheres - 1]);
+
+            // t += 0.1;
+            // sph1.dispose();
+            // sph1 = BABYLON.Mesh.CreateIcoSphere("icosphere", { radius: radius1, subdivisions: subdivisions, updatable: true });
+            // sph1.position.set(
+            //     1.5 * radius1 + 1 * radius1 * Math.sin(t),
+            //     1.5 * radius1 + 1 * radius1 * Math.cos(t),
+            //     0);
+            // sph1.radius = radius1;
+            // sph1.material = material;
+
+            // sph2.dispose();
+            // sph2 = BABYLON.Mesh.CreateIcoSphere("icosphere", { radius: radius2, subdivisions: subdivisions, updatable: true });
+            // sph2.position.set(0, 0, 0);
+            // sph2.radius = radius2;
+            // sph2.material = material;
+
+            // deform(sph1, sph2);
+            // // oveAwayFromMiddle(sph1);
+            // // oveAwayFromMiddle(sph2);
+        }
+    }
+    loop();
+    */
+
+
+            // const axes = new BABYLON.AxesViewer(scene, .25);
+
+            return scene;
+        };
+
+
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

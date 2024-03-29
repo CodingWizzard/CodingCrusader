@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title></title>
+
+	<!-- jsPanel CSS -->
+	<link href="https://cdn.jsdelivr.net/npm/jspanel4@4.12.0/dist/jspanel.css" rel="stylesheet">
+	<!-- jsPanel JavaScript -->
+	<script src="https://cdn.jsdelivr.net/npm/jspanel4@4.12.0/dist/jspanel.js"></script>
+
+	<!-- optional jsPanel extensions -->
+	<script src="https://cdn.jsdelivr.net/npm/jspanel4@4.12.0/dist/extensions/modal/jspanel.modal.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/jspanel4@4.12.0/dist/extensions/tooltip/jspanel.tooltip.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/jspanel4@4.12.0/dist/extensions/hint/jspanel.hint.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/jspanel4@4.12.0/dist/extensions/layout/jspanel.layout.js"></script>
+	<script
+		src="https://cdn.jsdelivr.net/npm/jspanel4@4.12.0/dist/extensions/contextmenu/jspanel.contextmenu.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/jspanel4@4.12.0/dist/extensions/dock/jspanel.dock.js"></script>
+
+
+    <!-- <link rel="stylesheet" href="https://use.typekit.net/cta4xsb.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" /> -->
+
+    <!--For canvas/code separator-->
+    <!-- <script src="/libs/split.js"></script> -->
+
+
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script> -->
+    <!-- jszip -->
+    <!-- <script src="/libs/jszip.min.js"></script>
+    <script src="/libs/fileSaver.js"></script> -->
+
+    <!-- jQuery -->
+    <!-- <script src="https://code.jquery.com/jquery.js"></script>
+    <script src="https://rawcdn.githack.com/jeromeetienne/jquery-qrcode/master/jquery.qrcode.min.js"></script> -->
+
+    <!-- Dependencies -->
+    <!-- <script src="https://preview.babylonjs.com/ammo.js"></script>
+    <script src="https://preview.babylonjs.com/recast.js"></script>
+    <script src="https://preview.babylonjs.com/cannon.js"></script>
+    <script src="https://preview.babylonjs.com/Oimo.js"></script>
+    <script src="https://preview.babylonjs.com/earcut.min.js"></script> -->
+
+    <!-- Babylon.js -->
+    <script src="https://preview.babylonjs.com/babylon.js"></script>
+    <!-- <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script> -->
+    <!-- <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script> -->
+    <!-- <script src="https://preview.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+    <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://preview.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+    <script src="https://preview.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <script src="https://preview.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+    <script src="https://preview.babylonjs.com/nodeEditor/babylon.nodeEditor.js"></script>
+    <script src="https://preview.babylonjs.com/guiEditor/babylon.guiEditor.js"></script> -->
+
+    <!-- Extensions -->
+    <!-- <script src="https://rawcdn.githack.com/BabylonJS/Extensions/f43ab677b4bca0a6ab77132d3f785be300382760/ClonerSystem/src/babylonx.cloner.js"></script>
+    <script src="https://rawcdn.githack.com/BabylonJS/Extensions/785013ec55b210d12263c91f3f0a2ae70cf0bc8a/CompoundShader/src/babylonx.CompoundShader.js"></script> -->
+
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        #fps {
+            position: absolute;
+            background-color: black;
+            /* border: 2px solid red; */
+            text-align: center;
+            font-size: 16px;
+            color: white;
+            top: 15px;
+            right: 10px;
+            width: 60px;
+            height: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="fps">0</div>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+        let divFps = document.getElementById("fps")
+
+
+
+
+
+        // https://www.babylonjs-playground.com/#6DQK8M#1
+        function create_MultiLineText_Material(scene, box_width, box_height, text, align_h, align_v) {
+
+            // if (box == null)
+            //     return;
+            if (text == null)
+                return;
+            // if (text.length == 0)
+            //     return;
+
+            if (text === " ") text = "."
+
+            // let vectorsWorld = box.getBoundingInfo().boundingBox.vectorsWorld;
+            // let box_width = Number(vectorsWorld[1].x - (vectorsWorld[0].x));
+            // let box_height = Number(vectorsWorld[1].y - (vectorsWorld[0].y));
+
+
+            let const_ClearColor = '#ffffff'; // '#A0DEFF';
+            let fontsize_factor = 1;
+
+            let font_size = 70; // 14
+            let font_name = 'Arial';
+            let color = 'black'
+            let clearColor = const_ClearColor;
+            let x_offset = 5;
+            let y_offset = 5;
+
+            font_size *= fontsize_factor;
+            let font = font_size + 'px ' + font_name;
+
+            let x = x_offset;
+            let y = y_offset + font_size;
+
+            let resolution = 100;
+            let resolution_width = resolution * box_width - x_offset;
+            let resolution_height = resolution * box_height - y_offset;
+            let DTHeight = font_size;
+            let dynamicTexture = null;
+            let mat = null;
+
+            let id = 1;
+
+            dynamicTexture = new BABYLON.DynamicTexture('DynamicTexture_' + id, {
+                width: resolution * box_width,
+                height: resolution * box_height
+            }, scene);
+            mat = new BABYLON.StandardMaterial('mat_' + id, scene);
+            mat.diffuseTexture = dynamicTexture;
+            mat.emissiveColor = new BABYLON.Color3(1, 1, 1); // plane leuchtet selbst
+            let ctx = dynamicTexture.getContext();
+
+
+            let idx_line = 0;
+            let lines = [];
+            lines[idx_line] = [];
+
+            let tokens = text.split(' ');
+            for (let i = 0; i < tokens.length; i++) {
+
+                // skip empty tokens
+                if (tokens[i].trim().length == 0)
+                    continue;
+
+                if (tokens[i] == '<br>') {
+                    idx_line++;
+                    lines[idx_line] = [];
+
+                    x = x_offset;
+                    y += font_size + y_offset;
+                    if (y >= resolution_height)
+                        break;
+                    continue;
+                }
+
+                let temp = new BABYLON.DynamicTexture('DynamicTexture_temp_' + id, {
+                    width: resolution * box_width,
+                    height: resolution * box_height
+                }, scene);
+                let tmpctx = temp.getContext();
+                tmpctx.font = font;
+                let DTWidth = tmpctx.measureText(tokens[i]).width;
+                temp.dispose();
+
+                if (x + DTWidth >= resolution_width) {
+                    idx_line++;
+                    lines[idx_line] = [];
+
+                    x = x_offset;
+                    y += font_size + y_offset;
+
+                    if (y >= resolution_height)
+                        break;
+                }
+
+                lines[idx_line].push({
+                    word: tokens[i],
+                    w: DTWidth,
+                    x: x,
+                    y: y
+                });
+
+                x += DTWidth + x_offset;
+            }
+
+            let y_last = 0;
+            for (let i1 = 0; i1 < lines.length; i1++) {
+                if (lines[i1].length > 0)
+                    if (y_last < lines[i1][lines[i1].length - 1].y)
+                        y_last = lines[i1][lines[i1].length - 1].y;
+            }
+
+
+            // let y_offset = 0;
+            if (align_v == 'center')
+                y_offset = (resolution_height - y_last) / 2;
+            else if (align_v == 'top')
+                y_offset = 0;
+            else if (align_v == 'bottom')
+                y_offset = resolution_height - y_last;
+
+
+            for (let i1 = 0; i1 < lines.length; i1++) {
+
+                if (lines[i1].length <= 0)
+                    continue;
+
+                let x_last = lines[i1][lines[i1].length - 1].x + lines[i1][lines[i1].length - 1].w;
+                let x_offset = 0;
+                if (align_h == 'center')
+                    x_offset = (resolution_width - x_last) / 2;
+                else if (align_h == 'left')
+                    x_offset = 0;
+                else if (align_h == 'right')
+                    x_offset = resolution_width - x_last;
+
+                for (let i2 = 0; i2 < lines[i1].length; i2++) {
+                    dynamicTexture.drawText(lines[i1][i2].word, lines[i1][i2].x + x_offset, lines[i1][i2].y + y_offset,
+                        font, color, clearColor);
+                    clearColor = null;
+                }
+            }
+
+            return mat;
+        }
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+            // scene.clearColor =  BABYLON.Color3.FromHexString('#ffffff')
+            let camera = new BABYLON.ArcRotateCamera("camera1", 0, 0, 0, new BABYLON.Vector3(0, 0, 0), scene);
+            camera.setPosition(new BABYLON.Vector3(0, 0, -30));
+            // let camera = new BABYLON.FreeCamera("", new BABYLON.Vector3(0, 0, -5), scene);
+            // camera.attachControl(canvas, true);
+
+            // let skyLight = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+
+            // let light1 = new BABYLON.SpotLight("spotLight", new BABYLON.Vector3(0, 0, 0), new BABYLON.Vector3(0, 1, 0), Math.PI / 3, 2, scene);
+            // light1.intensity = .5;
+            // light1.diffuse = BABYLON.Color3.FromHexString('#ff9944');   // ff9944
+
+            // let bgcolor = BABYLON.Color3.FromHexString('#333300');
+            // scene.clearColor = bgcolor;
+            // scene.ambientColor = bgcolor;
+            // scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR;
+            // scene.fogColor = bgcolor;
+            // scene.fogDensity = 0.08;
+            // scene.fogStart = 30.0;
+            // scene.fogEnd = 170.0;
+            // scene.gravity = new BABYLON.Vector3(0, -0.9, 0);
+            // scene.gravity = new BABYLON.Vector3(0, 0, 0);
+            // scene.collisionsEnabled = true;
+
+            // scene.fogMode = BABYLON.Scene.FOGMODE_EXP;
+            // //BABYLON.Scene.FOGMODE_NONE;
+            // //BABYLON.Scene.FOGMODE_EXP;
+            // //BABYLON.Scene.FOGMODE_EXP2;
+            // //BABYLON.Scene.FOGMODE_LINEAR;
+
+            // scene.fogColor = new BABYLON.Color3(0.0, 0.23, 0.27);
+            // scene.fogDensity = 0.05;
+
+            // let text1 = new Text(scene, "if you can", 0, 0, 1);
+            // let text2 = new Text(scene, "keep your head", 0, 1, -2);
+
+            // // let light = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            // let light_red = new BABYLON.PointLight("light1", new BABYLON.Vector3(0, 0, -1), scene);
+            // light_red.intensity = 0.3;
+            // light_red.diffuse = new BABYLON.Color3(0.9, 0.1, 0.2);
+
+
+            // let light_white = new BABYLON.PointLight("light1", new BABYLON.Vector3(0, 0, 1), scene);
+            // light_white.intensity = 0.3;
+            // light_white.diffuse = new BABYLON.Color3(1, 1, 1);
+
+            // let bgcolor = BABYLON.Color3.FromHexString('#ffffff');
+
+            // let light_r = new BABYLON.PointLight("light1", new BABYLON.Vector3(0, 0, 0), scene);
+            // light_r.intensity = 0.5;
+            // light_r.diffuse = BABYLON.Color3.FromHexString('#ffffff');
+            // light_r.position.z = -1;
+
+            // let light_g = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            // light_g.intensity = 0.7;
+            // light_g.diffuse = BABYLON.Color3.FromHexString('#00ff00');
+            // light_g.position.z = 0;
+
+            // let light_b = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            // light_b.intensity = 0.7;
+            // light_b.diffuse = BABYLON.Color3.FromHexString('#0000ff');
+            // light_b.position.z = -10;
+
+            let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+            sky.intensity = 0.5;
+            // sky.diffuse = bgcolor;
+
+
+            // let groundMat = new BABYLON.StandardMaterial("gmat", scene);
+            // // groundMat.diffuseTexture = customProcTextmacadam;
+            // // groundMat.diffuseTexture.uScale = 10;
+            // // groundMat.diffuseTexture.vScale = 10;
+            // groundMat.specularPower = 5;
+
+            // let ground = BABYLON.MeshBuilder.CreateBox("", { width: 500, height: 3, depth: 500 }, scene);
+            // ground.position = new BABYLON.Vector3(0, 0, 0);
+            // ground.material = groundMat;
+            // ground.receiveShadows = true;
+            // // ground.position.y = -2;
+            // // ground.physicsImpostor = new BABYLON.PhysicsImpostor(ground, BABYLON.PhysicsImpostor.MeshImpostor, { mass: 0 }, scene);
+
+
+            // let lines =
+            //     "If you can keep your head when all about you Are losing theirs and blaming it on you, If you can trust yourself when all men doubt you, But make allowance for their doubting too; If you can wait and not be tired by waiting, Or being lied about, don’t deal in lies, Or being hated, don’t give way to hating, And yet don’t look too good, nor talk too wise: If you can dream and not make dreams your master; If you can think and not make thoughts your aim; If you can meet with Triumph and Disaster  And treat those two impostors just the same; If you can bear to hear the truth you’ve spoken Twisted by knaves to make a trap for fools, Or watch the things you gave your life to, broken,  And stoop and build ’em up with worn-out tools: If you can make one heap of all your winnings And risk it on one turn of pitch-and-toss, And lose, and start again at your beginnings And never breathe a word about your loss; If you can force your heart and nerve and sinew To serve your turn long after they are gone, And so hold on when there is nothing in you Except the Will which says to them: ‘Hold on!’ If you can talk with crowds and keep your virtue, Or walk with Kings nor lose the common touch, If neither foes nor loving friends can hurt you, If all men count with you, but none too much; If you can fill the unforgiving minute With sixty seconds’ worth of distance run, Yours is the Earth and everything that’s in it, And which is more - you’ll be a Man, my son!";
+            // // let tokens = lines.split(" ");
+
+            // let materials = [];
+            // for (let i = 0; i < lines.length; i++) {
+            //     if (!materials[lines[i]]) {
+            //         materials[lines[i]] = create_MultiLineText_Material(scene, 1, 1, lines[i], "center", "center");
+            //     }
+            // }
+
+            let materials = [];
+            // for (let i = "a".charCodeAt(0); i <= "z".charCodeAt(0); i++) {
+            //     let c = String.fromCharCode(i);
+            //     if (!materials[c]) {
+            //         materials[c] = create_MultiLineText_Material(scene, 1, 1, c, "center", "center");
+            //     }
+            // }
+
+            for (let i = "A".charCodeAt(0); i <= "Z".charCodeAt(0); i++) {
+                let c = String.fromCharCode(i);
+                if (!materials[c]) {
+                    materials[c] = create_MultiLineText_Material(scene, 1, 1, c, "center", "center");
+                }
+            }
+
+            // shadow
+            // let shadowGenerator = new BABYLON.ShadowGenerator(1024, light_r);
+            // shadowGenerator.setDarkness(0.2);
+            // shadowGenerator.usePoissonSampling = true;
+            // shadowGenerator.useBlurVarianceShadowMap = true;
+            // shadowGenerator.blurBoxOffset = 1.0;
+            // shadowGenerator.blurScale = 150.0;
+
+            let diameter = 1;
+            // let spheres = [];
+            // for (let i = 0; i < 10; i++) {
+            //     let sphere = BABYLON.MeshBuilder.CreateSphere("", {
+            //         diameter: diameter,
+            //         segments: 128,
+            //         updatable: true,
+            //         sideOrientation: BABYLON.Mesh.DOUBLESIDE
+            //     }, scene);
+            //     // ground.material = groundMat;
+            //     sphere.position.z = 0;
+            //     // sphere.receiveShadows = true;
+            //     sphere.custom = {
+            //         diameter: diameter
+            //     }
+            //     spheres.push(sphere);
+            // }
+
+            let max = 2;
+
+            // let boxes = [];
+            // for (let i = 0; i < tokens.length; i++) {
+            //     let plane = BABYLON.MeshBuilder.CreatePlane('box', {
+            //         height: diameter * 0.9,
+            //         width: diameter * 0.9,
+            //         sideOrientation: BABYLON.Mesh.DOUBLESIDE
+            //     }, scene);
+            //     plane.material = create_MultiLineText_Material(scene, 1,1, tokens[i], "center", "center");
+
+            //     plane.position.z = 5;
+            //     // shadowGenerator.getShadowMap().renderList.push(plane);
+            //     boxes[i] = plane;
+            // }
+
+            // let x = -max;
+            // let y = max;
+            // let boxes = [];
+            // for (let i = 0; i < lines.length; i++) {
+            //     let plane = BABYLON.MeshBuilder.CreatePlane('box', {
+            //         height: diameter, //  * 0.9,
+            //         width: diameter, //  * 0.9,
+            //         sideOrientation: BABYLON.Mesh.DOUBLESIDE
+            //     }, scene);
+            //     plane.material = materials[lines[i]];
+            //     plane.position.set(x, y, 0);
+
+            //     // plane.position.z = 5;
+            //     // shadowGenerator.getShadowMap().renderList.push(plane);
+            //     boxes[i] = plane;
+
+            //     x++;
+            //     if (x > max) {
+            //         x = -max;
+            //         y--;
+            //     }
+            // }
+
+
+            // canvas.style.cursor = "pointer"
+
+            // scene.registerAfterRender(function () {
+            //     if (canvas.style.cursor == "pointer") {
+            //         canvas.style.cursor = "move";
+            //     }
+            // })  
+
+            let boxes = [];
+            for (let x = -max; x <= max; x++) {
+                boxes[x] = [];
+                for (let y = -max; y <= max; y++) {
+                    let plane = BABYLON.MeshBuilder.CreatePlane('box', {
+                        height: diameter * 0.95,
+                        width: diameter * 0.95,
+                        sideOrientation: BABYLON.Mesh.DOUBLESIDE
+                    }, scene);
+                    plane.material = null; // materials[lines[i]];
+                    plane.position.set(x, y, 0);
+
+
+                    // plane.actionManager = new BABYLON.ActionManager(scene);
+
+                    // //ON MOUSE ENTER
+                    // plane.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOverTrigger, function(ev){	
+                    //     plane.material.emissiveColor = BABYLON.Color3.Blue();
+                    // }));
+
+                    // //ON MOUSE EXIT
+                    // plane.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOutTrigger, function(ev){
+                    //     plane.material.emissiveColor = BABYLON.Color3.Black();
+                    // }));
+
+                    // plane.actionManager = new BABYLON.ActionManager(scene);
+                    // plane.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPointerOverTrigger, function (ev) {
+                    //     plane.material.emissiveColor = BABYLON.Color3.Blue();
+                    //     // scene.hoverCursor = " url('http://jerome.bousquie.fr/BJS/test/viseur.png') 12 12, auto ";
+                    // }));
+
+
+                    // if (Math.random() > 0.9)
+                    //     plane.isVisible = false;
+                    // plane.position.z = 5;
+                    // shadowGenerator.getShadowMap().renderList.push(plane);
+                    boxes[x][y] = plane;
+                }
+            }
+
+
+
+            // let text = "IF YOU CAN KEEP YOUR HEAD WHEN ALL ABOUT YOU ARE LOSING THEIRS AND BLAMING IT ON YOU IF YOU CAN TRUST YOURSELF WHEN ALL MEN DOUBT YOU BUT MAKE ALLOWANCE FOR THEIR DOUBTING TOO IF YOU CAN WAIT AND NOT BE TIRED BY WAITING OR BEING LIED ABOUT DON’T DEAL IN LIES OR BEING HATED DON’T GIVE WAY TO HATING AND YET DON’T LOOK TOO GOOD NOR TALK TOO WISE: IF YOU CAN DREAM AND NOT MAKE DREAMS YOUR MASTER IF YOU CAN THINK AND NOT MAKE THOUGHTS YOUR AIM IF YOU CAN MEET WITH TRIUMPH AND DISASTER AND TREAT THOSE TWO IMPOSTORS JUST THE SAME IF YOU CAN BEAR TO HEAR THE TRUTH YOU’VE SPOKEN TWISTED BY KNAVES TO MAKE A TRAP FOR FOOLS OR WATCH THE THINGS YOU GAVE YOUR LIFE TO BROKEN AND STOOP AND BUILD ’EM UP WITH WORN-OUT TOOLS: IF YOU CAN MAKE ONE HEAP OF ALL YOUR WINNINGS AND RISK IT ON ONE TURN OF PITCH-AND-TOSS AND LOSE AND START AGAIN AT YOUR BEGINNINGS AND NEVER BREATHE A WORD ABOUT YOUR LOSS IF YOU CAN FORCE YOUR HEART AND NERVE AND SINEW TO SERVE YOUR TURN LONG AFTER THEY ARE GONE AND SO HOLD ON WHEN THERE IS NOTHING IN YOU EXCEPT THE WILL WHICH SAYS TO THEM: ‘HOLD ON!’ IF YOU CAN TALK WITH CROWDS AND KEEP YOUR VIRTUE OR WALK WITH KINGS NOR LOSE THE COMMON TOUCH IF NEITHER FOES NOR LOVING FRIENDS CAN HURT YOU IF ALL MEN COUNT WITH YOU BUT NONE TOO MUCH IF YOU CAN FILL THE UNFORGIVING MINUTE WITH SIXTY SECONDS WORTH OF DISTANCE RUN YOURS IS THE EARTH AND EVERYTHING THAT’S IN IT AND WHICH IS MORE YOU’LL BE A MAN MY SON!"
+            let text = "IFYOUCANKEEPYOURHEADWHENALLABOUTYOUARELOSINGTHEIRSANDBLAMINGITONYOUIFYOUCANTRUSTYOURSELFWHENALLMENDOUBTYOUBUTMAKEALLOWANCEFORTHEIRDOUBTINGTOOIFYOUCANWAITANDNOTBETIREDBYWAITINGORBEINGLIEDABOUTDONTDEALINLIESORBEINGHATEDDONTGIVEWAYTOHATINGANDYETDONTLOOKTOOGOODNORTALKTOOWISEIFYOUCANDREAMANDNOTMAKEDREAMSYOURMASTERIFYOUCANTHINKANDNOTMAKETHOUGHTSYOURAIMIFYOUCANMEETWITHTRIUMPHANDDISASTERANDTREATTHOSETWOIMPOSTORSJUSTTHESAMEIFYOUCANBEARTOHEARTHETRUTHYOUVESPOKENTWISTEDBYKNAVESTOMAKEATRAPFORFOOLSORWATCHTHETHINGSYOUGAVEYOURLIFETOBROKENANDSTOOPANDBUILDEMUPWITHWORNOUTTOOLSIFYOUCANMAKEONEHEAPOFALLYOURWINNINGSANDRISKITONONETURNOFPITCHANDTOSSANDLOSEANDSTARTAGAINATYOURBEGINNINGSANDNEVERBREATHEAWORDABOUTYOURLOSSIFYOUCANFORCEYOURHEARTANDNERVEANDSINEWTOSERVEYOURTURNLONGAFTERTHEYAREGONEANDSOHOLDONWHENTHEREISNOTHINGINYOUEXCEPTTHEWILLWHICHSAYSTOTHEMHOLDONIFYOUCANTALKWITHCROWDSANDKEEPYOURVIRTUEORWALKWITHKINGSNORLOSETHECOMMONTOUCHIFNEITHERFOESNORLOVINGFRIENDSCANHURTYOUIFALLMENCOUNTWITHYOUBUTNONETOOMUCHIFYOUCANFILLTHEUNFORGIVINGMINUTEWITHSIXTYSECONDSWORTHOFDISTANCERUNYOURSISTHEEARTHANDEVERYTHINGTHATSINITANDWHICHISMOREYOULLBEAMANMYSON"
+
+            let getRandomMaterial = () => {
+                // let material_key = "A".charCodeAt(0) + Math.floor(("Z".charCodeAt(0) - "A".charCodeAt(0) + 1) * Math.random());
+                let material_key = text[Math.floor(text.length*Math.random())];
+                return materials[material_key]; // String.fromCharCode(material_key)];
+            }
+
+            // test
+            // for (let i = 0; i < 1000; i++) {
+            //     let material_key = "A".charCodeAt(0) + Math.floor(("Z".charCodeAt(0) - "A".charCodeAt(0) + 1) * Math.random());
+            //     console.log(String.fromCharCode(material_key));
+            // }
+
+
+            let plane = BABYLON.MeshBuilder.CreatePlane('box', {
+                height: diameter * 0.95,
+                width: diameter * 0.95,
+                sideOrientation: BABYLON.Mesh.DOUBLESIDE
+            }, scene);
+            plane.material = null; // materials[lines[i]];
+            plane.position.set(-max - 2, 0, 0);
+
+            // let len = Object.keys(materials).length
+            // let material_idx = Math.floor(len*Math.random());
+            // let material_key = "A".charCodeAt(0) + Math.floor( ("Z".charCodeAt(0) - "A".charCodeAt(0)) * Math.random());
+            // plane.material = materials[String.fromCharCode(material_key)];
+            plane.material = getRandomMaterial();
+
+            // let positions = ground.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+            // // let f = .3;
+            // // for (let ip = 0; ip < positions.length; ip += 3) {
+            // //     positions[ip + 0] += f * (0.5 - Math.random());
+            // //     positions[ip + 1] += f * (0.5 - Math.random());
+            // //     positions[ip + 2] += f * (0.5 - Math.random());
+            // // }
+            // for (let ip = 0; ip < positions.length; ip += 3) {
+            //     positions[ip + 0] += 0.5 * (0.5 - Math.random());
+            //     positions[ip + 1] += 0.5 * (0.5 - Math.random());
+            //     positions[ip + 2] += 0.5 * (0.5 - Math.random());
+            // }
+            // ground.updateVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
+            // /**/
+
+
+
+            // let lines = [
+            //     "If you can keep your head when all about you | Are losing theirs and blaming it on you,",
+            //     "If you can trust yourself when all men doubt you, | But make allowance for their doubting too;",
+            //     "If you can wait and not be tired by waiting, | Or being lied about, don’t deal in lies,",
+            //     "Or being hated, don’t give way to hating, | And yet don’t look too good, nor talk too wise:",
+
+            //     "If you can dream and not make dreams your master; | If you can think and not make thoughts your aim;",
+            //     "If you can meet with Triumph and Disaster  | And treat those two impostors just the same;",
+            //     "If you can bear to hear the truth you’ve spoken | Twisted by knaves to make a trap for fools,",
+            //     "Or watch the things you gave your life to, broken,  | And stoop and build ’em up with worn-out tools:",
+
+            //     "If you can make one heap of all your winnings | And risk it on one turn of pitch-and-toss,",
+            //     "And lose, and start again at your beginnings | And never breathe a word about your loss;",
+            //     "If you can force your heart and nerve and sinew | To serve your turn long after they are gone,",
+            //     "And so hold on when there is nothing in you | Except the Will which says to them: ‘Hold on!’",
+
+            //     "If you can talk with crowds and keep your virtue, | Or walk with Kings nor lose the common touch,",
+            //     "If neither foes nor loving friends can hurt you, | If all men count with you, but none too much;",
+            //     "If you can fill the unforgiving minute | With sixty seconds’ worth of distance run,",
+            //     "Yours is the Earth and everything that’s in it, | And which is more — you’ll be a Man, my son!",
+
+            //     "by Rudyard Kipling"
+            // ]
+
+
+            // for (let i = 0; i < letters.length; i++) {
+            //     let c = letters[i].toLowerCase()
+            //     let mesh_letter = new Text(scene, c, 0, 0, 0, null);
+            //     mesh_letters[c] = mesh_letter;
+            // }
+
+            // let plane = BABYLON.MeshBuilder.CreatePlane('box', {
+            //     height: 1.5,
+            //     width: 3 * 1.618,
+            //     sideOrientation: BABYLON.Mesh.DOUBLESIDE
+            // }, scene);
+            // plane.material = create_MultiLineText_Material(scene, plane, "Hello World!", "center", "center");
+            // plane.position.z = 5;
+            // shadowGenerator.getShadowMap().renderList.push(plane);
+
+            function _showAxis(size) {
+                let makeTextPlane = (text, color, size) => {
+                    let dynamicTexture = new BABYLON.DynamicTexture("DynamicTexture", 50, scene, true);
+                    dynamicTexture.hasAlpha = true;
+                    dynamicTexture.drawText(text, 5, 40, "bold 36px Arial", color, "transparent", true);
+                    let plane = new BABYLON.Mesh.CreatePlane("TextPlane", size, scene, true);
+                    plane.material = new BABYLON.StandardMaterial("TextPlaneMaterial", scene);
+                    plane.material.backFaceCulling = false;
+                    plane.material.specularColor = new BABYLON.Color3(0, 0, 0);
+                    plane.material.diffuseTexture = dynamicTexture;
+                    return plane;
+                };
+
+                let axisX = BABYLON.Mesh.CreateLines("axisX", [
+                    new BABYLON.Vector3.Zero(), new BABYLON.Vector3(size, 0, 0), new BABYLON.Vector3(
+                        size * 0.95, 0.05 * size, 0),
+                    new BABYLON.Vector3(size, 0, 0), new BABYLON.Vector3(size * 0.95, -0.05 * size, 0)
+                ], scene);
+                axisX.color = new BABYLON.Color3(1, 0, 0);
+                let xChar = makeTextPlane("X", "red", size / 10);
+                xChar.position = new BABYLON.Vector3(0.9 * size, -0.05 * size, 0);
+                let axisY = BABYLON.Mesh.CreateLines("axisY", [
+                    new BABYLON.Vector3.Zero(), new BABYLON.Vector3(0, size, 0), new BABYLON.Vector3(-
+                        0.05 * size, size * 0.95, 0),
+                    new BABYLON.Vector3(0, size, 0), new BABYLON.Vector3(0.05 * size, size * 0.95, 0)
+                ], scene);
+                axisY.color = new BABYLON.Color3(0, 1, 0);
+                let yChar = makeTextPlane("Y", "green", size / 10);
+                yChar.position = new BABYLON.Vector3(0, 0.9 * size, -0.05 * size);
+                let axisZ = BABYLON.Mesh.CreateLines("axisZ", [
+                    new BABYLON.Vector3.Zero(), new BABYLON.Vector3(0, 0, size), new BABYLON.Vector3(0,
+                        -0.05 * size, size * 0.95),
+                    new BABYLON.Vector3(0, 0, size), new BABYLON.Vector3(0, 0.05 * size, size * 0.95)
+                ], scene);
+                axisZ.color = new BABYLON.Color3(0, 0, 1);
+                let zChar = makeTextPlane("Z", "blue", size / 10);
+                zChar.position = new BABYLON.Vector3(0, 0.05 * size, 0.9 * size);
+            };
+            // _showAxis(10);
+
+
+            /*  
+                let x = -max;
+                let y = max;
+    
+                let getNextCell = () => {
+                    // x++;
+                    // if (x > max) {
+                    //     x = -max;
+                    //     y--;
+                    // }
+                    //     // if (y < -max)
+                    //     //     y = max;
+                    // }
+    
+                    // if (boxes[x][y].isVisible) return;
+    
+    
+                    for (let y1 = y; y1 >= -max; y1--) {
+                        for (let x1 = x+1; x1 <= max; x1++) {
+                            if (boxes[x1][y1].isVisible) {
+    
+                                if (x1 > max) x1 = max;
+                                if (y1 > max) y1 = max;
+    
+                                x = x1;
+                                y = y1;
+                                return;
+                            }
+                        }
+                        x=-max-1;
+                    }
+    
+                    if (x<-max) x = -max;
+                    if (x>max) x = max;
+                }
+    
+                let inputMap = {};
+                scene.actionManager = new BABYLON.ActionManager(scene);
+                scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger,
+                    function (evt) {
+                        inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+                    }));
+                scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyUpTrigger,
+                    function (evt) {
+                        inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+                    }));
+    
+                scene.onBeforeRenderObservable.add(() => {
+    
+                    for (let key in inputMap) {
+                        // console.log(key, inputMap[key]);
+                        if (inputMap[key]) {
+                            boxes[x][y].material = materials[key];
+                            inputMap[key] = false;
+    
+                            getNextCell();
+                            // x++;
+                            // if (x > max) {
+                            //     x = -max;
+                            //     y--;
+                            //     if (y < -max)
+                            //         y = max;
+                            // }
+                        }
+                    }
+    
+    
+                    // for (let i = 0; i < inputMap.length; i++) {
+                    //     if (materials[inputMap[i]]) {
+                    //         boxes[x][y].material = materials[inputMap[i]];
+                    //         x++;
+                    //         if (x > max) {
+                    //             x = -max;
+                    //             y--;
+                    //             if (y < -max)
+                    //                 y = max;
+                    //         }
+                    //     }
+                    // }
+                })
+                */
+
+
+
+            // let hit = (x, y, position, size) => {
+            //     return x >= position.x - size * 0.5 && x <= position.x + size * 0.5 &&
+            //         y >= position.y - size * 0.5 && y <= position.y + size * 0.5
+            // }
+
+            // let hit = (x, y, position, size) => {
+            //     return x >= position.x - size && x <= position.x + size &&
+            //         y >= position.y - size && y <= position.y + size
+            // }
+
+
+            let t = 0;
+            let gameLogic = () => {
+
+                t += 0.001;
+                // lightSphere.position.x += 0.01 * Math.sin(t);
+                // lightSphere.position.y += 0.01 * Math.sin(t);
+                // lightSphere.position.z += 0.01 * Math.cos(t);
+                // light.position = lightSphere.getAbsolutePosition();
+                // light.intensity = 0.5 + Math.random() * 0.05;
+
+
+                // spheres.forEach((sphere, index) => {
+                //     sphere.position.x = (index * 0.5 + 3) * Math.sin(t + index);
+                //     sphere.position.y = (index * 0.5 + 3) * Math.cos(t + index);
+                //     // sphere.position.z += 0;
+                // });
+
+
+
+
+                // light_r.position.x += 0.1 * Math.sin(t * 1);
+                // light_r.position.y += 0.1 * Math.sin(t);
+                // light_r.position.z += 0.1 * Math.cos(t);
+
+                // light_g.position.x += 0.1 * Math.sin(t * 2);
+                // light_g.position.y += 0.1 * Math.sin(t);
+                // light_g.position.z += 0.1 * Math.cos(t);
+
+                // light_b.position.x += 0.1 * Math.sin(t * 3);
+                // light_b.position.y += 0.1 * Math.sin(t);
+                // light_b.position.z += 0.1 * Math.cos(t);
+
+
+                // let idx = 0;
+                // for (let x = -max; x < max; x++) {
+                //     for (let y = -max; y < max; y++) {
+
+                //         let hited = false;
+                //         spheres.forEach((sphere) => {
+                //             if (hit(y, -x, sphere.position, sphere.custom.diameter)) {
+                //                 hited = true;
+                //                 return false;
+                //             }
+                //         });
+
+                //         if (!hited) {
+                //             if (idx < tokens.length) {
+                //                 if (tokens[idx] === "<br>") {
+                //                     // y++;
+                //                     // x= 0;
+                //                 }
+                //                 else {
+                //                     boxes[idx].position.set(y, -x, 0);
+                //                 }
+
+                //                 idx++;
+                //                 // boxes[idx].isVisible = true;
+                //             }
+                //         }
+                //     }
+                // }
+
+                //     x = -max;
+                //     y = max;
+                //     for (let i = 0; i < tokens.length; i++) {
+
+                //         let hited = false;
+                //         spheres.forEach((sphere) => {
+                //             if (hit(x, y, sphere.position, sphere.custom.diameter)) {
+                //                 hited = true;
+                //                 return false;
+                //             }
+                //         });
+
+                //         if (!hited) {
+                //             if (tokens[i] === "<br>") {
+                //                 // debugger;
+                //                 y--;
+                //                 x = -max;
+                //                 continue;
+                //             } else {
+                //                 // boxes[i].position.set(y, -x, 0);
+                //                 boxes[i].position.set(x, y, 0);
+                //             }
+                //         }
+
+                //     x ++;
+                //     if (x > max) {
+                //         x = -max;
+                //         y --;
+                //     }
+                //     // if (y > max)
+
+                // }
+                // boxes.forEach((box, index) => {
+
+
+
+                //     // box.position.z += speed;
+                //     // if (box.position.z > 1) {
+                //     //     box.rotation.x += 0.005;
+                //     //     box.rotation.y += 0.005;
+                //     //     box.rotation.z += 0.005;
+                //     //     box.position.y += 0.01;
+                //     // }
+                // })
+
+
+                // for (let i = 0; i < lines.length; i++) {
+                //     boxes[i].material = materials[lines[iStart + i]];
+                // }
+
+                // iStart += 1;
+                // if (iStart >= lines.length -1)
+                //     iStart = 0;
+
+            }
+
+				jsPanel.create({
+				headerTitle: 'demo panel',
+				theme: 'dark',
+				content: '<p style="text-align:center;">A simple demo panel.</p>'
+			});
+
+            let desiredFps = 60;
+            let interval = 1000 / (10 * desiredFps);
+            let lastTime = performance.now();
+
+            function loop() {
+                // divFps.innerHTML = engine.getFps().toFixed() + " fps";
+                window.requestAnimationFrame(loop)
+                let currentTime = performance.now();
+                const deltaTime = currentTime - lastTime;
+
+                if (deltaTime > interval) {
+                    lastTime = currentTime - (deltaTime % interval);
+                    gameLogic();
+                }
+            }
+            loop();
+
+
+            // let mousePoint_old = new BABYLON.Vector3(scene.pointerX, scene.pointerY, 0);
+            // let mesh_mouse_clicked = null;
+            scene.onPointerObservable.add(onPointer)
+
+            function onPointer(pointerInfo) {
+                if (pointerInfo.type == BABYLON.PointerEventTypes.POINTERDOWN) {
+                    if (pointerInfo.pickInfo.hit) {
+                        if (!pointerInfo.pickInfo.pickedMesh.material) {
+                            pointerInfo.pickInfo.pickedMesh.material = plane.material;
+                            plane.material = getRandomMaterial();
+                        }
+
+                        // mesh_mouse_clicked = pointerInfo.pickInfo.pickedMesh
+                        // mesh_mouse_clicked.position.z = 10;
+                    }
+                } else if (pointerInfo.type == BABYLON.PointerEventTypes.POINTERMOVE) {
+
+                    // let point_mouse = new BABYLON.Vector3(0, 0, 0);
+                    // let mousePoint = getWorldPoint();
+                    // point_mouse.set(mousePoint.x, mousePoint.y, 0);
+
+                    // // boxes.forEach((box) => {
+                    // //     // box.position.x += 2 * (mousePoint_old.x - point_mouse.x);
+                    // //     // box.position.y += 2 * (mousePoint_old.y - point_mouse.y);
+                    // // })
+                    // mousePoint_old.set(mousePoint.x, mousePoint.y, 0)
+
+                    // // camera.alpha = (mousePoint_old.x - point_mouse.x);
+                    // // camera.beta = (mousePoint_old.y - point_mouse.y);
+                    // camera.rotation.z += (mousePoint_old.x - point_mouse.x)
+
+                    // camera.upVector.x = (mousePoint_old.x - point_mouse.x)/100;
+
+
+                    // if (mesh_mouse_clicked) {
+                    //     let point_mouse = new BABYLON.Vector3(0, 0, 0);
+                    //     let mousePoint = getWorldPoint();
+                    //     point_mouse.set(mousePoint.x, mousePoint.y, 0);
+
+                    //     mesh_mouse_clicked.position.x = -point_mouse.x;
+                    //     mesh_mouse_clicked.position.y = -point_mouse.y;
+
+                    //     // mesh_mouse_clicked.rotation.x += Math.PI*0.125;
+                    //     // mesh_mouse_clicked.rotation.y += Math.PI*0.125;
+                    //     // mesh_mouse_clicked.rotation.z += Math.PI*0.125;
+                    // }
+                } else if (pointerInfo.type == BABYLON.PointerEventTypes.POINTERUP) {
+                    // mesh_mouse_clicked.position.z = 20;
+                    // mesh_mouse_clicked.rotation.z += Math.PI*0.125;
+                    // mesh_mouse_clicked = null;
+                }
+            }
+
+            const getWorldPoint = () => {
+                const point = BABYLON.Vector3.Unproject(
+                    new BABYLON.Vector3(scene.pointerX, scene.pointerY, 0),
+                    engine.getRenderWidth(),
+                    engine.getRenderHeight(),
+                    BABYLON.Matrix.Identity(),
+                    scene.getViewMatrix(),
+                    scene.getProjectionMatrix()
+                );
+                point.x *= point.z;
+                point.y *= point.z;
+                point.z = 0;
+
+                return point;
+            };
+
+
+            return scene;
+        };
+
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

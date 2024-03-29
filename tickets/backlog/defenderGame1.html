@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>thin instance wrapper</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/cannon.js"></script>
+    <!-- <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script> -->
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+
+        /*
+            let radius = .5;
+            let size = 3;
+    
+            class Waves {
+                constructor(scene) {
+    
+                    let pcs = new BABYLON.PointsCloudSystem("pcs", size, scene);
+    
+                    let time = 0;
+                    let factor = 50;
+    
+                    let p = new BABYLON.Vector3(0, 0, 0);
+                    let i = new BABYLON.Vector3(0, 0, 0);
+                    let c = new BABYLON.Vector3(0, 0, 0);
+    
+                    pcs.recycleParticle = (particle) => {
+                        particle.color.set(1, 1, 1);
+    
+                        particle.x = Math.PI * Math.random();
+                        particle.y = Math.PI * Math.random();
+                        particle.z = Math.PI * Math.random();
+                    };
+    
+                    pcs.addPoints(10000, pcs.recycleParticle);
+                    pcs.buildMeshAsync();
+    
+                    pcs.updateParticle = (particle) => {
+    
+                        p.x = particle.x;
+                        p.y = particle.y;
+                        p.z = particle.z;
+    
+                        let letime = time * .5 + 23.0;
+    
+                        i.x = p.x;
+                        i.y = p.y;
+                        i.z = p.z;
+                        for (let n = 0; n < 5; n++) {
+                            let t = letime * (1.0 - (.01 / (n + 1)));
+                            i.x = p.x + Math.cos(t - i.x) + Math.sin(t + i.y);
+                            i.y = p.y + Math.sin(t - i.y) + Math.cos(t + i.x);
+                            i.z = p.y + Math.sin(t - i.x) + Math.cos(t + i.z);
+                        }
+    
+                        particle.position.x = factor * i.x;
+                        particle.position.y = factor * i.y;
+                        particle.position.z = factor * i.z;
+    
+                        c.x = BABYLON.Scalar.RangeToPercent(i.x, 0, Math.PI);
+                        c.y = BABYLON.Scalar.RangeToPercent(i.y, 0, Math.PI);
+                        c.z = BABYLON.Scalar.RangeToPercent(i.z, 0, Math.PI);
+    
+                        particle.color.set(c.x, c.y, c.z);
+                    };
+    
+    
+                    scene.registerAfterRender(() => {
+                        pcs.setParticles();
+                        time += .01;
+                    });
+                }
+            }
+            */
+
+
+        let createScene = function () {
+            let max = 5*5;
+            let mesh_size = 1;
+            let max_players = 3;
+            let max_oponents = 25;
+            let max_bullets_player = 25;
+            let max_bullets_oponent = 25;
+            let max_stones = 5;
+            let fOponentAgression = 0.9998;
+
+            let scene = new BABYLON.Scene(engine);
+            let bgcolor = BABYLON.Color3.FromHexString('#ffffff'); // #333333');
+            scene.clearColor = bgcolor;
+            // scene.ambientColor = bgcolor;
+            // scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR;
+            // scene.fogColor = bgcolor;
+            // scene.fogDensity = 0.03;
+            // scene.fogStart = 10.0;
+            // scene.fogEnd = 200.0;
+
+            
+            let camera = new BABYLON.FreeCamera("Camera", new BABYLON.Vector3(0, 0, 100), scene);
+            camera.setTarget(BABYLON.Vector3.Zero());
+            // camera.attachControl(canvas, true);
+
+            let light1 = new BABYLON.SpotLight("spotLight", new BABYLON.Vector3(0, 0, 0), new BABYLON.Vector3(0, 1, 0), Math.PI / 3, 2, scene);
+            light1.intensity = .5;
+            light1.diffuse = BABYLON.Color3.FromHexString('#ff9944');   // ff9944
+
+            let light2 = new BABYLON.SpotLight("spotLight", new BABYLON.Vector3(0, 0, 0), new BABYLON.Vector3(0, -1, 0), Math.PI / 3, 2, scene);
+            light2.intensity = .5;
+            light2.diffuse = BABYLON.Color3.FromHexString('#992244');
+
+            let light3 = new BABYLON.SpotLight("spotLight", new BABYLON.Vector3(0, 0, 0), new BABYLON.Vector3(0, -1, 0), Math.PI / 3, 2, scene);
+            light3.intensity = .1;
+            light3.diffuse = BABYLON.Color3.FromHexString('#99ff44');
+
+            let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+            sky.intensity = .7;
+            sky.diffuse = bgcolor;
+
+            // let lightSphere = BABYLON.Mesh.CreateSphere("sphere1", 16, 0.1, scene);
+            // let lightSphereMat = new BABYLON.StandardMaterial("mat", scene);
+            // lightSphere.material = lightSphereMat;
+            // lightSphereMat.emissiveColor = BABYLON.Color3.Yellow();
+            // lightSphereMat.linkEmissiveWithDiffuse = true;
+            // lightSphere.position.y = .0;
+
+            // light.parent = lightSphere
+
+            let shadowGenerator = new BABYLON.ShadowGenerator(1024, light3);
+            shadowGenerator.setDarkness(0.2);
+            shadowGenerator.usePoissonSampling = true;
+            shadowGenerator.useBlurVarianceShadowMap = true;
+            shadowGenerator.blurBoxOffset = 1.0;
+            shadowGenerator.blurScale = 150.0;
+            // shadowGenerator.bias = 0.00001;
+
+            // new Waves(scene);
+
+
+
+
+            let materialPlayer = new BABYLON.StandardMaterial("", scene);
+            materialPlayer.diffuseColor = new BABYLON.Color3(0, 1, 1);
+
+            let materialOponent = new BABYLON.StandardMaterial("", scene);
+            materialOponent.diffuseColor = new BABYLON.Color3(1, 0, 0);
+
+            let materialBossOponent = new BABYLON.StandardMaterial("", scene);
+            materialBossOponent.diffuseColor = new BABYLON.Color3(1, 1, 1);
+
+            let materialStone = new BABYLON.StandardMaterial("", scene);
+            materialStone.diffuseColor = new BABYLON.Color3(1, 1, 0);
+
+            let materialBullet_Player = new BABYLON.StandardMaterial("", scene);
+            materialBullet_Player.diffuseColor = new BABYLON.Color3(1, 0, 1);
+
+            let materialBullet_Oponent = new BABYLON.StandardMaterial("", scene);
+            materialBullet_Oponent.diffuseColor = new BABYLON.Color3(1, 0.5, 0);
+
+            let materialGround = new BABYLON.StandardMaterial("", scene);
+            materialGround.diffuseColor = new BABYLON.Color3(1, 1, 1); // (0.5,0.5,0.5);
+
+            let materialFlyer = new BABYLON.StandardMaterial("", scene);
+            materialFlyer.diffuseColor = new BABYLON.Color3(.5, .5, .5);
+
+
+
+            class WindAccelerator {
+                constructor(scene, material, x, y, z) {
+                    this.mesh = BABYLON.MeshBuilder.CreateBox("", { width: 1, height: 1, depth: 1 }, scene);
+                    shadowGenerator.getShadowMap().renderList.push(this.mesh);
+                    this.mesh.material = material;
+                    this.mesh.position.set(x, y, z); // 50);
+                    let f = 15;
+                    // this.mesh.position.set(0.5 * f - 0 * Math.random(), 0.5 * f - f * Math.random(), 0.5 * f - f * Math.random())
+                    // this.pos = new BABYLON.Vector3(0.5*f - f*Math.random(), 0.5*f - f*Math.random(), 0.5*f - f*Math.random());
+                    this.pos = new BABYLON.Vector3(0, 0, 0);
+                    this.pos.copyFrom(this.mesh.position)
+                    this.delta = new BABYLON.Vector3(0, 0, 0);
+                    this.acc = new BABYLON.Vector3(0, 0, 0);
+
+                    this.time = 0
+                    scene.registerAfterRender(() => {
+                        this.delta.x = 0.01 * (this.mesh.position.x - this.pos.x);
+                        if (Math.abs(this.delta.x) > 0) {
+                            this.mesh.position.x += this.acc.x;
+                            this.acc.x -= this.delta.x;
+                            this.acc.x *= 0.98;
+                        }
+
+                        this.delta.y = 0.01 * (this.mesh.position.y - this.pos.y);
+                        if (Math.abs(this.delta.y) > 0) {
+                            this.mesh.position.y += this.acc.y;
+                            this.acc.y -= this.delta.y;
+                            this.acc.y *= 0.98;
+                        }
+
+                        this.delta.z = 0.01 * (this.mesh.position.z - this.pos.z);
+                        if (Math.abs(this.delta.z) > 0) {
+                            this.mesh.position.z += this.acc.z;
+                            this.acc.z -= this.delta.z;
+                            this.acc.z *= 0.98;
+                        }
+
+
+                        this.mesh.rotation.copyFrom(this.mesh.position);
+
+                        this.pos.x += .4 * (0.5 * Math.random() - Math.random()) * Math.sin(this.time)
+                        this.pos.y += .4 * (0.5 * Math.random() - Math.random()) * Math.cos(this.time)
+                        this.pos.z += .4 * (0.5 * Math.random() - Math.random()) * Math.sin(this.time)
+                        this.time += 0.01;
+                    });
+                }
+            }
+
+            for (let i1 = 0; i1 < 5; i1++) {
+                for (let i2 = 0; i2 < 5; i2++) {
+                    new WindAccelerator(scene, materialFlyer, 10 * Math.random(), 10 * Math.random(), 100 * Math.random());
+                }
+            }
+
+
+            let maxWall = max*1.5;
+            let sizeWall = maxWall*2;
+            let ground = BABYLON.MeshBuilder.CreateBox("", { width: sizeWall, height: 2, depth: sizeWall }, scene);
+            ground.position.set(0, -maxWall, 0);
+            ground.material = materialGround;
+            ground.receiveShadows = true;
+
+            let wall1 = BABYLON.MeshBuilder.CreateBox("", { width: 2, height: sizeWall, depth: sizeWall }, scene);
+            wall1.position.set(-maxWall, 0, 0);
+            wall1.material = materialGround;
+            wall1.receiveShadows = true;
+
+            let wall2 = BABYLON.MeshBuilder.CreateBox("", { width: 2, height: sizeWall, depth: sizeWall }, scene);
+            wall2.position.set(maxWall , 0, 0);
+            wall2.material = materialGround;
+            wall2.receiveShadows = true;
+
+            let wall3 = BABYLON.MeshBuilder.CreateBox("", { width: sizeWall, height: sizeWall, depth: 2 }, scene);
+            wall3.position.set(0, 0, -maxWall);
+            wall3.material = materialGround;
+            wall3.receiveShadows = true;
+
+            let wall4 = BABYLON.MeshBuilder.CreateBox("", { width: sizeWall, height: 2, depth: sizeWall }, scene);
+            wall4.position.set(0, maxWall, 0);
+            wall4.material = materialGround;
+            wall4.receiveShadows = true;
+
+
+
+            let inputMap = {};
+            scene.actionManager = new BABYLON.ActionManager(scene);
+            scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, function (evt) {
+                inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+            }));
+            scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyUpTrigger, function (evt) {
+                inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+            }));
+
+
+            let PLAYER = 1
+            let OPONENT = 2
+            let BOSS_OPONENT = 3
+            let BULLET_PLAYER = 4
+            let BULLET_OPONENT = 5
+            let WALL = 6
+            let STONE = 7
+
+            let createMesh = (size) => {
+                let mesh = BABYLON.MeshBuilder.CreateBox("", { size: mesh_size }, scene);
+                shadowGenerator.getShadowMap().renderList.push(mesh);
+                return mesh;
+            }
+
+            let gameover = false;
+            let player_fired = false;
+            let oponent_fired = false;
+            let oponent_killed = 0;
+            let meshes = []
+            let m = null;
+
+            for (let i = 0; i < max_players; i++) {
+                m = BABYLON.MeshBuilder.CreateBox("", { size: mesh_size }, scene);
+                meshes.push(m)
+                m.material = materialPlayer;
+                m.position.set(i * 2, 0, 0);
+                m.custom = {
+                    type: PLAYER,
+                    active: false,
+                    dead: false,
+                    index: i,
+                    counter: 0,
+                    delta: { x: 0.0, y: 0.0, z: 0 },
+                    rotate: { x: 0., y: 0.1, z: 0 }
+                }
+            }
+
+            m.custom.active = true;
+            m.position.set(0, -max, 0);
+            let mesh_player = m
+            light1.parent = mesh_player;
+            light2.parent = mesh_player;
+
+
+            // for (let i = 0; i < 3; i++) {
+            m = BABYLON.MeshBuilder.CreateBox("", { size: mesh_size }, scene);
+            meshes.push(m)
+            m.material = materialBossOponent;
+            m.position.set(0, max, 0);
+            m.custom = {
+                type: BOSS_OPONENT,
+                active: true,
+                index: 0,
+                counter: 0,
+                delta: { x: 0.1, y: 0.0, z: 0 },
+                rotate: { x: 0.01, y: 0.0, z: 0.0 }
+            }
+
+            // if (i == 1) {
+            m.scaling.set(2, 2, 2)
+            m.custom.rotate = { x: 0.01, y: 0.01, z: 0.01 }
+            light3.parent = m;
+            let mesh_bossoponent = m;
+            // }
+            // }
+
+
+
+            for (let i = 0; i < max_bullets_player; i++) {
+                m = createMesh();
+                meshes.push(m)
+                m.material = materialBullet_Player;
+                m.position.set(0, 0, 0);
+                m.position.set(max + 4, i * 2, 0);
+                m.custom = {
+                    type: BULLET_PLAYER,
+                    active: false,
+                    counter: 1,
+                    index: i,
+                    delta: { x: 0.1, y: 0, z: 0 },
+                    rotate: { x: 0.1 * (0.5 - Math.random()), y: 0.1 * (0.5 - Math.random()), z: 0.1 }
+                }
+            }
+
+            for (let i = 0; i < max_bullets_oponent; i++) {
+                m = createMesh();
+                meshes.push(m)
+                m.material = materialBullet_Oponent;
+                m.position.set(-max - 4, i * 2, 0);
+                m.custom = {
+                    type: BULLET_OPONENT,
+                    active: false,
+                    counter: 1,
+                    index: i,
+                    delta: { x: 0.1, y: 0, z: 0 },
+                    rotate: { x: 0.1 * (0.5 - Math.random()), y: 0.1 * (0.5 - Math.random()), z: 0.1 }
+                }
+            }
+
+            for (let x = -max * 0.5; x < 0.5 * max; x++) {
+                for (let y = 0; y < 5; y++) {
+                    m = createMesh();
+                    meshes.push(m)
+                    m.material = materialStone;
+                    m.position.set(x * 2, -max * 0.5 + y * 2, 0);
+                    m.custom = {
+                        type: STONE,
+                        active: true,
+                        counter: 10,
+                        delta: { x: 0, y: 0, z: 0 },
+                        rotate: { x: 0.1 * (0.5 - Math.random()), y: 0.1 * (0.5 - Math.random()), z: 0.1 }
+                    }
+                }
+            }
+
+
+            for (let i = 0; i < max_oponents; i++) {
+                m = createMesh();
+                meshes.push(m)
+                m.material = materialOponent;
+                m.position.set(0, max * 0.5, 0);
+                m.custom = {
+                    type: OPONENT,
+                    active: true,
+                    counter: 1,
+                    index: i,
+                    delta: { x: (0.5 - Math.random()), y: (0.5 - Math.random()), z: 0 },
+                    rotate: { x: 0.1 * (0.5 - Math.random()), y: 0.1 * (0.5 - Math.random()), z: 0.1 }
+                }
+            }
+
+
+            meshes.forEach((mesh) => {
+                mesh.custom.position = {x: mesh.position.x, y: mesh.position.y, z: mesh.position.z}
+            })
+
+            let behaves = []
+
+            behaves.push((m) => {
+                if (m.custom.active) return;
+
+                if (m.custom.type === BULLET_PLAYER)
+                    m.position.set(-max - 4, max - m.custom.index * 2, 0);
+
+                else if (m.custom.type === BULLET_OPONENT)
+                    m.position.set(max + 4, max - m.custom.index * 2, 0);
+
+                // else if (m.custom.type === OPONENT)
+                //     m.position.set(max - m.custom.index * 2, max + 4, 0);
+
+                // else if (m.custom.type === STONE)
+                //     m.position.y = -max - 4;
+
+                else if (m.custom.type === PLAYER)
+                    m.position.set(max - m.custom.index * 2, -max - 6, 0);
+
+
+                else if (m.custom.type === OPONENT || m.custom.type === STONE) {
+                    m.position.y -= .5;
+
+                    if (m.position.y < -max - 8) {
+                        m.position.y = -max - 8;
+                    }
+                    else {
+                        m.position.z -= 0.1;
+                        if (m.position.z > max - 10)
+                            m.position.z = max - 10;
+                    }
+
+
+                }
+            })
+
+            behaves.push((m) => {
+                if (gameover) return;
+                if (!m.custom.active) return;
+
+                meshes.forEach((mesh) => {
+                    if (mesh.custom.type === BULLET_PLAYER && !mesh.custom.active) {
+                        if (player_fired) {
+                            player_fired = false;
+                            mesh.position.x = mesh_player.position.x;
+                            mesh.position.y = mesh_player.position.y;
+                            mesh.position.z = mesh_player.position.z;
+
+                            mesh.custom.delta.x = 0; //  Math.sign(mp.custom.delta.x);
+                            mesh.custom.delta.y = 1; // Math.sign(mp.custom.delta.y);
+                            mesh.custom.delta.z = 0; // Math.sign(mp.custom.delta.z);
+                            mesh.custom.active = true;
+                            return true;
+                        }
+                    }
+
+
+                    if (mesh.custom.type === BULLET_OPONENT && !mesh.custom.active) {
+
+                        if (m.custom.type === OPONENT && Math.random() > fOponentAgression) {
+                            mesh.position.x = m.position.x;
+                            mesh.position.y = m.position.y;
+                            mesh.position.z = m.position.z;
+                            mesh.custom.delta.x = 0.4 * (0.5 - Math.random());
+                            mesh.custom.delta.y = -1; // 0.8*(0.5-Math.random());
+                            mesh.custom.delta.z = 0;
+                            mesh.custom.active = true;
+                            return true;
+                        }
+                    }
+
+                })
+            })
+
+
+            behaves.push((m) => {
+                if (gameover) {
+                    m.custom.delta.x *= 0.99;
+                    m.custom.delta.y *= 0.99;
+                    m.custom.delta.z *= 0.99;
+
+                    m.rotation.x *= 0.99;
+                    m.rotation.y *= 0.99;
+                    m.rotation.z *= 0.99;
+                    return;
+                }
+
+                if (!m.custom.active) return;
+                if (m.custom.type === WALL) return;
+
+                meshes.forEach((mesh) => {
+                    if (mesh === m) return true;
+
+                    let dx = mesh.position.x - m.position.x;
+                    let dy = mesh.position.y - m.position.y;
+                    let dz = mesh.position.z - m.position.z;
+                    let dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                    if (dist < mesh_size) {
+                        if (m.custom.type === OPONENT && mesh.custom.type === PLAYER) {
+                            m.custom.active = false;
+                            mesh.custom.active = false;
+                            mesh.custom.dead = true;
+                            mesh.scaling.set(1, 0.5, 1);
+                            gameover = true;
+                            return true;
+                        }
+                        if (m.custom.type === BULLET_OPONENT && mesh.custom.type === PLAYER) {
+                            m.custom.active = false;
+                            mesh.custom.active = false;
+                            mesh.custom.dead = true;
+                            mesh.scaling.set(1, 0.5, 1);
+                            gameover = true;
+                            return true;
+                        }
+                        if (m.custom.type === STONE && mesh.custom.type === PLAYER) {
+                            m.custom.active = false;
+                            mesh.custom.active = false;
+                            mesh.custom.dead = true;
+                            mesh.scaling.set(1, 0.5, 1);
+                            gameover = true;
+                            return true;
+                        }
+
+                        if (m.custom.type === BULLET_PLAYER && mesh.custom.type === OPONENT) {
+                            if (mesh.custom.active) {
+                                oponent_killed++;
+                                if (oponent_killed >= max_oponents)
+                                    gameover = true;
+                            }
+
+                            m.custom.active = false;
+                            mesh.custom.active = false;
+                            return true;
+                        }
+                        if (m.custom.type === STONE && mesh.custom.type === OPONENT) {
+                            mesh.custom.delta = { x: (0.5 - Math.random()), y: (0.5 - Math.random()), z: 0 }
+                            return true;
+                        }
+
+
+                        if (m.custom.type === BULLET_PLAYER && mesh.custom.type === BOSS_OPONENT) {
+                            if (mesh.custom.active) {
+                                mesh.scaling.set(5, 5, 5)
+                                // todo: gameover = true;
+                            }
+
+                            m.custom.active = false;
+                            mesh.custom.active = false;
+                            return true;
+                        }
+
+                        if (m.custom.type === BULLET_PLAYER && mesh.custom.type === STONE) {
+                            m.custom.active = false;
+                            mesh.custom.active = false;
+                        }
+
+                        if (m.custom.type === BULLET_OPONENT && mesh.custom.type === STONE) {
+                            m.custom.active = false;
+                            mesh.custom.active = false;
+                        }
+
+                        if (m.custom.type === BULLET_PLAYER && mesh.custom.type === BULLET_OPONENT) {
+                            m.custom.active = false;
+                            mesh.custom.active = false;
+                        }
+
+
+                    }
+
+                })
+            })
+
+            let time = 0;
+            behaves.push((m) => {
+                if (!m.custom.active) return;
+
+                m.rotation.x += m.custom.rotate.x;
+                m.rotation.y += m.custom.rotate.y;
+                m.rotation.z += m.custom.rotate.z;
+
+                m.position.x += m.custom.delta.x;
+                m.position.y += m.custom.delta.y;
+                m.position.z += m.custom.delta.z;
+
+                if (m.custom.type == PLAYER) {
+                    m.custom.delta.x *= 0.9;
+                    m.custom.delta.y *= 0.9;
+                    m.custom.delta.z *= 0.9;
+
+                    if (m.position.x < -max)
+                        m.position.x = -max;
+                    if (m.position.x > max)
+                        m.position.x = max;
+
+                    if (m.position.y < -max)
+                        m.position.y = -max;
+                    if (m.position.y > max)
+                        m.position.y = max;
+                }
+
+                if (m.position.x > max || m.position.x < -max) {
+                    m.custom.delta.x *= -1;
+
+                    if (m.custom.counter === 0) return;
+                    m.custom.counter--;
+                    if (m.custom.counter <= 0) {
+                        if (m.custom.type === BULLET_PLAYER || m.custom.type === BULLET_OPONENT) {
+                            m.custom.active = false;
+                        }
+                        m.custom.counter = 1;
+                    }
+                }
+
+                if (m.position.y > max || m.position.y < -max) {
+                    m.custom.delta.y *= -1;
+
+                    if (m.custom.counter === 0) return;
+                    m.custom.counter--;
+                    if (m.custom.counter <= 0) {
+                        if (m.custom.type === BULLET_PLAYER || m.custom.type === BULLET_OPONENT) {
+                            m.custom.active = false;
+                        }
+                        m.custom.counter = 1;
+                    }
+                }
+            })
+
+
+            behaves.push((m) => {
+                if (!m.custom.active) return;
+                if (m.custom.type !== PLAYER) return;
+
+                if (inputMap["a"] || inputMap["ArrowLeft"]) {
+                    m.custom.delta.x = .4;
+                    m.custom.delta.y = 0;
+                }
+                else if (inputMap["d"] || inputMap["ArrowRight"]) {
+                    m.custom.delta.x = -.4;
+                    m.custom.delta.y = 0;
+                }
+
+                if (inputMap["w"] || inputMap["ArrowUp"]) {
+                    m.custom.delta.x = 0;
+                    m.custom.delta.y = 0.4;
+                }
+
+                else if (inputMap["x"] || inputMap["ArrowDown"]) {
+                    m.custom.delta.x = 0;
+                    m.custom.delta.y = -0.4;
+                }
+
+                else if (inputMap[" "]) {
+                    player_fired = true;
+                }
+
+                if (Math.random() > 0.92)
+                    oponent_fired = true;
+
+            })
+
+            behaves.push((m) => {
+                if (m.custom.type !== PLAYER) return;
+                if (m.custom.active) return;
+                if (m.custom.dead) return;
+                // if (!m.custom["dead"] === null) return;
+
+                let s = 1 + 0.25 * Math.sin(time);
+                m.scaling.set(s, s, s)
+            })
+
+            scene.registerAfterRender(function () {
+
+                meshes.forEach((mesh) => {
+                    behaves.forEach((behave) => {
+                        behave(mesh)
+                    });
+                })
+
+                time += 0.1;
+            })
+
+
+            scene.onPointerObservable.add(onPointer)
+            function onPointer(pointerInfo) {
+                if (pointerInfo.type == BABYLON.PointerEventTypes.POINTERDOWN) {
+                    player_fired = true;
+                }
+            }
+
+            scene.onPointerDown = function (evt, pickResult) {
+                if (pickResult.hit) {
+                    let mesh = pickResult.pickedMesh;
+                    if (!mesh) return;
+                    if (!gameover) return;
+
+                    if (mesh.custom.type === PLAYER) {
+                        if (mesh.custom.dead) return;
+                        mesh.custom.active = true;
+                        mesh.position.set(0, -max, 0);
+                        mesh_player = mesh;
+                        light1.parent = mesh_player;
+                        light2.parent = mesh_player;
+
+                        gameover = false;
+                        oponent_killed = 0;
+
+                        mesh_bossoponent.scaling.set(2, 2, 2)
+
+                        meshes.forEach((mesh) => {
+                            if (mesh.custom.type === STONE) {
+                                mesh.position.set(mesh.custom.position.x,mesh.custom.position.y,mesh.custom.position.z)
+                                mesh.custom.active = true;
+                            }
+                            else if (mesh.custom.type === OPONENT) {                                
+                                // mesh.position.set(0.5 * max - max * Math.random(), 0.5 * max - max * Math.random(), 0);
+                                mesh.position.set(mesh.custom.position.x,mesh.custom.position.y,mesh.custom.position.z)
+                                mesh.custom.delta = { x: 0.25 * (0.5 - Math.random()), y: 0.25 * (0.5 - Math.random()), z: 0 }
+                                mesh.custom.active = true;
+                            }
+
+                        })
+                    }
+                }
+            }
+
+            return scene;
+        }
+
+
+
+
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

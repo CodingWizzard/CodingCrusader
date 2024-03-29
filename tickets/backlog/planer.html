@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Resource Planer</title>
+
+    <script src="https://preview.babylonjs.com/babylon.js"></script>
+    <script src="https://preview.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        class Controller_Planer {
+            constructor(params) {
+                this.params = { ...params };
+                this.params.model = new Model_Planer();
+                this.view = new View_Planer(this.params);
+
+                this.state = this.state_idle;
+            }
+
+            state_idle() {
+            }
+
+            state_start() {
+                this.state = this.state_running;
+            }
+
+            state_stop() {
+                this.state = this.state_idle;
+            }
+
+            state_running() {
+            }
+
+            update() {
+                this.state();
+            }
+        }
+
+        class Model_Planer {
+            constructor() {
+                this.data = {}
+
+                this.data["COLS"] =
+                    ["BACKLOG", "TODO", "TIME", "MA01", "MA02", "MA03", "MA04", "MA05", "TODO", "TIME", "MA06", "MA07", "MA08", "MA09", "MA10"];
+
+                this.data["ROWS"] = [
+                    ["", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+                    ["AG01", "", "01.01.20 10:00", "AG01", "FREE", "FREE", "FREE", "FREE", "", "01.01.20 10:00", "AG05", "FREE", "FREE", "FREE", "FREE"],
+                    ["AG01", "", "01.01.20 11:00", "AG01", "FREE", "FREE", "FREE", "FREE", "", "01.01.20 11:00", "AG05", "FREE", "FREE", "FREE", "FREE"],
+                    ["AG01", "", "01.01.20 12:00", "OFF", "OFF", "OFF", "OFF", "OFF", "", "01.01.20 12:00", "OFF", "OFF", "OFF", "OFF", "OFF"],
+                    ["AG01", "", "01.01.20 13:00", "AG02", "OFF", "AG03", "OFF", "OFF", "", "01.01.20 13:00", "OFF", "OFF", "AG03", "OFF", "OFF"],
+                    ["AG02", "", "01.01.20 14:00", "AG02", "FREE", "AG03", "FREE", "AG04", "", "01.01.20 14:00", "AG05", "FREE", "AG03", "FREE", "AG04"],
+                    ["AG02", "", "01.01.20 15:00", "FREE", "FREE", "AG03", "FREE", "AG04", "", "01.01.20 15:00", "FREE", "FREE", "AG03", "FREE", "AG04"],
+                    ["AG02", "", "01.01.20 16:00", "FREE", "FREE", "FREE", "FREE", "FREE", "", "01.01.20 16:00", "FREE", "FREE", "FREE", "FREE", "FREE"],
+
+                    ["", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+                    ["AG02", "", "02.01.20 10:00", "AG01", "FREE", "FREE", "FREE", "FREE", "", "02.01.20 10:00", "AG05", "FREE", "FREE", "FREE", "FREE"],
+                    ["AG03", "", "02.01.20 11:00", "AG01", "FREE", "FREE", "FREE", "FREE", "", "02.01.20 11:00", "AG05", "FREE", "FREE", "FREE", "FREE"],
+                    ["AG03", "", "02.01.20 12:00", "OFF", "OFF", "OFF", "OFF", "OFF", "", "02.01.20 12:00", "OFF", "OFF", "OFF", "OFF", "OFF"],
+                    ["AG03", "", "02.01.20 13:00", "AG02", "OFF", "AG03", "OFF", "OFF", "", "02.01.20 13:00", "OFF", "OFF", "AG03", "OFF", "OFF"],
+                    ["AG04", "", "02.01.20 14:00", "AG02", "FREE", "AG03", "FREE", "AG04", "", "02.01.20 14:00", "AG05", "FREE", "AG03", "FREE", "AG04"],
+                    ["", "", "02.01.20 15:00", "FREE", "FREE", "AG03", "FREE", "AG04", "", "02.01.20 15:00", "FREE", "FREE", "AG03", "FREE", "AG04"],
+                    ["", "", "02.01.20 16:00", "FREE", "FREE", "FREE", "FREE", "FREE", "", "02.01.20 16:00", "FREE", "FREE", "FREE", "FREE", "FREE"],
+
+                    ["", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+                    ["", "", "03.01.20 10:00", "AG01", "FREE", "FREE", "FREE", "FREE", "", "03.01.20 10:00", "AG05", "FREE", "FREE", "FREE", "FREE"],
+                    ["", "", "03.01.20 11:00", "AG01", "FREE", "FREE", "FREE", "FREE", "", "03.01.20 11:00", "AG05", "FREE", "FREE", "FREE", "FREE"],
+                    ["", "", "03.01.20 12:00", "OFF", "OFF", "OFF", "OFF", "OFF", "", "03.01.20 12:00", "OFF", "OFF", "OFF", "OFF", "OFF"],
+                    ["", "", "03.01.20 13:00", "AG02", "OFF", "AG03", "OFF", "OFF", "", "03.01.20 13:00", "OFF", "OFF", "AG03", "OFF", "OFF"],
+                    ["", "", "03.01.20 14:00", "AG02", "FREE", "AG03", "FREE", "AG04", "", "03.01.20 14:00", "AG05", "FREE", "AG03", "FREE", "AG04"],
+                    ["", "", "03.01.20 15:00", "FREE", "FREE", "AG03", "FREE", "AG04", "", "03.01.20 15:00", "FREE", "FREE", "AG03", "FREE", "AG04"],
+                    ["", "", "03.01.20 16:00", "FREE", "FREE", "FREE", "FREE", "FREE", "", "03.01.20 16:00", "FREE", "FREE", "FREE", "FREE", "FREE"]
+
+                    ["", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+                ]
+            }
+        }
+
+        class View_Planer {
+            constructor(params) {
+                this.params = { ...params };
+                this.createPlaner()
+            }
+
+            create_MultiLineText_Material(box, text, align_h, align_v) {
+
+                if (box == null)
+                    return;
+                if (text == null)
+                    return;
+                if (text.length == 0)
+                    return;
+
+
+                var vectorsWorld = box.getBoundingInfo().boundingBox.vectorsWorld;
+                var box_width = Number(vectorsWorld[1].x - (vectorsWorld[0].x));
+                var box_height = Number(vectorsWorld[1].y - (vectorsWorld[0].y));
+
+                var const_ClearColor = '#A0DEFF';
+                var fontsize_factor = 1;
+
+                var font_size = 44;
+                var font_name = 'Arial';
+                var color = 'black'
+                var clearColor = const_ClearColor;
+                var x_offset = 5;
+                var y_offset = 5;
+
+                font_size *= fontsize_factor;
+                var font = font_size + 'px ' + font_name;
+
+                var x = x_offset;
+                var y = y_offset + font_size;
+
+                var resolution = 100;
+                var resolution_width = resolution * box_width - x_offset;
+                var resolution_height = resolution * box_height - y_offset;
+                var DTHeight = font_size;
+                var dynamicTexture = null;
+                var mat = null;
+
+                var id = 1;
+
+                dynamicTexture = new BABYLON.DynamicTexture('DynamicTexture_' + id, {
+                    width: resolution * box_width,
+                    height: resolution * box_height
+                }, this.params.scene);
+                mat = new BABYLON.StandardMaterial('mat_' + id, this.params.scene);
+                mat.diffuseTexture = dynamicTexture;
+                // mat.emissiveColor = new BABYLON.Color3(255, 0, 0); // plane leuchtet selbst
+                var ctx = dynamicTexture.getContext();
+
+
+                var idx_line = 0;
+                var lines = [];
+                lines[idx_line] = [];
+
+                var tokens = text.split(' ');
+                for (var i = 0; i < tokens.length; i++) {
+
+                    // skip empty tokens
+                    if (tokens[i].trim().length == 0)
+                        continue;
+
+                    if (tokens[i] == '<br>') {
+                        idx_line++;
+                        lines[idx_line] = [];
+
+                        x = x_offset;
+                        y += font_size + y_offset;
+                        if (y >= resolution_height)
+                            break;
+                        continue;
+                    }
+
+                    var temp = new BABYLON.DynamicTexture('DynamicTexture_temp_' + id, {
+                        width: resolution * box_width,
+                        height: resolution * box_height
+                    }, this.params.scene);
+                    var tmpctx = temp.getContext();
+                    tmpctx.font = font;
+                    var DTWidth = tmpctx.measureText(tokens[i]).width;
+                    temp.dispose();
+
+                    if (x + DTWidth >= resolution_width) {
+                        idx_line++;
+                        lines[idx_line] = [];
+
+                        x = x_offset;
+                        y += font_size + y_offset;
+
+                        if (y >= resolution_height)
+                            break;
+                    }
+
+                    lines[idx_line].push({ word: tokens[i], w: DTWidth, x: x, y: y });
+
+                    x += DTWidth + x_offset;
+                }
+
+                var y_last = 0;
+                for (var i1 = 0; i1 < lines.length; i1++) {
+                    if (lines[i1].length > 0)
+                        if (y_last < lines[i1][lines[i1].length - 1].y)
+                            y_last = lines[i1][lines[i1].length - 1].y;
+                }
+
+
+                var y_offset = 0;
+                if (align_v == 'center')
+                    y_offset = (resolution_height - y_last) / 2;
+                else if (align_v == 'top')
+                    y_offset = 0;
+                else if (align_v == 'bottom')
+                    y_offset = resolution_height - y_last;
+
+
+                for (var i1 = 0; i1 < lines.length; i1++) {
+
+                    if (lines[i1].length <= 0)
+                        continue;
+
+                    var x_last = lines[i1][lines[i1].length - 1].x + lines[i1][lines[i1].length - 1].w;
+                    var x_offset = 0;
+                    if (align_h == 'center')
+                        x_offset = (resolution_width - x_last) / 2;
+                    else if (align_h == 'left')
+                        x_offset = 0;
+                    else if (align_h == 'right')
+                        x_offset = resolution_width - x_last;
+
+                    for (var i2 = 0; i2 < lines[i1].length; i2++) {
+                        dynamicTexture.drawText(lines[i1][i2].word, lines[i1][i2].x + x_offset, lines[i1][i2].y + y_offset, font, color, clearColor);
+                        clearColor = null;
+                    }
+                }
+
+                return mat;
+            }
+
+            attachOwnPointerDragBehavior(mesh, width, depth) {
+                // Create pointerDragBehavior in the desired mode
+                var pointerDragBehavior = new BABYLON.PointerDragBehavior({ dragPlaneNormal: new BABYLON.Vector3(0, 1, 0) });
+
+                // If handling drag events manually is desired, set move attached to false
+                pointerDragBehavior.moveAttached = false;
+
+                // Use drag plane in world space
+                pointerDragBehavior.useObjectOrienationForDragging = false;
+
+                // Listen to drag events
+                pointerDragBehavior.onDragStartObservable.add((event) => {
+                    console.log("startDrag");
+                    pointerDragBehavior.attachedNode.position.y = 0.25
+                })
+                pointerDragBehavior.onDragObservable.add((event) => {
+                    console.log("drag");
+
+                    //attachedNode could be also mesh here again...
+                    pointerDragBehavior.attachedNode.position.x += event.delta.x;
+                    pointerDragBehavior.attachedNode.position.z += event.delta.z;
+                })
+                pointerDragBehavior.onDragEndObservable.add((event) => {
+                    pointerDragBehavior.attachedNode.position.y = 0
+                    pointerDragBehavior.attachedNode.position.x = Math.floor((pointerDragBehavior.attachedNode.position.x + width / 2) / width) * width
+                    pointerDragBehavior.attachedNode.position.z = Math.floor((pointerDragBehavior.attachedNode.position.z + depth / 2) / depth) * depth
+
+                    console.log("endDrag");
+                })
+
+                mesh.addBehavior(pointerDragBehavior);
+            }
+
+            createPlaner() {
+                let dimFactor = 2
+                let width = dimFactor * 2
+                let height = dimFactor * 0.05
+                let depth = dimFactor * 0.5
+
+                let plane_width = width
+                let plane_height = depth
+
+                let offset = dimFactor * 0.01
+
+                let x = 0;
+                let z = 0;
+
+                // let matGround = new BABYLON.StandardMaterial("mat", this.params.scene);
+                // matGround.emissiveColor = BABYLON.Color3.Green();
+
+                // let ground = BABYLON.Mesh.CreateGround("", 34, 12, 2, this.params.scene);
+                // ground.material = matGround;
+                // ground.position.y = -height/2;
+
+                for (let indexCol in this.params.model.data["COLS"]) {
+                    let box = BABYLON.MeshBuilder.CreateBox("", { width: width - offset, height: height - offset, depth: depth - offset }, this.params.scene, true);
+                    box.position.x = x;
+                    box.position.z = -z;
+
+                    let plane = BABYLON.MeshBuilder.CreatePlane("", { width: plane_width - offset, height: plane_height - offset }, this.params.scene);
+                    plane.material = this.create_MultiLineText_Material(plane, this.params.model.data["COLS"][indexCol], 'center', 'center');
+                    plane.parent = box;
+                    plane.position.y = height / dimFactor + offset;
+                    plane.rotation.x = Math.PI / 2
+
+                    x += width;
+                }
+
+                z += depth;
+                for (let indexRow in this.params.model.data["ROWS"]) {
+                    x = 0;
+                    for (let indexCol in this.params.model.data["ROWS"][indexRow]) {
+                        let box = BABYLON.MeshBuilder.CreateBox("", { width: width - offset, height: offset, depth: depth - offset }, this.params.scene, true);
+                        box.position.x = x;
+                        box.position.z = -z;
+                        box.position.y = -height / dimFactor + offset
+
+                        if (this.params.model.data["ROWS"][indexRow][indexCol] !== "FREE" &&
+                            this.params.model.data["ROWS"][indexRow][indexCol] !== "") {
+                            let box = BABYLON.MeshBuilder.CreateBox("", { width: width - offset, height: height - offset, depth: depth - offset }, this.params.scene, true);
+                            box.position.x = x;
+                            box.position.z = -z;
+                            box.data = { col: indexCol, row: indexRow, x: box.position.x, z: box.position.z }
+
+                            let plane = BABYLON.MeshBuilder.CreatePlane("", { width: plane_width - offset, height: plane_height - offset }, this.params.scene);
+                            plane.material = this.create_MultiLineText_Material(plane, this.params.model.data["ROWS"][indexRow][indexCol], 'left', 'center');
+                            plane.parent = box;
+                            plane.position.y = height / dimFactor + offset;
+                            plane.rotation.x = Math.PI / 2
+
+                            if (this.params.model.data["COLS"] !== "TIME" &&
+                                this.params.model.data["COLS"] !== "TODO") {
+                                if (this.params.model.data["ROWS"][indexRow][indexCol] !== "OFF") {
+                                    // this.params.model.data["ROWS"][indexRow][indexCol] === "BACKLOG") {
+                                    // onPointerDownObservable
+                                    this.attachOwnPointerDragBehavior(box, width, depth);
+                                    // }
+                                }
+                            }
+                        }
+
+                        x += width;
+                    }
+                    z += depth;
+                }
+            }
+        }
+
+
+
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+            let light = new BABYLON.HemisphericLight("", new BABYLON.Vector3(0.1, 0.1, .1), scene);
+            var camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, 0, 40, new BABYLON.Vector3(4, 0, 0), scene);
+
+            camera.panningSensibility = 120;
+            camera.attachControl(canvas, true);
+            camera.upperBetaLimit = null;
+            camera.lowerBetaLimit = null;
+
+            let params = { scene: scene };
+            let controller_Planer = new Controller_Planer(params);
+            controller_Planer.state = controller_Planer.state_start;
+
+            scene.registerBeforeRender(function () {
+                controller_Planer.update();
+            });
+
+            scene.onPointerDown = function (evt, pickResult) {
+                if (pickResult.hit) {
+                    console.log("hit")
+                    camera.detachControl(canvas);
+                }
+                else {
+                    console.log("no hit")
+                    camera.attachControl(canvas, true);
+                }
+            };
+
+            return scene;
+        }
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

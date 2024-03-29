@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>ben hur portal</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <!-- <script src="https://cdn.babylonjs.com/cannon.js"></script> -->
+    <!-- <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+    <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script> -->
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        // 30.03.21 Necip's Renderer
+
+        let canvas = document.getElementById("renderCanvas");
+
+
+
+        // https://forum.babylonjs.com/t/babylon-js-big-bang/3689
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+
+            let bgcolor = BABYLON.Color3.FromHexString('#000000');
+            scene.clearColor = bgcolor;
+            scene.ambientColor = bgcolor;
+
+            let camera = new BABYLON.ArcRotateCamera("camera", BABYLON.Tools.ToRadians(90), BABYLON.Tools.ToRadians(40+100), 10, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+
+            let light = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 0, 0), scene);
+
+
+            //Create a custom mesh  
+            let customMesh = new BABYLON.Mesh("custom", scene);
+            customMesh.computeWorldMatrix();
+            customMesh.isPickable = false;
+
+            let pointsCount = 4000;
+
+            let positions = new Array(3 * pointsCount);
+            let colors = new Array(4 * pointsCount);
+
+            positions.fill(0);
+            colors.fill(0);
+
+            let vertexData = new BABYLON.VertexData();
+
+            //Assign positions
+            vertexData.positions = positions;
+            vertexData.colors = colors;
+
+            //Apply vertexData to custom mesh
+            vertexData.applyToMesh(customMesh, true);
+
+            let mat = new BABYLON.StandardMaterial("mat", scene);
+            mat.emissiveColor = new BABYLON.Color3(1, 1, 1);
+            mat.disableLighting = true;
+            mat.pointsCloud = true;
+            mat.pointSize = 5;
+            customMesh.material = mat;
+
+            let f = 0.05;
+            // let x = 0;
+            // let y = 0;
+            // let z = 0;
+            // let p = 0;
+            // let c = 0;
+
+            let p = 0;
+            let max = Math.floor(Math.sqrt(pointsCount));
+            for (let x = 0; x < max; x++) {            
+                for (let y = 0; y < max; y++) {
+                    positions[3 * p    ] = x*f;
+                    positions[3 * p + 1] = y*f;
+                    positions[3 * p + 2] = 0;
+
+                    colors[4 * p    ] = 1;
+                    colors[4 * p + 1] = 1;
+                    colors[4 * p + 2] = 1;
+                    colors[4 * p + 3] = 0;
+
+                    p ++;
+                }
+            }
+           
+            
+            let clamp = (x,a,b) => { return Math.max( a, Math.min(x, b) )};
+
+
+            // http://glslsandbox.com/e#65593.0
+            let iTime = 0.0;
+            function mainImage(fragCoord)
+            {
+                let time = 0.0;
+                // let mouse = new BABYLON.Vector2(0,0);
+                let iResolution = new BABYLON.Vector2(max,max);
+                let spectrum = 0.0;
+                let TAU = 6.28318530718;
+                let MAX_ITER = 5;
+                let uv = new BABYLON.Vector2(0,0);
+                let p = new BABYLON.Vector2(0,0);
+                let i = new BABYLON.Vector2(0,0);
+                
+                time = iTime * .2 + 23.0;
+                uv.x = fragCoord.x / iResolution.x;
+                uv.y = fragCoord.y / iResolution.y;
+
+                p.x = (uv.x*TAU % TAU) - 250.0; // mod(uv * TAU, TAU) - 250.0  ;
+                p.y = (uv.y*TAU % TAU) - 250.0; 
+
+                i.x = p.x;
+                i.y = p.y;
+                let c = 1.0;
+                let inten =  0.005;
+
+                for (let n = 0; n < MAX_ITER; n++) {
+                    let t = time * (1.0 - (3.5 / (n + 1)));
+                    
+                    // i = p + vec2(cos(t - i.x) + sin(t + i.y), sin(t - i.y) + cos(t + i.x));
+
+                    i.x = p.x + Math.cos(t - i.x) + Math.sin(t + i.y);
+                    i.y = p.y + Math.sin(t - i.y) + Math.cos(t + i.x);
+
+                    // c += 1.0 / length(vec2(p.x / (sin(i.x + t) / inten + spectrum), p.y / (cos(i.y + t) / inten)));
+
+                    let c1x = p.x / (Math.sin(i.x + t) / inten + spectrum);
+                    let c1y = p.y / (Math.cos(i.y + t) / inten);
+                    let len = Math.sqrt(c1x*c1x + c1y*c1y)
+                    c += 1.0 / len;
+                }
+
+                c /= (MAX_ITER);
+                c = 1.17-Math.pow(c, 1.4);
+                
+                let col = Math.pow(Math.abs(c), 8.0);
+                // let colour = {x:col, y:col, z:col};
+                // colour.x = clamp(colour.x + spectrum, 0.0, 1.0);
+                // colour.y = clamp(colour.y + spectrum, 0.0, 1.0);
+                // colour.z = clamp(colour.z + spectrum, 0.0, 1.0);
+
+                // fragColor = vec4(colour, 1.0);// + texture(iChannel0,uv);
+                return col;
+            }
+
+
+            // void main( void ) {
+
+            //     mainImage(gl_FragColor, gl_FragCoord.xy);
+            // }
+
+
+
+
+            let render = () => {
+
+                colors.fill(0.1);
+                let yold = 0;
+                for (let x = 0; x < max; x++) {            
+                    for (let y = 0; y < max; y++) {
+                        p = Math.floor(x*max + y);
+                        
+                        let color = mainImage({x:x, y:y});
+                        colors[4 * p    ] = color;  // red
+                        colors[4 * p + 1] = color;
+                        colors[4 * p + 2] = color;
+                        colors[4 * p + 3] = 0;
+                    }    
+                }
+
+
+                customMesh.updateVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
+                customMesh.updateVerticesData(BABYLON.VertexBuffer.ColorKind, colors);
+            }
+
+            render();
+
+            
+            scene.registerAfterRender(function () {
+                render();
+
+                iTime += 0.1;
+            })
+
+            return scene;
+        }
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

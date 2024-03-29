@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>waveanimation</title>
+
+    <!-- Babylon.js -->
+    <!-- <script src="https://preview.babylonjs.com/babylon.js"></script> -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        #fps {
+            position: absolute;
+            background-color: black;
+            /* border: 2px solid red; */
+            text-align: center;
+            font-size: 16px;
+            color: white;
+            top: 15px;
+            right: 10px;
+            width: 60px;
+            height: 20px;
+        }
+    </style>
+
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+
+            // Kamera erstellen
+            var camera = new BABYLON.ArcRotateCamera("Camera", 0, 0, 250, new BABYLON.Vector3(0, 0, 0), scene);
+            camera.attachControl(canvas, true);
+
+            // Licht hinzufügen
+            var light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+
+            let skyLight = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+            skyLight.intensity = 0.80;
+
+
+
+            var mat = new BABYLON.StandardMaterial("mat1", scene);
+            mat.alpha = 1;
+            mat.diffuseColor = new BABYLON.Color3(0.8, 0.8, 1.0);
+            mat.backFaceCulling = false
+            mat.wireframe = true;
+            // mat.pointsCloud = true;
+            mat.pointSize = 1;
+
+
+            // Wellenmesh erstellen
+            var ground = BABYLON.MeshBuilder.CreateGround("ground", { updatable: true, width: 100, height: 100, subdivisions: 64 * 2 }, scene);
+            ground.material = mat;
+
+            // Wellenparameter
+            var amplitude = 1;    // 0.5
+            var wavelength = 15.0;
+            var direction = new BABYLON.Vector2(1, 1);
+            var speed = 0.2;
+
+            // Animation erstellen
+            scene.registerBeforeRender(function () {
+                var time = performance.now() / 1000.0;
+                var positions = ground.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+                var indices = ground.getIndices();
+
+                for (var i = 0; i < positions.length; i += 3) {
+                    var x = positions[i];
+                    var y = positions[i + 1];
+                    var z = positions[i + 2];
+
+                    // Berechne die Höhe der Welle an dieser Position
+                    var height = amplitude * gerstnerWave(x, z, time, wavelength, direction, speed);
+
+                    // Setze die Höhe des Punkts im Mesh auf die berechnete Höhe
+                    positions[i + 1] = height;
+
+
+                    time += 0.0001;
+                    // amplitude = 2 + 2 * Math.sin(0.1 * time + Math.cos(0.5 * time));
+                    // speed = 2 * Math.sin(0.1 * time + Math.cos(0.5 * time));
+                    // wavelength = 2 + 2 * Math.sin(0.1 * time);
+                }
+
+                // Aktualisiere die Positionen im Mesh
+                ground.updateVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
+
+
+            });
+
+
+            function dotProduct(vector1, vector2) {
+                return vector1.x * vector2.x + vector1.y * vector2.y;
+            }
+
+            // Gerstner-Wellenfunktion
+            function gerstnerWave(x, z, t, wavelength, direction, speed) {
+                var k = 2 * Math.PI / wavelength;
+                var w = Math.sqrt(9.81 * k);
+                var dirVector = new BABYLON.Vector2(direction.x, direction.y);
+                // var phi = k * dirVector.dot(new BABYLON.Vector2(x, z)) - w * t;
+                var phi = k * dotProduct(dirVector, new BABYLON.Vector2(x, z)) - w * t;
+                var A = amplitude / k;
+
+                // return A * Math.cos(phi);
+                return A * Math.cos(phi + x * z);
+            }
+
+            return scene;
+        }
+
+
+
+
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

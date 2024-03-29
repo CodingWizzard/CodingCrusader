@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>blume fraktal</title>
+    <meta charset="UTF-8">
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        #fps {
+            position: absolute;
+            background-color: black;
+            /* border: 2px solid red; */
+            text-align: center;
+            font-size: 16px;
+            color: white;
+            top: 15px;
+            right: 10px;
+            width: 60px;
+            height: 20px;
+        }
+    </style>
+
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+        let engine = new BABYLON.Engine(canvas, true);
+
+
+        // Inspired by
+        // https://www.youtube.com/watch?v=mzizK6ms-gY&ab_channel=Brainxyz
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+
+            let pmax = 80;
+            let pmax2 = pmax * 0.5;
+            let tmax = 30;
+            let dmax = pmax * 0.25;
+
+            const camera = new BABYLON.ArcRotateCamera("Camera",
+                BABYLON.Tools.ToRadians(90),
+                BABYLON.Tools.ToRadians(90 + 45),
+                pmax * 5, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+
+            var light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.position = new BABYLON.Vector3(20, 150, 70);
+            light.intensity = 0.7;
+
+            const points = [];
+            const colors = [];
+
+            for (y = -pmax; y <= pmax; y++) {
+                dy = y / pmax2 // + 0.3
+                for (x = -pmax; x <= pmax; x++) {
+                    dx = x / pmax2 // - 0.3
+                    for (z = -pmax; z <= pmax; z++) {
+                        dz = z / pmax2 // - 0.3
+                        a = dx
+                        b = dy
+                        c = dz
+                        for (t = 1; t < tmax; t++) {  // 200
+                            d = (a * a) - (b * b) - (c * c) + dx * dz
+                            b = 2 * (a * b * c) + dy * dz
+                            a = d
+                            if (d > dmax) {
+                                // cut object vertically
+                                if (x + y + z > pmax * 0.5)
+                                    break;
+
+                                points.push(new BABYLON.Vector3(x, y, z));
+                                t /= tmax;
+                                colors.push(new BABYLON.Color4(t * x / pmax, t * y / pmax, t, 1));
+
+                                break
+                            }
+                        }
+                    }
+                }
+            }
+
+            var pcs = new BABYLON.PointsCloudSystem("pcs", 3, scene);
+
+            var initParticles = function (particle, i, s) {
+                particle.position = points[i];
+                particle.color = colors[i];
+            };
+            pcs.addPoints(points.length, initParticles);
+            pcs.buildMeshAsync();
+
+
+            pcs.updateParticle = function (particle) {
+                let c = funcColor(particle.position.x, particle.position.y);
+                particle.color.set(c.r, c.g, c.b, c.a);
+            };
+
+            return scene;
+        }
+
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            scene.render();
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>

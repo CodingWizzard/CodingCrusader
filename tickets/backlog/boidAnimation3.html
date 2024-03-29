@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Soft Cloth Simulator</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+
+        // https://playground.babylonjs.com/#CGSXR
+
+
+        const createScene = async function () {
+            var scene = new BABYLON.Scene(engine);
+
+            const havokInstance = await HavokPhysics();
+            const hk = new BABYLON.HavokPlugin(true, havokInstance);
+            scene.enablePhysics(new BABYLON.Vector3(0, 0, 0), hk);
+
+
+            scene.createDefaultCameraOrLight(true, true, true);
+            scene.activeCamera.radius = 50;
+            scene.activeCamera.beta = Math.PI * 0.5;
+
+            var gl = new BABYLON.GlowLayer("glow", scene);
+            gl.intensity = .5;
+
+
+            let matCustomMesh = new BABYLON.StandardMaterial("mat", scene);
+            matCustomMesh.emissiveColor = BABYLON.Color3.White();
+            matCustomMesh.alpha = 0.5;
+            matCustomMesh.backFaceCulling = false;
+            // matCustomMesh.wireframe = true;
+
+            let matPhysicsPoint = new BABYLON.StandardMaterial("mat", scene);
+            matPhysicsPoint.emissiveColor = BABYLON.Color3.Green();
+            // matPhysicsPoint.alpha = 0.5;
+
+            let matBoxAlpha = new BABYLON.StandardMaterial("mat", scene);
+            // matWall.emissiveColor = BABYLON.Color3.Teal();
+            matBoxAlpha.alpha = 0.3;
+
+            let matBoxDarkness = new BABYLON.StandardMaterial("mat", scene);
+            matBoxDarkness.emissiveColor = BABYLON.Color3.Gray();
+            matBoxDarkness.alpha = 0.5;
+            matBoxDarkness.backFaceCulling = false;
+
+            let matWall = new BABYLON.StandardMaterial("mat", scene);
+            matWall.emissiveColor = BABYLON.Color3.Teal();
+            matWall.alpha = 0.2;
+            matWall.wireframe = true;
+
+            let matBox = new BABYLON.StandardMaterial("mat", scene);
+            matBox.emissiveColor = BABYLON.Color3.Green();
+            // matBox.alpha = 0.5;
+            // matWall.wireframe = true;
+
+            let matLight = new BABYLON.StandardMaterial("mat", scene);
+            // matLight.emissiveColor = BABYLON.Color3.White();
+            matLight.diffuseColor = BABYLON.Color3.White();
+            matLight.alpha = 0.3;
+
+
+            let matRed = new BABYLON.StandardMaterial("mat", scene);
+            // matRed.emissiveColor = BABYLON.Color3.White();
+            matRed.diffuseColor = BABYLON.Color3.Red();
+
+
+            let createWall = (width, height, depth, mat) => {
+
+                let delta = 1;
+                let mesh = undefined;
+
+                mesh = BABYLON.MeshBuilder.CreateBox("", { width: width, height: height, depth: delta }, scene);
+                mesh.material = mat;
+                mesh.position.z = -0.5 * depth;
+                mesh.agg = new BABYLON.PhysicsAggregate(
+                    mesh,
+                    BABYLON.PhysicsShapeType.BOX,
+                    { mass: 0, restitution: 0.5 },
+                    scene
+                );
+
+
+                mesh = BABYLON.MeshBuilder.CreateBox("", { width: width, height: height, depth: delta }, scene);
+                mesh.material = matWall;
+                mesh.position.z = 0.5 * depth;
+                mesh.agg = new BABYLON.PhysicsAggregate(
+                    mesh,
+                    BABYLON.PhysicsShapeType.BOX,
+                    { mass: 0, restitution: 0.5 },
+                    scene
+                );
+
+
+
+                mesh = BABYLON.MeshBuilder.CreateBox("", { width: delta, height: height, depth: depth }, scene);
+                mesh.material = matWall;
+                mesh.position.x = width * 0.5;
+                // mesh.position.z += 0.25 * depth;
+                mesh.agg = new BABYLON.PhysicsAggregate(
+                    mesh,
+                    BABYLON.PhysicsShapeType.BOX,
+                    { mass: 0, restitution: 0.5 },
+                    scene
+                );
+
+
+                mesh = BABYLON.MeshBuilder.CreateBox("", { width: delta, height: height, depth: depth }, scene);
+                mesh.material = matWall;
+                mesh.position.x = -width * 0.5;
+                mesh.agg = new BABYLON.PhysicsAggregate(
+                    mesh,
+                    BABYLON.PhysicsShapeType.BOX,
+                    { mass: 0, restitution: 0.5 },
+                    scene
+                );
+
+
+
+                mesh = BABYLON.MeshBuilder.CreateBox("", { width: width, height: delta, depth: depth }, scene);
+                mesh.material = matWall;
+                mesh.position.y = height * 0.5;
+                mesh.agg = new BABYLON.PhysicsAggregate(
+                    mesh,
+                    BABYLON.PhysicsShapeType.BOX,
+                    { mass: 0, restitution: 0.5 },
+                    scene
+                );
+
+
+                mesh = BABYLON.MeshBuilder.CreateBox("", { width: width, height: delta, depth: depth }, scene);
+                mesh.material = matWall;
+                mesh.position.y = -height * 0.5;
+                mesh.agg = new BABYLON.PhysicsAggregate(
+                    mesh,
+                    BABYLON.PhysicsShapeType.BOX,
+                    { mass: 0, restitution: 0.5 },
+                    scene
+                );
+            }
+
+
+            let f = 20;
+            let s = f * 1.2
+            let max = 1000;
+
+            let diameter = 1;
+
+            let createSphere = () => {
+                let sphere = BABYLON.Mesh.CreateSphere("", 9, diameter, scene);
+                sphere.position.set(
+                    f * (0.5 - Math.random()),
+                    f * (0.5 - Math.random()),
+                    f * (0.5 - Math.random()));
+
+                sphere.agg = new BABYLON.PhysicsAggregate(
+                    sphere,
+                    BABYLON.PhysicsShapeType.SPHERE,
+                    { mass: 1, restitution: 0.5 },
+                    scene
+                );
+
+                return sphere;
+            }
+
+
+            createWall(s, s, s, matWall);
+
+
+            let falkon = createSphere();
+            falkon.material = matRed;
+
+            for (let i = 0; i < max; i++) {
+                // let sphere = BABYLON.Mesh.CreateSphere("", 9, diameter, scene);
+                // sphere.position.set(
+                //     f * (0.5 - Math.random()),
+                //     f * (0.5 - Math.random()),
+                //     f * (0.5 - Math.random()));
+
+                // sphere.agg = new BABYLON.PhysicsAggregate(
+                //     sphere,
+                //     BABYLON.PhysicsShapeType.SPHERE,
+                //     { mass: 1, restitution: 0.5 },
+                //     scene
+                // );
+                let sphere = createSphere();
+                sphere.scaling.scaleInPlace(0.25);
+
+                const dir = new BABYLON.Vector3(
+                    0.5 - Math.random(),
+                    0.5 - Math.random(),
+                    0.5 - Math.random());
+                sphere.agg.body.applyImpulse(dir, new BABYLON.Vector3(0, 0, 0));
+            }
+
+
+            // function calculateDistance(mesh1, mesh2) {
+            //     const dx = mesh1.position.x - mesh2.position.x;
+            //     const dy = mesh1.position.y - mesh2.position.y;
+            //     const dz = mesh1.position.z - mesh2.position.z;
+
+            //     return Math.sqrt(dx * dx + dy * dy + dz * dz);
+            // }
+
+            function groupmeshes(meshes, threshold) {
+                const groupedmeshes = [];
+
+                meshes.forEach((mesh) => {
+                    let foundGroup = false;
+
+                    for (const group of groupedmeshes) {
+                        const representativeMesh = group[0];
+
+                        let dist = BABYLON.Vector3.Distance(mesh.position, representativeMesh.position);
+                        // if (calculateDistance(mesh, representativeMesh) <= threshold) {
+                        if (dist <= threshold) {
+                            group.push(mesh);
+                            foundGroup = true;
+                            break;
+                        }
+                    }
+
+                    if (!foundGroup) {
+                        const newGroup = [mesh];
+                        groupedmeshes.push(newGroup);
+                    }
+                });
+
+                return groupedmeshes;
+            }
+
+
+
+            // const dir = new BABYLON.Vector3(-1, 0, 0);
+            let t = 0;
+            scene.registerBeforeRender(function () {
+
+                t += 0.01;
+                falkon.position.set(
+                    0.5 * f * Math.sin(t),
+                    0.5 * f * Math.cos(t),
+                    0.5 * f * Math.sin(2 * t));
+
+
+                const groupedmeshes = groupmeshes(scene.meshes, diameter * 5);
+                // debugger;
+
+                // https://www.youtube.com/watch?v=mhjuuHl6qHM
+                // https://playground.babylonjs.com/#2DG9SX#67
+                const vel = new BABYLON.Vector3()
+                let imp = new BABYLON.Vector3.Zero();
+                let posdiff = new BABYLON.Vector3.Zero();
+
+                groupedmeshes.forEach((meshes) => {
+                    let posavg = new BABYLON.Vector3.Zero();
+                    let velavg = new BABYLON.Vector3.Zero();
+                    meshes.forEach((m) => {
+                        posavg.addInPlace(m.position);
+                        m.agg.body.getLinearVelocityToRef(vel);
+                        velavg.addInPlace(vel);
+
+                        if (vel.length() > 2) {
+                            m.agg.body.setLinearVelocity(vel.scale(0.9));
+                        }
+                    })
+                    posavg.scaleInPlace(1 / meshes.length);
+                    // velavg.normalize().scaleInPlace(1 / meshes.length);
+                    velavg.scaleInPlace(0.1 / meshes.length);
+
+                    // imp.addInPlace(posavg);
+                    // imp.addInPlace(velavg);
+
+                    meshes.forEach((mesh) => {
+                        imp.copyFrom(velavg);
+                        posdiff = posavg.subtract(mesh.position).scale(0.01); // .normalize().scale(-1);
+                        imp.addInPlace(posdiff);
+
+                        posdiff = falkon.position.subtract(mesh.position).scale(0.1);
+                        imp.addInPlace(posdiff);
+
+                        mesh.agg.body.applyImpulse(imp, new BABYLON.Vector3(0, 0, 0));
+                    })
+                });
+
+
+
+
+                // let avg = new BABYLON.Vector3.Zero();
+                // scene.meshes.forEach((mesh) => {
+                //     avg.addInPlace(mesh.position);
+                // });
+                // avg.normalize().scaleInPlace(1 / scene.meshes.length);
+
+                // scene.meshes.forEach((mesh) => {
+                //     mesh.agg.body.applyImpulse(avg, new BABYLON.Vector3(0, 0, 0));
+                // })
+
+
+            });
+
+            return scene;
+        };
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(function () {
+                if (scene) {
+                    scene.render();
+                }
+            });
+        });
+
+
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

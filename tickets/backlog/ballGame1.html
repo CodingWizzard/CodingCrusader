@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>ball game</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://preview.babylonjs.com/Oimo.js"></script>
+    <!-- <script src="https://cdn.babylonjs.com/ammo.js"></script> -->
+    <!-- <script src="https://preview.babylonjs.com/ammo.js"></script> -->
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), new BABYLON.OimoJSPlugin());
+            let physicsEngine = scene.getPhysicsEngine();
+            scene.collisionsEnabled = true;
+
+            let f = 10;
+            let width = 1 * 48 * f;
+            let height = 2 * 48 * f;
+            let depth = 6 * 48 * f;
+
+            camera = new BABYLON.ArcRotateCamera("camera1",
+                BABYLON.Tools.ToRadians(-90),
+                BABYLON.Tools.ToRadians(90),
+                140 * f, new BABYLON.Vector3(0, 0, 0), scene);
+            camera.panningSensibility = 80;
+            // camera.attachControl(canvas, true);
+            camera.upperBetaLimit = null;
+            camera.lowerBetaLimit = null;
+
+            let light = new BABYLON.HemisphericLight("hemiLight1", new BABYLON.Vector3(5, 10, 0), scene);
+
+            let materialWall = new BABYLON.StandardMaterial("mat", scene);
+            materialWall.alpha = 0.5;
+
+            materialArm = new BABYLON.StandardMaterial("mat", scene);
+            materialArm.diffuseColor = new BABYLON.Color4(0.8, 0.8, 0.8, 1);
+            materialArm.wireframe = true;
+            materialArm.alpha = 0.2;
+
+            materialBall = new BABYLON.StandardMaterial("mat", scene);
+            materialBall.diffuseColor = new BABYLON.Color4(0.8, 0.8, 0.0, 1);
+
+            materialBox = new BABYLON.StandardMaterial("mat", scene);
+            materialBox.diffuseColor = new BABYLON.Color4(0.2, 0.8, 0.8, 1);
+
+
+            let arm = BABYLON.MeshBuilder.CreateSphere("arm", { diameter: 5 * f, segments: 16 }, scene);
+            arm.position.set(0, 0, 0);
+            arm.material = materialArm;
+            arm.isPickable = false;
+
+
+            let ball = BABYLON.MeshBuilder.CreateSphere("ball", { diameter: 5 * f, segments: 16 }, scene);
+            ball.position.x = 0.9 * (0.5 * 48 - 48 * Math.random()) * f;
+            ball.position.z = 0.9 * (0.5 * 48 - 48 * Math.random()) * f;
+            ball.position.y = 0.9 * (0.5 * 48 - 48 * Math.random()) * f;
+            ball.material = materialBall;
+            ball.isPickable = false;
+            ball.physicsImpostor = new BABYLON.PhysicsImpostor(ball, BABYLON.PhysicsImpostor.SphereImpostor,
+                { mass: .5, restitution: 0.9 }, scene);
+            ball.physicsImpostor.setLinearVelocity(new BABYLON.Vector3(1, 1, 1));
+
+            let maxBox = 10;
+            for (let y = 0; y < maxBox; y++) {
+                for (let x = y + 1; x < maxBox; x++) {
+                    let box = BABYLON.MeshBuilder.CreateBox("box", { size: 4.9 * f }, scene);
+                    box.position.x = ((0.5 * maxBox) - x + y * 0.5) * 5 * f;
+                    box.position.y = - 0.5 * height + 5 * f * (y + .5);
+                    box.position.z = 0.25 * depth;
+                    box.material = materialBox;
+                    box.isPickable = false;
+                    box.physicsImpostor = new BABYLON.PhysicsImpostor(box, BABYLON.PhysicsImpostor.BoxImpostor,
+                        { mass: .5, restitution: 0.9 }, scene);
+                    box.physicsImpostor.setLinearVelocity(new BABYLON.Vector3(1, 1, 1));
+
+
+                    box.physicsImpostor.registerOnPhysicsCollide(ball.physicsImpostor, (main, collided) => {
+                        console.log("Collision detected!");
+                        main.setMass(0);
+                    });
+
+                }
+            }
+
+            let box = BABYLON.MeshBuilder.CreateBox("wall_front",
+                { width: 1, height: height, depth: depth }, scene);
+            box.position.x = 0.5 * height;
+            box.physicsImpostor = new BABYLON.PhysicsImpostor(box, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+            box.material = materialWall;
+            // box.isPickable = false;
+
+            box = BABYLON.MeshBuilder.CreateBox("wall_back",
+                { width: 1, height: height, depth: depth }, scene);
+            box.position.x = -0.5 * height;
+            box.physicsImpostor = new BABYLON.PhysicsImpostor(box, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+            box.material = materialWall;
+            // box.isPickable = false;
+
+            box = BABYLON.MeshBuilder.CreateBox("wall_bottom",
+                { width: 1, height: height, depth: depth }, scene);
+            box.position.y = -0.5 * height;
+            box.rotation.z -= Math.PI / 2;
+            box.physicsImpostor = new BABYLON.PhysicsImpostor(box, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+            box.position.x += 48 * f;
+            box.material = materialWall;
+            // box.isPickable = false;
+
+            box = BABYLON.MeshBuilder.CreateBox("wall_top",
+                { width: 1, height: height, depth: depth }, scene);
+            box.position.y = 0.5 * height;
+            box.rotation.z -= Math.PI / 2;
+            box.physicsImpostor = new BABYLON.PhysicsImpostor(box, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+            box.position.x += 48 * f;
+            box.material = materialWall;
+            // box.isPickable = false;
+
+            box = BABYLON.MeshBuilder.CreateBox("wall_left",
+                { width: 1, height: height, depth: height }, scene);
+            box.position.z = -0.5 * depth;
+            box.rotation.y = Math.PI / 2;
+            box.physicsImpostor = new BABYLON.PhysicsImpostor(box, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+            box.material = materialWall;
+            // box.isPickable = false;
+
+            box = BABYLON.MeshBuilder.CreateBox("wall_right",
+                { width: 1, height: height, depth: height }, scene);
+            box.position.z = 0.5 * depth;
+            box.rotation.y = Math.PI / 2;
+            box.physicsImpostor = new BABYLON.PhysicsImpostor(box, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+            box.material = materialWall;
+            // box.isPickable = false;
+
+
+            const getWorldPoint = () => {
+                const point = BABYLON.Vector3.Unproject(
+                    new BABYLON.Vector3(scene.pointerX, scene.pointerY, 0),
+                    engine.getRenderWidth(),
+                    engine.getRenderHeight(),
+                    BABYLON.Matrix.Identity(),
+                    scene.getViewMatrix(),
+                    scene.getProjectionMatrix()
+                );
+                point.x *= point.z;
+                point.y *= point.z;
+                point.z = 0;
+
+                return point;
+            };
+
+
+            scene.onPointerDown = function (evt, pickResult) {
+                if (pickResult.pickedMesh) {
+                    let mousePoint = getWorldPoint();
+                    ball.position.set(-mousePoint.x, -mousePoint.y, -f * 10);
+                    ball.physicsImpostor.setLinearVelocity(pickResult.ray.direction.scale(100 * f));
+                }
+            }
+
+            scene.onPointerObservable.add(function () {
+                let mousePoint = getWorldPoint();
+                arm.position.set(-mousePoint.x, -mousePoint.y, -f * 10);
+            }, BABYLON.PointerEventTypes.POINTERMOVE);
+
+
+            scene.registerAfterRender(function () {
+            });
+
+            return scene;
+        }
+
+
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

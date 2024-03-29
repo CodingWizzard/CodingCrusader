@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Soft Cloth Simulator</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+
+        // https://playground.babylonjs.com/#CGSXR
+        // https://viseni.com/havok/
+
+
+        const createScene = async function () {
+            var scene = new BABYLON.Scene(engine);
+
+            const havokInstance = await HavokPhysics();
+            const hk = new BABYLON.HavokPlugin(true, havokInstance);
+            scene.enablePhysics(new BABYLON.Vector3(0, -9.8, 0), hk);
+
+
+            scene.createDefaultCameraOrLight(true, true, true);
+            scene.activeCamera.radius = 140;
+            scene.activeCamera.beta = Math.PI * 0.5;
+
+            // var gl = new BABYLON.GlowLayer("glow", scene);
+            // gl.intensity = .5;
+
+
+            let matCustomMesh = new BABYLON.StandardMaterial("mat", scene);
+            matCustomMesh.emissiveColor = BABYLON.Color3.White();
+            matCustomMesh.alpha = 0.5;
+            matCustomMesh.backFaceCulling = false;
+            // matCustomMesh.wireframe = true;
+
+            let matPhysicsPoint = new BABYLON.StandardMaterial("mat", scene);
+            matPhysicsPoint.emissiveColor = BABYLON.Color3.Green();
+            // matPhysicsPoint.alpha = 0.5;
+
+            let matBoxAlpha = new BABYLON.StandardMaterial("mat", scene);
+            // matWall.emissiveColor = BABYLON.Color3.Teal();
+            matBoxAlpha.alpha = 0.3;
+
+            let matBoxDarkness = new BABYLON.StandardMaterial("mat", scene);
+            matBoxDarkness.emissiveColor = BABYLON.Color3.Gray();
+            matBoxDarkness.alpha = 0.5;
+            matBoxDarkness.backFaceCulling = false;
+
+            let matWall = new BABYLON.StandardMaterial("mat", scene);
+            matWall.emissiveColor = BABYLON.Color3.Teal();
+            matWall.alpha = 0.2;
+            matWall.wireframe = true;
+
+            let matBox = new BABYLON.StandardMaterial("mat", scene);
+            matBox.emissiveColor = BABYLON.Color3.Green();
+            // matBox.alpha = 0.5;
+            // matWall.wireframe = true;
+
+            let matLight = new BABYLON.StandardMaterial("mat", scene);
+            // matLight.emissiveColor = BABYLON.Color3.White();
+            matLight.diffuseColor = BABYLON.Color3.White();
+            matLight.alpha = 0.3;
+
+
+            let matRed = new BABYLON.StandardMaterial("mat", scene);
+            matRed.emissiveColor = BABYLON.Color3.Red();
+            // matRed.diffuseColor = BABYLON.Color3.Red();
+
+
+            let createWall = (width, height, depth, mat) => {
+
+                let delta = 1;
+                let mesh = undefined;
+
+                mesh = BABYLON.MeshBuilder.CreateBox("", { width: width, height: height, depth: delta }, scene);
+                mesh.material = mat;
+                mesh.position.z = -0.5 * depth;
+                mesh.agg = new BABYLON.PhysicsAggregate(
+                    mesh,
+                    BABYLON.PhysicsShapeType.BOX,
+                    { mass: 0, restitution: 0.5 },
+                    scene
+                );
+
+
+                mesh = BABYLON.MeshBuilder.CreateBox("", { width: width, height: height, depth: delta }, scene);
+                mesh.material = matWall;
+                mesh.position.z = 0.5 * depth;
+                mesh.agg = new BABYLON.PhysicsAggregate(
+                    mesh,
+                    BABYLON.PhysicsShapeType.BOX,
+                    { mass: 0, restitution: 0.5 },
+                    scene
+                );
+
+
+
+                mesh = BABYLON.MeshBuilder.CreateBox("", { width: delta, height: height, depth: depth }, scene);
+                mesh.material = matWall;
+                mesh.position.x = width * 0.5;
+                // mesh.position.z += 0.25 * depth;
+                mesh.agg = new BABYLON.PhysicsAggregate(
+                    mesh,
+                    BABYLON.PhysicsShapeType.BOX,
+                    { mass: 0, restitution: 0.5 },
+                    scene
+                );
+
+
+                mesh = BABYLON.MeshBuilder.CreateBox("", { width: delta, height: height, depth: depth }, scene);
+                mesh.material = matWall;
+                mesh.position.x = -width * 0.5;
+                mesh.agg = new BABYLON.PhysicsAggregate(
+                    mesh,
+                    BABYLON.PhysicsShapeType.BOX,
+                    { mass: 0, restitution: 0.5 },
+                    scene
+                );
+
+
+
+                mesh = BABYLON.MeshBuilder.CreateBox("", { width: width, height: delta, depth: depth }, scene);
+                mesh.material = matWall;
+                mesh.position.y = height * 0.5;
+                mesh.agg = new BABYLON.PhysicsAggregate(
+                    mesh,
+                    BABYLON.PhysicsShapeType.BOX,
+                    { mass: 0, restitution: 0.5 },
+                    scene
+                );
+
+
+                mesh = BABYLON.MeshBuilder.CreateBox("", { width: width, height: delta, depth: depth }, scene);
+                mesh.material = matWall;
+                mesh.position.y = -height * 0.5;
+                mesh.agg = new BABYLON.PhysicsAggregate(
+                    mesh,
+                    BABYLON.PhysicsShapeType.BOX,
+                    { mass: 0, restitution: 0.5 },
+                    scene
+                );
+            }
+
+            let max = 250;
+            let diameter = 1;
+            let f = 50;
+            let wf = f * 1.2;
+            createWall(wf, wf, wf, matWall);
+
+
+            function groupmeshes(meshes, threshold) {
+                const groupedmeshes = [];
+
+                meshes.forEach((mesh) => {
+                    if (mesh.name === "") return;
+
+                    let foundGroup = false;
+
+                    for (const group of groupedmeshes) {
+                        const representativeMesh = group[0];
+
+                        let dist = BABYLON.Vector3.Distance(mesh.position, representativeMesh.position);
+                        if (dist <= threshold) {
+                            group.push(mesh);
+                            foundGroup = true;
+                            break;
+                        }
+                    }
+
+                    if (!foundGroup) {
+                        const newGroup = [mesh];
+                        groupedmeshes.push(newGroup);
+                    }
+                });
+
+                return groupedmeshes;
+            }
+
+
+
+            class Bubble {
+                constructor() {
+                    let meshes = [];
+                    for (let i = 0; i < max; i++) {
+                        let sphere = BABYLON.Mesh.CreateSphere("particle", 9, diameter, scene);
+                        sphere.material = matBox;
+                        sphere.position.set(
+                            f * (0.5 - Math.random()),
+                            f * (0.5 - Math.random()),
+                            f * (0.5 - Math.random()));
+
+                        sphere.agg = new BABYLON.PhysicsAggregate(
+                            sphere,
+                            BABYLON.PhysicsShapeType.SPHERE,
+                            { mass: 1, restitution: 0.5 },
+                            scene
+                        );
+
+                        // sphere.scaling.scaleInPlace(0.25);
+
+                        const dir = new BABYLON.Vector3(
+                            0.5 - Math.random(),
+                            0.5 - Math.random(),
+                            0.5 - Math.random());
+                        sphere.agg.body.applyImpulse(dir, new BABYLON.Vector3(0, 0, 0));
+
+
+                        meshes.push(sphere);
+                    }
+
+
+
+                    let sphereFocus = BABYLON.MeshBuilder.CreateSphere("", { diameter: 1 * diameter, segments: 3 }, scene);
+                    sphereFocus.material = matRed;
+
+                    let time = 10 * Math.random();
+                    let posdiff = new BABYLON.Vector3.Zero();
+
+                    scene.registerBeforeRender(function () {
+                        time += 0.01;
+
+                        sphereFocus.position.x = 0.5 * f * Math.sin(time);
+                        sphereFocus.position.y = 0.5 * f * Math.cos(time);
+                        sphereFocus.position.z = 0.5 * f * Math.sin(time);
+
+                        meshes.forEach((mesh) => {
+                            posdiff = sphereFocus.position.subtract(mesh.position).normalize().scale(0.5);
+                            mesh.agg.body.applyImpulse(posdiff, new BABYLON.Vector3(0, 0, 0));
+                        })
+
+                    });
+                }
+            }
+
+
+
+            new Bubble();
+            new Bubble();
+            new Bubble();
+
+
+            return scene;
+        };
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(function () {
+                if (scene) {
+                    scene.render();
+                }
+            });
+        });
+
+
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

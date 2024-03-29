@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+    <title>landing page</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://preview.babylonjs.com/gui/babylon.gui.min.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+            // scene.debugLayer.show();
+            scene.clearColor = new BABYLON.Color3(1, 1, 1);
+            // const axes = new BABYLON.AxesViewer(scene, .25);
+
+            // let camera = new BABYLON.ArcRotateCamera("camera",
+            //     BABYLON.Tools.ToRadians(45),
+            //     BABYLON.Tools.ToRadians(45),
+            //     10,
+            //     BABYLON.Vector3.Zero(), scene);
+            // camera.setTarget(BABYLON.Vector3.Zero());
+
+            let camera = new BABYLON.UniversalCamera("camera1", new BABYLON.Vector3(0, 5, -10), scene);
+            camera.setTarget(BABYLON.Vector3.Zero());
+            camera.attachControl(canvas, true);
+
+
+            camera.upperBetaLimit = null;
+            camera.lowerBetaLimit = null;
+            camera.angularSensibilityX = 2000;
+            camera.angularSensibilityY = 2000;
+            camera.wheelPrecision = 50; //Mouse wheel speed
+
+            let lightHemi = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            lightHemi.intensity = 0.7;
+
+            let light1 = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            light1.diffuse = BABYLON.Color3.FromHexString("#ff0000");
+
+            let light2 = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            light2.diffuse = BABYLON.Color3.FromHexString("#00ff00");
+
+            let light3 = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            light3.diffuse = BABYLON.Color3.FromHexString("#0000ff");
+
+
+            let lorem = "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.";
+            let getRandomText = () => {
+                let len = lorem.length;
+                let start = Math.floor(len * Math.random() - 20);
+                return lorem.substring(start, start + 20);
+            }
+
+            let makeTextPlane = (text, color, size) => {
+                let dynamicTexture = new BABYLON.DynamicTexture("DynamicTexture", 150, scene, true);
+                dynamicTexture.hasAlpha = true;
+                dynamicTexture.drawText(text, 2, 20, "12px Arial", color, "transparent", true);
+                let plane = new BABYLON.Mesh.CreatePlane("TextPlane", size, scene, true);
+                plane.material = new BABYLON.StandardMaterial("TextPlaneMaterial", scene);
+                plane.material.backFaceCulling = false;
+                plane.material.specularColor = new BABYLON.Color3(0, 0, 0);
+                plane.material.diffuseTexture = dynamicTexture;
+                return plane;
+            };
+
+
+            let materialPicture = new BABYLON.StandardMaterial("texturePlane", scene);
+            materialPicture.diffuseTexture = new BABYLON.Texture("http://i.imgur.com/rkUDfqU.jpg", scene);
+            materialPicture.backFaceCulling = false;
+            materialPicture.alpha = 0.7;
+
+
+            // Fixed
+            // let planeHeader = new BABYLON.Mesh.CreatePlane("", { height: 5, width: 10 }, scene);
+            let planeHeader = BABYLON.MeshBuilder.CreatePlane("plane", { height: 1, width: 8 });
+            planeHeader.position.set(0, 8, .1)
+            let meshHeader = makeTextPlane("home | projects | contact", "blue", 6);
+            meshHeader.parent = planeHeader;
+            meshHeader.position.set(0, -2.5, 0)
+
+
+
+            let meshes = [];
+            for (let i = 0; i < 20; i++) {
+                let text = getRandomText();
+
+                let mesh = makeTextPlane((i + 1).toString() + ") " + text, "red", 5);
+                mesh.position.set(0, -(i - 4) * 1, 0)
+                meshes.push(mesh);
+
+                if (Math.random() > 0.5) {
+                    let meshPicture = new BABYLON.Mesh.CreatePlane("", .2 + Math.random(), scene, true);
+                    meshPicture.position.set(3 - 6 * Math.random(), -(i - 4), 0)
+                    meshPicture.material = materialPicture;
+                    meshes.push(meshPicture);
+                }
+
+                if (Math.random() > 0.5) {
+                    let size = .2 + Math.random()
+                    let meshBox = new BABYLON.Mesh.CreateBox("box", size, scene, true);
+                    meshBox.position.set(3 - 6 * Math.random(), -(i - 4), size)
+                    meshBox.rotation.set(Math.PI * Math.random(), Math.PI * Math.random(), Math.PI * Math.random())
+                    meshes.push(meshBox);
+                }
+            }
+
+
+            let render = (delta) => {
+                meshes.forEach((mesh) => {
+                    mesh.position.y -= Math.sign(delta);
+                    mesh.isVisible = (mesh.position.y < 5 && mesh.position.y > 0);
+                })
+            }
+
+            render(0);
+
+            scene.onPrePointerObservable.add(function (pointerInfo, eventState) {
+                let event = pointerInfo.event;
+                let delta = 0;
+                if (event.wheelDelta) {
+                    delta = event.wheelDelta;
+                }
+                else if (event.detail) {
+                    delta = -event.detail;
+                }
+                if (delta) {
+                    console.log(delta);
+                    let dir = scene.activeCamera.getDirection(BABYLON.Axis.Y);
+                    // console.log("dir: ", dir);
+                    // if (delta > 0)
+                    //     scene.activeCamera.position.addInPlace(dir);
+                    // else
+                    //     scene.activeCamera.position.subtractInPlace(dir);
+
+                    render(delta);
+                }
+            }, BABYLON.PointerEventTypes.POINTERWHEEL, false);
+            scene.registerBeforeRender(function () {
+                camera.rotation.x = 0;
+
+
+                meshes.forEach((mesh) => {
+                    if (mesh.name === "box") {
+                        mesh.rotation.x += 0.01;
+                        mesh.rotation.y += 0.01;
+                        mesh.rotation.z += 0.01;
+                    }
+
+                })
+            })
+
+            return scene;
+        };
+
+
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>ben hur portal</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <!-- <script src="https://cdn.babylonjs.com/cannon.js"></script> -->
+    <!-- <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+    <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script> -->
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        // 30.03.21 Necip's Renderer
+
+        let canvas = document.getElementById("renderCanvas");
+
+
+
+        // https://forum.babylonjs.com/t/babylon-js-big-bang/3689
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+
+            let bgcolor = BABYLON.Color3.FromHexString('#000000');
+            scene.clearColor = bgcolor;
+            scene.ambientColor = bgcolor;
+
+            let camera = new BABYLON.ArcRotateCamera("camera1", 0, 0, 0, new BABYLON.Vector3(0, 0, -0), scene);
+            camera.setPosition(new BABYLON.Vector3(0, 0, -20));
+            camera.attachControl(canvas, true);
+
+            let light = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 0, 0), scene);
+
+
+            //Create a custom mesh  
+            let customMesh = new BABYLON.Mesh("custom", scene);
+            customMesh.computeWorldMatrix();
+            customMesh.isPickable = false;
+
+            let pointsCount = 1000;
+
+            let positions = new Array(3 * pointsCount);
+            let colors = new Array(4 * pointsCount);
+
+            positions.fill(0);
+            colors.fill(0);
+
+            let vertexData = new BABYLON.VertexData();
+
+            //Assign positions
+            vertexData.positions = positions;
+            vertexData.colors = colors;
+
+            //Apply vertexData to custom mesh
+            vertexData.applyToMesh(customMesh, true);
+
+            let mat = new BABYLON.StandardMaterial("mat", scene);
+            mat.emissiveColor = new BABYLON.Color3(1, 1, 1);
+            mat.disableLighting = true;
+            mat.pointsCloud = true;
+            mat.pointSize = 5;
+            customMesh.material = mat;
+
+            let t = 0;
+            let f = 0.05;
+            let x = 0;
+            let y = 0;
+            let z = 0;
+            let p = 0;
+            let c = 0;
+
+
+            // https://www.instructables.com/8x8-Matrix-Letter-Game/
+            let A = [
+                0B00000000,
+                0B00011000,
+                0B00100100,
+                0B01000010,
+                0B01111110,
+                0B01000010,
+                0B01000010,
+                0B00000000
+            ];
+            let B = [0x0, 0x7c, 0x42, 0x42, 0x7c, 0x42, 0x42, 0x7c];
+            let C = [0x0, 0x3c, 0x42, 0x40, 0x40, 0x40, 0x42, 0x3c];
+            let D = [0x0, 0x7c, 0x42, 0x42, 0x42, 0x42, 0x42, 0x7c];
+            let E = [0x0, 0x7e, 0x40, 0x40, 0x7c, 0x40, 0x40, 0x7e];
+            let F = [0x0, 0x7e, 0x40, 0x40, 0x7c, 0x40, 0x40, 0x40];
+            let G = [0x0, 0x3c, 0x42, 0x40, 0x4e, 0x42, 0x42, 0x3c];
+            let H = [0x0, 0x42, 0x42, 0x42, 0x7e, 0x42, 0x42, 0x42];
+            let I = [0x0, 0x70, 0x20, 0x20, 0x20, 0x20, 0x20, 0x70];
+            let J = [0x0, 0x7c, 0x4, 0x4, 0x4, 0x4, 0x44, 0x38];
+            let K = [0x0, 0x44, 0x48, 0x50, 0x60, 0x50, 0x48, 0x44];
+            let L = [0x0, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x7c];
+            let M = [0x0, 0x42, 0x66, 0x5a, 0x42, 0x42, 0x42, 0x42];
+            let N = [0x0, 0x42, 0x62, 0x72, 0x5a, 0x4e, 0x46, 0x42];
+            let O = [0x0, 0x3c, 0x42, 0x42, 0x42, 0x42, 0x42, 0x3c];
+            let P = [0x0, 0x7c, 0x42, 0x42, 0x7c, 0x40, 0x40, 0x40];
+            let Q = [0x0, 0x3c, 0x42, 0x42, 0x42, 0x4a, 0x44, 0x3a];
+            let R = [0x0, 0x7c, 0x42, 0x42, 0x7c, 0x48, 0x44, 0x42];
+            let S = [0x0, 0x3e, 0x40, 0x40, 0x3c, 0x2, 0x2, 0x7c];
+            let T = [0x0, 0x7c, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10];
+            let U = [0x0, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x3c];
+            let V = [0x0, 0x42, 0x42, 0x42, 0x42, 0x42, 0x24, 0x18];
+            let W = [0x0, 0x42, 0x42, 0x42, 0x42, 0x5a, 0x66, 0x42];
+            let X = [0x0, 0x42, 0x24, 0x18, 0x18, 0x24, 0x42, 0x0];
+            let Y = [0x0, 0x44, 0x44, 0x28, 0x10, 0x10, 0x10, 0x10];
+            let Z = [0x0, 0x7e, 0x4, 0x8, 0x10, 0x20, 0x40, 0x7e];
+            let blank = [0B00000000, 0B00000000, 0B00000000, 0B00000000, 0B00000000, 0B00000000, 0B00000000, 0B00000000];
+
+
+            let letters = [H,E,L,L,O,blank,W,O,R,L,D,blank,blank];
+
+            let render = () => {
+
+                for (let il = 0; il < letters.length; il++) {
+                    let letter = letters[il];
+                    for (let iy = 0; iy < 8 && p < pointsCount; iy++) {
+                        let line = letters[il][iy];
+                        for (let ix = 0; ix < 8 && p < pointsCount; ix++) {
+                            positions[3 * p    ] = x - ix * f;
+                            positions[3 * p + 1] = y - iy * f;
+                            positions[3 * p + 2] = Math.sin(t);
+
+                            let mask = 1 << ix; // gets the x'th bit
+                            if ((line & mask) === mask) c = 1; else c = 0.1;
+                            colors[4 * p] = c;  // red
+                            colors[4 * p + 1] = c;
+                            colors[4 * p + 2] = c;
+                            colors[4 * p + 3] = 0;
+
+                            p++;
+                        }
+                    }
+
+                    x += 8 * f;
+                }
+
+                customMesh.updateVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
+                customMesh.updateVerticesData(BABYLON.VertexBuffer.ColorKind, colors);
+            }
+
+            render();
+
+            
+            scene.registerAfterRender(function () {
+                x = 0;
+                p = 0;
+                render();
+
+                t += 0.1;
+            })
+
+            return scene;
+        }
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>ai</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <!-- <script src="https://cdn.babylonjs.com/cannon.js"></script> -->
+    <!-- <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+    <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script> -->
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+
+        let createScene = function () {
+            // let bgcolor = BABYLON.Color3.FromHexString('#888888');
+
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = BABYLON.Color3.White();
+
+
+            let diameter = 50;
+            let diameterDelta = 10 * diameter / 100;
+
+            let camera = new BABYLON.ArcRotateCamera("",
+                3 * Math.PI / 2,
+                Math.PI / 2.5,
+                90, // 150, // 90,
+                new BABYLON.Vector3(0, diameter * 1.1, 0),
+                // new BABYLON.Vector3(0, 0, 0),
+                scene);
+            camera.attachControl(canvas, true);
+            // camera.position.y = -diameter * 0.5;
+
+            let light1 = new BABYLON.SpotLight("light1",
+                new BABYLON.Vector3(0, 0, 0),
+                new BABYLON.Vector3(1, 0, 0),
+                0.3 * Math.PI,
+                2, scene);
+            light1.intensity = .75;
+            light1.diffuse = BABYLON.Color3.FromHexString('#ff000');
+
+            let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+            sky.intensity = 0.75;
+            // sky.diffuse = bgcolor;
+
+            // let material = new BABYLON.StandardMaterial("TextPlaneMaterial", scene);
+            // material.backFaceCulling = false;
+            // meshSky.material.emissiveTexture = noiseTexture;
+
+
+            // let texture = new BABYLON.Texture("https://i.imgur.com/P95ke.jpeg", scene);
+            // let texture = new BABYLON.Texture("assets/P95ke.jpeg", scene);
+            let texture = new BABYLON.Texture("assets/bloc.jpg", scene);
+
+            // https://playground.babylonjs.com/textures/bloc.jpg
+
+
+            let materialSky = new BABYLON.StandardMaterial("TextPlaneMaterial", scene);
+            materialSky.backFaceCulling = false;
+            materialSky.diffuseColor = BABYLON.Color3.Blue();
+            materialSky.alpha = 0.2;
+
+            let materialGround = new BABYLON.StandardMaterial("TextPlaneMaterial", scene);
+            materialGround.backFaceCulling = false;
+            materialGround.diffuseColor = BABYLON.Color3.Black();
+            // materialGround.alpha = 0.2;
+
+
+            let materialBuilding = new BABYLON.StandardMaterial("TextPlaneMaterial", scene);
+            materialBuilding.backFaceCulling = false;
+            materialBuilding.diffuseColor = BABYLON.Color3.Gray();
+            //materialBuilding.diffuseTexture = texture;
+            // materialBuilding.diffuseTexture = new BABYLON.Texture("https://playground.babylonjs.com/textures/ground.jpg", scene);
+            // https://playground.babylonjs.com/textures/sand.jpg
+
+            let materialInvisible = new BABYLON.StandardMaterial("TextPlaneMaterial", scene);
+            materialInvisible.alpha = 0.5;
+
+
+
+            let createPlane = (p1, p2, p3, p4) => {
+
+                let positions = [];
+                let indices = [];
+                let idx = 0;
+                let addTriangle = (p1, p2, p3) => {
+                    positions.push(p1.x);
+                    positions.push(p1.y);
+                    positions.push(p1.z);
+
+                    positions.push(p2.x);
+                    positions.push(p2.y);
+                    positions.push(p2.z);
+
+                    positions.push(p3.x);
+                    positions.push(p3.y);
+                    positions.push(p3.z);
+
+                    indices.push(idx++);
+                    indices.push(idx++);
+                    indices.push(idx++);
+                }
+
+                let addPlane = (p1, p2, p3, p4) => {
+                    addTriangle(p1, p2, p3);
+                    addTriangle(p2, p3, p4);
+                    // addTriangle(p3, p4, p2);
+                }
+
+
+                // p2.subtractInPlace(p1);
+                // p3.subtractInPlace(p1);
+                // p4.subtractInPlace(p1);
+                // p1.set(0, 0, 0)
+
+                // p1.scaleInPlace(1);
+                // p2.scaleInPlace(100);
+                // p3.scaleInPlace(100);
+                // p4.scaleInPlace(100);
+
+
+
+                addPlane(p1, p2, p3, p4);
+
+
+                // https://playground.babylonjs.com/#0720FC#30
+
+
+                let customMesh = new BABYLON.Mesh("custom", scene);
+                customMesh.material = new BABYLON.StandardMaterial("TextPlaneMaterial", scene);
+                customMesh.material.backFaceCulling = false;
+                // customMesh.material.diffuseColor = BABYLON.Color3.Green();
+                // customMesh.material = materialCustom;
+                customMesh.material.diffuseTexture = texture;
+                // customMesh.frontUVs = uv;
+                // customMesh.backUVs = uv;
+
+                var normals = [];
+                BABYLON.VertexData.ComputeNormals(positions, indices, normals);
+
+
+                let vertexData = new BABYLON.VertexData();
+                vertexData.positions = positions;
+                vertexData.indices = indices;
+                vertexData.normals = normals;
+
+                // https://doc.babylonjs.com/features/featuresDeepDive/mesh/creation/custom/custom
+                // var uvs = [0, 1, 0, 0, 1, 0]
+                var uvs = [
+                    0, 1, 1, 1, 1, 0,
+                    0, 1, 0, 0, 1, 0,
+
+
+
+                    // 0, 1, 1, 1, 1, 0,
+
+
+                    // 0, 1, 0, 0, 1, 0,
+                    // 0, 1, 0, 0, 1, 0,
+
+
+
+                ];
+
+                // let uv = new BABYLON.Vector4(0, 0, 1, 1);
+                // customMesh.frontUVs = uv;
+                // customMesh.backUVs = uv;
+                vertexData.uvs = uvs;
+                vertexData.applyToMesh(customMesh);
+
+                return customMesh;
+            }
+
+
+            let createImage = (p1, p2, p3, p4, texture) => {
+
+                // let width = Math.abs(p1.x - p3.x);
+                // let height = Math.abs(p1.y - p3.y);
+
+                // let uv = new BABYLON.Vector4(0, 0, 1, 1);
+                // let mesh = BABYLON.MeshBuilder.CreatePlane("plane", {
+                //     height: height,
+                //     width: width,
+                //     sideOrientation: BABYLON.Mesh.DOUBLESIDE,
+                //     frontUVs: uv,
+                //     backUVs: uv
+                // }, scene);
+
+                return createPlane(p1, p2, p3, p4);
+            }
+
+
+
+            let createWorld = (diameter, height, offset, factor, materialSphere, materialCustom) => {
+
+                let positions = [];
+                let indices = [];
+                let idx = 0;
+                let addTriangle = (p1, p2, p3) => {
+                    positions.push(p1.x);
+                    positions.push(p1.y);
+                    positions.push(p1.z);
+
+                    positions.push(p2.x);
+                    positions.push(p2.y);
+                    positions.push(p2.z);
+
+                    positions.push(p3.x);
+                    positions.push(p3.y);
+                    positions.push(p3.z);
+
+                    indices.push(idx++);
+                    indices.push(idx++);
+                    indices.push(idx++);
+                }
+
+                let addPlane = (p1, p2, p3, p4) => {
+                    addTriangle(p1, p2, p3);
+                    addTriangle(p2, p3, p4);
+                }
+
+
+                let addSphere = (p1, p2, p3) => {
+                    let pm = new BABYLON.Vector3(
+                        (p1.x + p2.x + p3.x) / 3,
+                        (p1.y + p2.y + p3.y) / 3,
+                        (p1.z + p2.z + p3.z) / 3);
+
+
+                    var mesh = BABYLON.MeshBuilder.CreateIcoSphere("", {
+                        radius: 1.5,
+                        subdivisions: 8,
+                        flat: false
+                    }, scene)
+                    mesh.position.copyFrom(pm);
+                }
+
+                var sphere1 = BABYLON.MeshBuilder.CreateIcoSphere("", {
+                    radius: diameter,
+                    subdivisions: 8,
+                    flat: false
+                }, scene)
+                sphere1.material = materialSphere;
+                // sphere1.material = new BABYLON.StandardMaterial("", scene);
+                // sphere1.material.diffuseColor = BABYLON.Color3.Black();
+                // sphere1.material.emissiveTexture = noiseTexture;
+
+
+                let sphere1positions = sphere1.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+                var sphere1indices = sphere1.getIndices();
+
+                let p11 = new BABYLON.Vector3.Zero();
+                let p12 = new BABYLON.Vector3.Zero();
+                let p13 = new BABYLON.Vector3.Zero();
+                let p21 = new BABYLON.Vector3.Zero();
+                let p22 = new BABYLON.Vector3.Zero();
+                let p23 = new BABYLON.Vector3.Zero();
+
+
+                let dir = new BABYLON.Vector3.Zero();
+
+                let lenDelta = 30; // sphere1indices.length / 50;
+                for (let idx = 0; idx < sphere1indices.length; idx += lenDelta) { // 3 * 10) { // 3 * 3 + Math.floor(Math.random() * offset)) {
+                    p11.set(sphere1positions[sphere1indices[idx + 0] * 3], sphere1positions[sphere1indices[idx + 0] * 3 + 1], sphere1positions[sphere1indices[idx + 0] * 3 + 2]);
+                    p12.set(sphere1positions[sphere1indices[idx + 1] * 3], sphere1positions[sphere1indices[idx + 1] * 3 + 1], sphere1positions[sphere1indices[idx + 1] * 3 + 2]);
+                    p13.set(sphere1positions[sphere1indices[idx + 2] * 3], sphere1positions[sphere1indices[idx + 2] * 3 + 1], sphere1positions[sphere1indices[idx + 2] * 3 + 2]);
+
+                    let yoffset = 0 * 3 * Math.random();
+                    dir = p11.subtract(sphere1.position).normalize().scale(.1 + yoffset);
+                    p11.addInPlace(dir);
+                    dir = p12.subtract(sphere1.position).normalize().scale(.1 + yoffset);
+                    p12.addInPlace(dir);
+                    dir = p13.subtract(sphere1.position).normalize().scale(.1 + yoffset);
+                    p13.addInPlace(dir);
+
+
+                    let dd = diameterDelta + height * diameterDelta * Math.random();
+                    dir = p11.subtract(sphere1.position).normalize().scale(dd * factor); // + 1 * dd * Math.random());
+                    p21 = p11.add(dir);
+
+                    dir = p12.subtract(sphere1.position).normalize().scale(dd * factor); // + 2 * dd * Math.random());
+                    p22 = p12.add(dir);
+
+                    dir = p13.subtract(sphere1.position).normalize().scale(dd * factor); // + 3 * dd * Math.random());
+                    p23 = p13.add(dir);
+
+                    // addPlane(p11, p12, p21, p22);
+                    addPlane(p12, p13, p22, p23);
+                    addPlane(p11, p13, p21, p23);
+
+                    addTriangle(p11, p12, p13);
+                    addTriangle(p21, p22, p23);
+
+                    // addSphere(p21, p22, p23);
+
+                    // let u=0;
+                    // let v = 0;
+
+                    // render(0, 0, p12.x, p12.y, p23.x, p23.y);
+
+                    let points = [p11, p12, p13, p11];
+                    let lineSystem = BABYLON.MeshBuilder.CreateLines("", { points: points }, scene);
+                    lineSystem.color = BABYLON.Color3.Red();
+
+                    points = [p11, p12, p13, p11];
+                    lineSystem = BABYLON.MeshBuilder.CreateLines("", { points: points }, scene);
+                    lineSystem.color = BABYLON.Color3.Red();
+
+                    points = [p11, p21];
+                    lineSystem = BABYLON.MeshBuilder.CreateLines("", { points: points }, scene);
+                    lineSystem.color = BABYLON.Color3.Red();
+
+                    points = [p12, p22];
+                    lineSystem = BABYLON.MeshBuilder.CreateLines("", { points: points }, scene);
+                    lineSystem.color = BABYLON.Color3.Red();
+
+                    points = [p13, p23];
+                    lineSystem = BABYLON.MeshBuilder.CreateLines("", { points: points }, scene);
+                    lineSystem.color = BABYLON.Color3.Red();
+
+                    points = [p21, p22, p23, p21];
+                    lineSystem = BABYLON.MeshBuilder.CreateLines("", { points: points }, scene);
+                    lineSystem.color = BABYLON.Color3.Red();
+
+
+
+                    // new Image(p11, p23, new BABYLON.Texture("assets/P95ke.jpeg", scene));
+                    //  new Image(p11, p12, p21, p22, texture, scene);
+
+                    createImage(p11, p12, p21, p22, texture);
+
+                    // createImage(p12, p13, p22, p23, texture);
+                    // createImage(p13, p11, p23, p21, texture);
+                    // if (idx > 120) break;
+                }
+
+
+
+                let customMesh = new BABYLON.Mesh("custom", scene);
+                // customMesh.material = new BABYLON.StandardMaterial("TextPlaneMaterial", scene);
+                // customMesh.material.backFaceCulling = false;
+                // customMesh.material.diffuseColor = BABYLON.Color3.White();
+                customMesh.material = materialCustom;
+                // customMesh.material.diffuseTexture = texture;
+
+
+                let vertexData = new BABYLON.VertexData();
+                vertexData.positions = positions;
+                vertexData.indices = indices;
+                vertexData.applyToMesh(customMesh);
+
+
+                let airPlane = undefined;
+
+                let autoRotate = !true;
+                scene.onKeyboardObservable.add((kbInfo) => {
+                    switch (kbInfo.type) {
+                        case BABYLON.KeyboardEventTypes.KEYDOWN:
+                            switch (kbInfo.event.key) {
+                                case "a":
+                                    autoRotate = !autoRotate;
+                                    break;
+
+                                case "x":
+                                    customMesh.rotation.x += 0.01;
+                                    break;
+                                case "y":
+                                    customMesh.rotation.y += 0.01;
+                                    break;
+                                case "z":
+                                    customMesh.rotation.z += 0.01;
+                                    break;
+
+                                case "X":
+                                    customMesh.rotation.x -= 0.01;
+                                    break;
+                                case "Y":
+                                    customMesh.rotation.y -= 0.01;
+                                    break;
+                                case "Z":
+                                    customMesh.rotation.z -= 0.01;
+                                    break;
+
+
+
+                                case "c":
+                                    if (airPlane === undefined)
+                                        airPlane = new createAirplane(2 * diameter);
+                                    break;
+
+                                case "d":
+                                    if (airPlane !== undefined) {
+                                        airPlane.delete(); // dispose();
+                                        airPlane = undefined;
+                                    }
+                                    break;
+
+
+                            }
+                            break;
+                    }
+                });
+
+                let timer = 0;
+                let delta = 0.0005;
+                scene.registerBeforeRender(() => {
+                    if (!autoRotate) return;
+                    customMesh.rotation.x += delta * factor;
+                    customMesh.rotation.y += delta * factor;
+                    customMesh.rotation.z += delta * factor;
+                });
+
+            }
+
+
+            // let createAirplane = (diameter) => {
+            //     let mesh = BABYLON.MeshBuilder.CreateSphere("", { diameter: 10, segments: 3 }, scene);
+            //     mesh.trail = new BABYLON.TrailMesh('new', mesh, scene, 0.25 * 10, 10, true);
+            //     mesh.trail.material = materialSky;
+
+            //     let timer = 2 * Math.PI * Math.random();
+            //     let delta = 0.005 + Math.random() * 0.005;
+            //     let offset = Math.PI * Math.random();
+            //     scene.registerBeforeRender(() => {
+            //         // if (!autoRotate) return;
+            //         timer += delta;
+            //         mesh.position.x = diameter * Math.sin(offset + timer);
+            //         mesh.position.y = diameter * Math.cos(offset + timer);
+            //         mesh.position.z = diameter * Math.sin(offset * timer);
+            //     });
+
+            //     return mesh;
+            // }
+
+
+            class createAirplane {
+                constructor(diameter) {
+                    let mesh = BABYLON.MeshBuilder.CreateSphere("", { diameter: 10, segments: 3 }, scene);
+                    mesh.trail = new BABYLON.TrailMesh('new', mesh, scene, 0.25 * 10, 10, true);
+                    mesh.trail.material = materialSky;
+
+                    let timer = 2 * Math.PI * Math.random();
+                    let delta = 0.005 + Math.random() * 0.005;
+                    let offset = Math.PI * Math.random();
+                    scene.registerBeforeRender(() => {
+                        timer += delta;
+                        mesh.position.x = diameter * Math.sin(offset + timer);
+                        mesh.position.y = diameter * Math.cos(offset + timer);
+                        mesh.position.z = diameter * Math.sin(offset * timer);
+                    });
+
+                    this.mesh = mesh;
+                }
+
+                delete() {
+                    scene.unregisterBeforeRender();
+                    this.mesh.dispose();
+                }
+            }
+
+
+
+            // createWorld(diameter, height, offset, factor, material)
+            createWorld(diameter, 5, 20, 1, materialGround, materialBuilding);
+            // createWorld(5 * diameter, 2, 1, -1, materialInvisible, materialSky);
+
+            // for (let i = 0; i < 3; i++) {
+            //     createAirplane(2 * diameter + diameter * Math.random());
+            // }
+
+
+            return scene;
+        };
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

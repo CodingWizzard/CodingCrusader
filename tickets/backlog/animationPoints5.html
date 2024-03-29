@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>thin instance wrapper</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/cannon.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color3(0, 0, 0);
+            let light = new BABYLON.DirectionalLight("dir01", new BABYLON.Vector3(0, -0.5, 1.0), scene);
+            let camera = new BABYLON.ArcRotateCamera("Camera", -Math.PI / 2, Math.PI / 2.24, 500, new BABYLON.Vector3(0, 0, 0), scene);
+            light.position = new BABYLON.Vector3(20, 150, 70);
+            camera.attachControl(canvas, true);
+
+
+            let MAXPOINTS = 100;
+            let MAXLINES = 20;
+
+            let radius = 50;
+            let fn = [];
+            // fn.push( (v) => {return radius*Math.sin(time + v*2*Math.PI/MAXPOINTS)} );
+            // fn.push( (v) => {return radius*Math.cos(time + v*2*Math.PI/MAXPOINTS)} );
+
+            // fn.push( (v) => {return radius*Math.sin(time + Math.pow(v, 5))} );
+            // fn.push( (v) => {return radius*Math.cos(time + Math.pow(v, 5))} );
+
+            // fn.push( (v) => {return v} );
+            // fn.push( (v) => {return radius*v} );
+            // fn.push( (v) => {return radius*v*v} );
+            
+            let rn = [];
+            for(let i=0;i<MAXLINES;i++) {
+                rn.push(0.5*MAXLINES - MAXLINES*Math.random());
+            }
+
+            for(let i=0;i<MAXLINES;i++) {
+                let r1 = Math.floor(BABYLON.Scalar.RandomRange(0, rn.length))
+                let r2 = Math.floor(BABYLON.Scalar.RandomRange(0, rn.length))
+                // fn.push( (v) => {return radius*v*rn[r1] + rn[r2]} );
+                fn.push( (v) => {
+                    
+                    // if (v > 0. && v < 0.125) return 0;
+                    // if (v > 0.1 && v < 0.8) return 0;
+                    
+                    return radius*v*rn[r1]} 
+                    
+                    );
+            }
+
+
+            let size = 0.5;
+            let pcs = new BABYLON.PointsCloudSystem("pcs", size, scene);
+            
+            pcs.recycleParticle = (particle) => {
+                particle.x  = BABYLON.Scalar.RandomRange(0,Math.PI);
+                particle.y  = BABYLON.Scalar.RandomRange(0,2*Math.PI);
+                particle.z  = BABYLON.Scalar.RandomRange(-Math.PI,Math.PI);
+                particle.ifnx  = Math.floor(BABYLON.Scalar.RandomRange(0, fn.length));
+                particle.ifny  = Math.floor(BABYLON.Scalar.RandomRange(0, fn.length));
+                particle.ifnz  = Math.floor(BABYLON.Scalar.RandomRange(0, fn.length));
+            };
+
+            pcs.addPoints(20000, pcs.recycleParticle);
+            pcs.buildMeshAsync();
+
+            pcs.updateParticle = (particle) => {
+               
+                particle.position.x = fn[particle.ifnx](particle.x); // + radius*Math.sin(time);
+                particle.position.y = fn[particle.ifny](particle.x); // + radius*Math.cos(time);
+                particle.position.z = fn[particle.ifnz](particle.x); // + radius*Math.sin(time);
+
+                // in circle
+                // let a = Math.sqrt(particle.position.x*particle.position.x + 
+                //                     particle.position.y*particle.position.y +
+                //                     particle.position.z*particle.position.z);
+                // if (a > 5) {
+                //     particle.position.x = 0;
+                //     particle.position.y = 0;
+                //     particle.position.z = 0;
+
+                // }
+
+                // if (particle.x > 0.015 && particle.x < 0.016//  && particle.y > 0.0125 && particle.z > 0.0125
+                //     // particle.x < 2.95 && particle.y < 2.95 && particle.z < 2.95) {
+                // ){
+                //     particle.position.x = 0.015;
+                // }
+
+
+                let sphere = {
+                        x: radius*0.15 + radius*0.25*Math.sin(time*10), 
+                        y: radius*0.15 + radius*0.25*Math.cos(time*10), 
+                        z: radius*0.15 + radius*0.25*Math.cos(time*10), 
+                        radius: 50};
+                
+                let distance = Math.sqrt(Math.pow(particle.position.x - sphere.x, 2) + 
+                                    Math.pow(particle.position.y - sphere.y, 2)  +
+                                    Math.pow(particle.position.y - sphere.y, 2));
+                if (distance < sphere.radius) {
+                    let a = BABYLON.Scalar.RandomRange(0,Math.PI);
+                    let b = BABYLON.Scalar.RandomRange(0,2*Math.PI);
+
+                    particle.position.x = sphere.x+sphere.radius*Math.sin(a)*Math.cos(b);
+                    particle.position.y = sphere.y+sphere.radius*Math.sin(a)*Math.sin(b)
+                    particle.position.z = sphere.z+sphere.radius*Math.cos(a);
+                }
+
+
+  
+
+                particle.x += 0.005;
+                particle.x %= 1;
+            };
+
+            let time = 0;
+            scene.registerAfterRender(() => {
+                pcs.setParticles();
+                time += 0.005;
+            });
+
+
+            
+            return scene;
+        };
+
+
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>ai</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <!-- <script src="https://cdn.babylonjs.com/cannon.js"></script> -->
+    <!-- <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+    <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script> -->
+
+    <!-- htmlMesh Example: https://www.babylonjs-playground.com/#Y2LIXI#144 -->
+
+
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+
+        let canvas = document.getElementById("renderCanvas");
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = BABYLON.Color3.Black();
+
+            let camera = new BABYLON.ArcRotateCamera("",
+                BABYLON.Tools.ToRadians(-90 - 45),
+                BABYLON.Tools.ToRadians(90 + 45),
+                50,
+                new BABYLON.Vector3(0, 0, 0),
+                scene);
+            camera.lowerBetaLimit = null;
+            // camera.lowerAlphaLimit = BABYLON.Tools.ToRadians(-90);
+            // camera.upperAlphaLimit = BABYLON.Tools.ToRadians(-90);
+            // camera.lowerBetaLimit = BABYLON.Tools.ToRadians(-10);
+            // camera.upperBetaLimit = BABYLON.Tools.ToRadians(0);
+            camera.attachControl(canvas, true);
+
+
+            let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+            sky.intensity = 0.75;
+
+            var gl = new BABYLON.GlowLayer("glow", scene);
+            gl.intensity = 2;
+
+            let meshSphere = BABYLON.MeshBuilder.CreateSphere("", { diameter: 10, segments: 81 }, this.scene);
+            meshSphere.material = new BABYLON.StandardMaterial("TextPlaneMaterial", scene);
+            meshSphere.material.alpha = 0.3;
+            // meshSphere.emissiveColor = BABYLON.Color3.White();
+
+            let positions = meshSphere.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+
+            // for (let i = 0; i < positions.length; i += 3) {
+            //     let x = mesh.position.x + positions[i + 0];
+            //     let y = mesh.position.y + positions[i + 1];
+            //     let z = mesh.position.z + positions[i + 2];
+
+
+            let g = new BABYLON.Vector3(0, -9.8 * 0.001, 0);
+            let meshBase = BABYLON.MeshBuilder.CreateSphere("", { diameter: 0.1, segments: 9 }, this.scene);
+            meshBase.material = new BABYLON.StandardMaterial("TextPlaneMaterial", scene);
+            meshBase.material.emissiveColor = BABYLON.Color3.White();
+            meshBase.dir = new BABYLON.Vector3.Zero();
+            meshBase.isVisible = false;
+
+            let radius = 5;
+            let radius2 = 0.5 * radius;
+
+            let max = 1000;
+            let p = new BABYLON.Vector3.Zero();
+            for (let i = 0; i < max; i++) {
+                let meshInstance = meshBase.createInstance("");
+                meshInstance.position.set(
+                    0.5 * radius2 - radius2 * Math.random(),
+                    0.5 * radius2 - radius2 * Math.random(),
+                    0.5 * radius2 - radius2 * Math.random()
+                );
+
+                let idx = Math.floor(Math.random() * positions.length - 3);
+                p.set(positions[idx + 0], positions[idx + 1], positions[idx + 2])
+
+                meshInstance.dir = new BABYLON.Vector3.Zero();
+                meshInstance.dir.subtractInPlace(p).normalize().scaleInPlace(0.1 * Math.random());
+
+                // meshInstance.position.x = 2 * i / max;
+                // meshInstance.isVisible = true;
+            }
+
+
+
+            // let t = 0;
+            let r = new BABYLON.Vector3.Zero();
+            let f = .001;
+            let rnd = (dir) => {
+                r.set(
+                    Math.sign(dir.x) * f * Math.random(),
+                    Math.sign(dir.y) * f * Math.random(),
+                    Math.sign(dir.z) * f * Math.random())
+                dir.addInPlace(r);
+            }
+
+            scene.registerBeforeRender(() => {
+                // t += 0.01;
+
+                for (let i = 0; i < scene.meshes.length; i++) {
+                    let mesh = scene.meshes[i];
+                    if (mesh.dir === undefined) continue;
+
+                    mesh.position.addInPlace(mesh.dir);
+                    // mesh.dir.addInPlace(g);
+
+                    // if (mesh.position.y < 0)
+                    //     mesh.dir.y *= -1
+
+                    if (Math.sqrt(mesh.position.x * mesh.position.x
+                        + mesh.position.y * mesh.position.y
+                        + mesh.position.z * mesh.position.z) > radius) {
+                        mesh.dir.x *= -1
+                        mesh.dir.y *= -1
+                        mesh.dir.z *= -1
+                    }
+
+                    // if (Math.sqrt(mesh.position.z * mesh.position.z) > 5)
+                    //     // if (mesh.position.z > 5 || mesh.position.z < -5)
+                    //     mesh.dir.z *= -1
+
+                    // if (Math.random() > 0.9) {
+                    //     rnd(mesh.dir);
+                    // }
+                }
+            });
+
+            return scene;
+        };
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

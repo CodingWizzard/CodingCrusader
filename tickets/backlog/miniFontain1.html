@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>my marshing cubes</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <!-- <script src="https://cdn.babylonjs.com/Oimo.js"></script> -->
+    <script src="https://preview.babylonjs.com/cannon.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        // 23.01.21 proove of concept. necip's bow and arrow
+
+        let createScene = function () {
+            // scene
+            let scene = new BABYLON.Scene(engine);
+            // scene.enablePhysics(undefined, new BABYLON.OimoJSPlugin());
+            scene.enablePhysics(undefined, new BABYLON.CannonJSPlugin());
+            let physicsEngine = scene.getPhysicsEngine();
+            physicsEngine.setGravity(new BABYLON.Vector3(0, -9.0, 0))
+
+
+
+            let bgcolor = BABYLON.Color3.FromHexString('#002233');
+            scene.clearColor = bgcolor;
+            scene.ambientColor = bgcolor;
+            scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR;
+            scene.fogColor = bgcolor;
+            scene.fogDensity = 0.03;
+            scene.fogStart = 20.0;
+            scene.fogEnd = 170.0;
+            scene.gravity = new BABYLON.Vector3(0, -0.9, 0);
+            // scene.gravity = new BABYLON.Vector3(0, 0, 0);
+            scene.collisionsEnabled = true;
+
+            // camera
+            let camera = new BABYLON.ArcRotateCamera("camera", BABYLON.Tools.ToRadians(-90), BABYLON.Tools.ToRadians(60), 50, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+
+            // lights
+            let light = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            light.intensity = 0.7;
+            light.diffuse = BABYLON.Color3.FromHexString('#ff9944');
+
+            let sky = new BABYLON.HemisphericLight("sky", new BABYLON.Vector3(0, 1.0, 0), scene);
+            sky.intensity = 0.5;
+            sky.diffuse = bgcolor;
+
+            let lightSphere = BABYLON.Mesh.CreateSphere("sphere1", 16, 0.1, scene);
+            let lightSphereMat = new BABYLON.StandardMaterial("mat", scene);
+            lightSphere.material = lightSphereMat;
+            lightSphereMat.emissiveColor = BABYLON.Color3.Yellow();
+            lightSphereMat.linkEmissiveWithDiffuse = true;
+            lightSphere.position.y = 5.0;
+
+            // shadow
+            let shadowGenerator = new BABYLON.ShadowGenerator(1024, light);
+            shadowGenerator.setDarkness(0.2);
+            shadowGenerator.usePoissonSampling = true;
+            shadowGenerator.useBlurVarianceShadowMap = true;
+            shadowGenerator.blurBoxOffset = 1.0;
+            shadowGenerator.blurScale = 150.0;
+            // shadowGenerator.bias = 0.00001;
+
+
+            let customProcTextmacadam = new BABYLON.RoadProceduralTexture("customtext", 512, scene);
+            let groundMat = new BABYLON.StandardMaterial("gmat", scene);
+            groundMat.diffuseTexture = customProcTextmacadam;
+            groundMat.diffuseTexture.uScale = 10;
+            groundMat.diffuseTexture.vScale = 10;
+            groundMat.specularPower = 1;
+
+            let ground = BABYLON.MeshBuilder.CreateBox("", { width: 500, height: 3, depth: 500 }, scene);
+            ground.position = new BABYLON.Vector3(0, 0, 0);
+            ground.material = groundMat;
+            ground.receiveShadows = true;
+            ground.position.y = -2;
+            ground.physicsImpostor = new BABYLON.PhysicsImpostor(ground, BABYLON.PhysicsImpostor.MeshImpostor, { mass: 0 }, scene);
+
+
+
+
+
+            // // var stdMat = new BABYLON.StandardMaterial("std", scene);
+            // // stdMat.diffuseColor = new BABYLON.Color3(1, 0.7, 0);
+            // // stdMat.alpha = 0.4;
+
+            // // // Add lights to the scene
+            // // var light1 = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(10, 20, 0), scene);
+
+            // // Colors per surface
+            // var colors = [
+            //     new BABYLON.Color4(0.2, 0.2, 0.2, 1),
+            //     new BABYLON.Color4(0, 1, 0, 1),
+            //     new BABYLON.Color4(0.8, 0.8, 0.2, 1)
+            // ];
+
+            // let cyl_Height = 10;
+            // var cylinder = BABYLON.MeshBuilder.CreateCylinder("cl", { height: cyl_Height, diameter: 6, tessellation: 64, faceColors: colors }, scene);
+            // var holeDiameter = 5.25;
+            // var cylinderHole = BABYLON.MeshBuilder.CreateCylinder("cl", { height: cyl_Height, diameter: holeDiameter, tessellation: 64 }, scene);
+            // var cylinderCsg = BABYLON.CSG.FromMesh(cylinder);
+            // var holeCsg = BABYLON.CSG.FromMesh(cylinderHole);
+            // var subCsg = cylinderCsg.subtract(holeCsg);
+
+            // // dispose objects
+            // cylinder.dispose();
+            // cylinderHole.dispose();
+
+
+            // // Last parameter to true means you want to build 1 subMesh for each mesh involved
+            // var item = subCsg.toMesh("item");
+            // // item.mesh.physicsImpostor = new BABYLON.PhysicsImpostor(item.mesh, BABYLON.PhysicsImpostor.MeshImpostor, { mass: mass, friction: 2, restitution: 0 }, scene);
+
+            // // var gap = 0.1;
+
+            // // var holeCollider = BABYLON.MeshBuilder.CreateBox("hcl", { height: .25, width: gap, depth: gap }, scene);
+            // // holeCollider.material = stdMat;
+
+            // // var sphereCollider = BABYLON.MeshBuilder.CreateBox("hcl", { height: holeDiameter - 2 * gap, width: gap, depth: gap }, scene);
+            // // sphereCollider.material = stdMat;
+            // // sphereCollider.position.y = 7;
+            // /*
+            // *   CHANGE POSITION 
+            // *   0   ==> pass
+            // *   0.1 ==> fail
+            // */
+            // // var posOffset = 0;
+            // // sphereCollider.position.x = posOffset;
+
+            // // var sphere = new BABYLON.MeshBuilder.CreateSphere("sphere", { diameter: holeDiameter - 2 * gap }, scene);
+            // // sphere.parent = sphereCollider;
+
+            // // var sphereMat = new BABYLON.StandardMaterial("sphere", scene);
+            // // sphereMat.diffuseColor = new BABYLON.Color3(.2, .2, 1);
+            // // sphere.material = sphereMat;
+            // // var getsThrough = false;
+            // // var direction = 1;
+
+            // // var onEntry = function(event) {
+            // //     console.log("\nonEntry event: ", event);
+            // //     sphere.material.diffuseColor = new BABYLON.Color3(1, 1, 1);
+            // //     getsThrough = true;
+            // // }
+
+            // // var onExit = function(event) {
+            // //     console.log("onExit event: ", event);
+            // //     sphere.material.diffuseColor = new BABYLON.Color3(.2, .2, 1);
+            // //     getsThrough = false; //ready for next hole
+            // // }
+
+            // // var checkResult = function(event) {
+            // //     if(!getsThrough) {
+            // //         direction = -direction;
+            // //     }
+            // // }
+
+            // // sphereCollider.actionManager = new BABYLON.ActionManager(scene);
+            // // sphere.actionManager = new BABYLON.ActionManager(scene);
+
+            // // sphereCollider.actionManager.registerAction(new BABYLON.ExecuteCodeAction(
+            // //     {trigger: BABYLON.ActionManager.OnIntersectionEnterTrigger, parameter: holeCollider},
+            // //     onEntry
+            // // ));
+
+            // // sphereCollider.actionManager.registerAction(new BABYLON.ExecuteCodeAction(
+            // //     {trigger: BABYLON.ActionManager.OnIntersectionExitTrigger, parameter: holeCollider},
+            // //     onExit
+            // // ));
+
+            // // sphere.actionManager.registerAction(new BABYLON.ExecuteCodeAction(
+            // //     {trigger: BABYLON.ActionManager.OnIntersectionEnterTrigger, parameter: item},
+            // //     checkResult
+            // // ));
+
+
+            // // var alpha = Math.PI / 2;
+            // // scene.registerBeforeRender(function () {
+            // //     // move sphere
+            // //     alpha += 0.0002;
+            // //     sphereCollider.position.y += direction * Math.cos(alpha) / 10;
+
+            // // });
+
+
+
+
+
+
+            // class Liner {
+            //     constructor(scene, box1, box2) {
+            //         this.scene = scene;
+            //         this.box1 = box1;
+            //         this.box2 = box2;
+            //         this.bankLine = null;
+            //     }
+
+            //     update() {
+            //         if (this.bankLine)
+            //             this.bankLine.dispose();
+
+
+            //         let max = 1;
+            //         let dx = (this.box2.position.x - this.box1.position.x) / max;
+            //         let dy = (this.box2.position.y - this.box1.position.y) / max;
+            //         let dz = (this.box2.position.z - this.box1.position.z) / max;
+            //         let bankPath = [];
+            //         for (let i = 0; i <= max; i++) {
+            //             bankPath.push(new BABYLON.Vector3(this.box1.position.x + i * dx, this.box1.position.y + i * dy, this.box1.position.z + i * dz));
+            //         }
+
+            //         this.bankLine = BABYLON.MeshBuilder.CreateLines('', { points: bankPath }, this.scene);
+            //     }
+            // }
+
+
+
+            let attachDragBehavior = (mesh) => {
+                let pointerDragBehavior = new BABYLON.PointerDragBehavior({});
+                // Use drag plane in world space
+                pointerDragBehavior.useObjectOrientationForDragging = false;
+                mesh.addBehavior(pointerDragBehavior);
+            }
+
+            // Collision-Mask
+            // https://www.babylonjs-playground.com/#A2WGF#3
+
+            function createMesh(x, y, z, size, mass) {
+                let mesh = BABYLON.MeshBuilder.CreateSphere("ballon", { diameter: size, segments: 12 }, scene);
+                mesh.position.set(x, y, z);
+                mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.SphereImpostor, {
+                    mass: mass,
+                    friction: 0,
+                    restitution: 0,
+                    nativeOptions: {
+                        collisionFilterMask: 1,
+                        collisionFilterGroup: 2
+                    }
+                }, scene);
+                shadowGenerator.getShadowMap().renderList.push(mesh);
+                attachDragBehavior(mesh);
+                return mesh;
+            }
+
+            function createMeshWall(x, y, z, height, rot) {
+                let mesh = BABYLON.MeshBuilder.CreateBox("ballon", { width: .1, height: height, depth: .1 }, scene);
+                mesh.position.set(x, y, z);
+                // mesh.rotation.x = rot.x;
+                mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.BoxImpostor, {
+                    mass: 0, friction: 0, restitution: 0,
+                    nativeOptions: {
+                        collisionFilterGroup: 1,
+                        collisionFilterMask: 2
+                    }
+                }, scene);
+                shadowGenerator.getShadowMap().renderList.push(mesh);
+                attachDragBehavior(mesh);
+                return mesh;
+            }
+
+
+            // let collisionAction = ((hitter, hit) => {
+            //     hit.physicsImpostor.registerOnPhysicsCollide(hitter.physicsImpostor, function (collided, main) {
+            //         main.object.applyImpulse(new BABYLON.Vector3(0, 2, 0),  main.object.getAbsolutePosition());
+            //     })
+            // })
+
+
+            // // let maxDistance = 3 * Math.PI / max;
+            // let joint0 = new BABYLON.DistanceJoint({ maxDistance: 3 });
+            // // let joint1 = new BABYLON.DistanceJoint({ maxDistance: maxDistance });
+            // // let joint2 = new BABYLON.DistanceJoint({ maxDistance: maxDistance });
+            // function connectMesh(mesh1, mesh2, dist, joint) {
+            //     mesh1.physicsImpostor.addJoint(mesh2.physicsImpostor, joint);
+
+            //     let oLiner = new Liner(scene, mesh1, mesh2);
+            //     oLiners.push(oLiner);
+            // }
+
+
+
+            // potery(scene, shadowGenerator);
+
+
+
+
+            // let m0 = createMesh(0, -1.5, 0, 3, 0);
+            let m0 = BABYLON.MeshBuilder.CreateBox("blow", { width: 10, height: 1, depth: 10 }, scene);
+            m0.position.set(0, -0.5, 0);
+            m0.physicsImpostor = new BABYLON.PhysicsImpostor(m0, BABYLON.PhysicsImpostor.BoxImpostor, {
+                mass: 0, friction: 0, restitution: 0,
+                nativeOptions: {
+                    collisionFilterGroup: 1,
+                    collisionFilterMask: 2
+                }
+            }, scene);
+            shadowGenerator.getShadowMap().renderList.push(m0);
+            attachDragBehavior(m0);
+
+
+            let meshesOut = [];
+            // let meshesIn = [];
+            // let oLiners = [];
+
+            let max = 50;
+            for (let i = 0; i <= max; i++) {
+                // let m1 = createMesh(0.1 * Math.random(), 2 * max - i, 0.1 * Math.random(), 1, 1);
+                // let m1 = createMesh(-3, 2 * max - i * 2, 0.0 * Math.random(), 1, 1);
+                let m1 = createMesh(5, 6 + i * 0.1, 5, 1, 1);
+
+                // let m1 = createMesh(
+                //     3 * Math.sin(i * 2 * Math.PI / max),
+                //     0,
+                //     3 * Math.cos(i * 2 * Math.PI / max),
+                //     1,
+                //     1);
+
+
+                // meshesOut.push(m1);
+
+                m0.physicsImpostor.registerOnPhysicsCollide(m1.physicsImpostor, function (collided, main) {
+                    // main.object.applyImpulse(new BABYLON.Vector3(0.1 * Math.random(), 14, 0.1 * Math.random()), main.object.getAbsolutePosition());
+                    main.object.applyImpulse(new BABYLON.Vector3(10 * Math.random(), 10, 10 * Math.random()), main.object.getAbsolutePosition());
+                })
+
+                
+
+                
+
+                // m1.registerBeforeRender(function (mesh) {
+                //     let x = mesh.position.x;
+                //     let y = mesh.position.y;
+                //     let z = mesh.position.z;
+                //     if (Math.sqrt(x*x+y*y+z*z) >5) {
+                //         mesh.position.set(0,0,0);
+                //         mesh.updatePhysicsBodyPosition()
+                //     }
+                // });
+
+
+            }
+
+
+            let wallHeight = 15;
+            let maxWall = 36 * 3;
+            for (let i = 0; i <= maxWall; i++) {
+                let meshWall = createMeshWall(
+                    8 * Math.sin(i * 2 * Math.PI / maxWall),
+                    5,
+                    8 * Math.cos(i * 2 * Math.PI / maxWall),
+                    wallHeight,
+                    { x: Math.PI * Math.sin(0.25 * Math.PI * i / maxWall) });
+
+                // meshWall.rotation.x = Math.PI*0.25; // Math.sin(0.25*Math.PI*i/maxWall);
+
+                // let max = 12;
+                // for (let i = 0; i <= max; i++) {
+                //     // collisionAction(meshesOut[0], meshWall)
+
+                //     meshWall.physicsImpostor.registerOnPhysicsCollide(meshesOut[i].physicsImpostor, function (collided, main) {
+                //         main.object.applyImpulse(new BABYLON.Vector3(0, 3, 0),  main.object.getAbsolutePosition());
+                //     })
+                // }
+            }
+
+            // let wallHeight = 5;
+            // let maxWall = 18 * 2;
+            // for (let i = 0; i <= maxWall; i++) {
+            //     let meshWall = createMeshWall(
+            //         2 * Math.sin(i * 2 * Math.PI / maxWall),
+            //         4,
+            //         2 * Math.cos(i * 2 * Math.PI / maxWall),
+            //         wallHeight,
+            //         { x: 0 });
+            // }
+
+
+            // let sphere = BABYLON.MeshBuilder.CreateSphere("sphere", { diameter: 20, slice: 0.5, sideOrientation: BABYLON.Mesh.DOUBLESIDE });
+            // sphere.rotation.x = Math.PI;
+            // sphere.position.y = -5;
+            // sphere.physicsImpostor = new BABYLON.PhysicsImpostor(sphere, BABYLON.PhysicsImpostor.MeshImpostor, { mass: 0, friction: 2, restitution: 0 }, scene);
+            // shadowGenerator.getShadowMap().renderList.push(sphere);
+
+
+
+            var sourceMat = new BABYLON.StandardMaterial("sourceMat", scene);
+            // sourceMat.wireframe = true;
+            sourceMat.backFaceCulling = false;
+
+            var a = BABYLON.Mesh.CreateSphere("sphere", 16, 4, scene);
+            var b = BABYLON.Mesh.CreateBox("box", 4, scene);
+            var c = BABYLON.Mesh.CreateBox("box", 4, scene);
+
+            a.isVisible = false;
+            b.isVisible = false;
+            c.isVisible = false;
+
+            // a.scaling.x = 2;
+            // a.scaling.y = 1;
+            // a.scaling.z = 1;
+
+            a.material = sourceMat;
+            b.material = sourceMat;
+            c.material = sourceMat;
+
+            a.position.y += 5;
+            b.position.y += 2.5;
+            c.position.y += 3.5;
+            c.rotation.y += Math.PI / 8.0;
+
+            var aCSG = BABYLON.CSG.FromMesh(a);
+            var bCSG = BABYLON.CSG.FromMesh(b);
+            var cCSG = BABYLON.CSG.FromMesh(c);
+
+            // Set up a MultiMaterial
+            var mat0 = new BABYLON.StandardMaterial("mat0", scene);
+            var mat1 = new BABYLON.StandardMaterial("mat1", scene);
+
+            mat0.diffuseColor.copyFromFloats(0.8, 0.2, 0.2);
+            mat0.backFaceCulling = false;
+
+            mat1.diffuseColor.copyFromFloats(0.2, 0.8, 0.2);
+            mat1.backFaceCulling = false;
+
+            var subCSG = bCSG.subtract(aCSG);
+            var newMesh = subCSG.toMesh("csg", mat0, scene);
+            newMesh.position = new BABYLON.Vector3(0, -2.55, 0);
+            newMesh.scaling.x = 4;
+            newMesh.scaling.y = 4;
+            newMesh.scaling.z = 4;
+            newMesh.material = sourceMat;
+            newMesh.physicsImpostor = new BABYLON.PhysicsImpostor(newMesh, BABYLON.PhysicsImpostor.MeshImpostor, {
+                mass: 0, friction: 2, restitution: 0,
+                nativeOptions: {
+                    collisionFilterGroup: 1,
+                    collisionFilterMask: 2
+                }
+            }, scene);
+            shadowGenerator.getShadowMap().renderList.push(newMesh);
+            newMesh.receiveShadows = true;
+
+
+            // // double
+            // var newMesh2 = subCSG.toMesh("csg", mat0, scene);
+            // newMesh2.position = new BABYLON.Vector3(0, -2.55, 0);
+            // newMesh2.scaling.x = 4;
+            // newMesh2.scaling.y = 4 - 0.3;
+            // newMesh2.scaling.z = 4;
+            // newMesh2.material = sourceMat;
+            // newMesh2.physicsImpostor = new BABYLON.PhysicsImpostor(newMesh2, BABYLON.PhysicsImpostor.MeshImpostor, {
+            //     mass: 0, friction: 2, restitution: 0,
+            //     nativeOptions: {
+            //         collisionFilterGroup: 1,
+            //         collisionFilterMask: 2
+            //     }
+            // }, scene);
+            // shadowGenerator.getShadowMap().renderList.push(newMesh);
+            // newMesh.receiveShadows = true;
+
+            // subCSG = aCSG.subtract(bCSG);
+            // newMesh = subCSG.toMesh("csg2", mat0, scene);
+            // newMesh.position = new BABYLON.Vector3(10, 0, 0);
+
+            // subCSG = aCSG.intersect(bCSG);
+            // newMesh = subCSG.toMesh("csg3", mat0, scene);
+            // newMesh.position = new BABYLON.Vector3(0, 0, 10);
+
+            // // Submeshes are built in order : mat0 will be for the first cube, and mat1 for the second
+            // var multiMat = new BABYLON.MultiMaterial("multiMat", scene);
+            // multiMat.subMaterials.push(mat0, mat1);
+
+            // // Last parameter to true means you want to build 1 subMesh for each mesh involved
+            // subCSG = bCSG.subtract(cCSG);
+            // newMesh = subCSG.toMesh("csg4", multiMat, scene, true);
+            // newMesh.position = new BABYLON.Vector3(0, 0, -10);
+
+
+
+            // for (let i = 0; i < max; i++) {
+            //     connectMesh(m0, meshesOut[i], maxDistance, joint0)
+            // }
+
+
+
+
+            let t = 0;
+            scene.registerBeforeRender(function () {
+                lightSphere.position.x += 0.02 * Math.sin(t);
+                lightSphere.position.y += 0.02 * Math.sin(t);
+                lightSphere.position.z += 0.02 * Math.cos(t);
+                light.position = lightSphere.getAbsolutePosition();
+                light.intensity = 0.5 + Math.random() * 0.05;
+
+                // for (let i=0;i<max; i++) {
+                //     meshesOut[i].position.x = 3*Math.sin(i*2*Math.PI*t*0.1);
+                //     meshesOut[i].position.z = 3*Math.cos(i*2*Math.PI*t*0.1);
+                // }
+
+                // for (let i = 0; i < oLiners.length; i++) {
+                //     oLiners[i].update();
+                // }
+
+                t += 0.01;
+            });
+
+
+
+            let sphereClicked = false;
+            scene.onPointerObservable.add(onPointer)
+            function onPointer(pointerInfo) {
+                if (pointerInfo.type == BABYLON.PointerEventTypes.POINTERDOWN) {
+                    var pickResult = scene.pick(scene.pointerX, scene.pointerY);
+                    if (pickResult && pickResult.pickedPoint) {
+
+                        if (pointerInfo.pickInfo.pickedMesh.id == "new") {
+
+                            // var timeout = setTimeout(() => {
+                            //     m1 = createMesh(0, 5, 0, 1.0, 1);
+                            //     m1.scaling.y = .3;
+                            //     connectMesh(m01, m1, maxDistance, joint1);
+                            //     // connectMesh(m02, m1, maxDistance, joint2);
+                            //     attachDragBehavior(m1);
+                            // }, 500);
+
+
+
+                            // setTimeout(() => {
+                            //     m_new.isVisible = false;
+                            // }, 200);
+
+                        }
+                        else if (pointerInfo.pickInfo.pickedMesh.id == "ballon") {
+                            sphereClicked = true;
+                            // m_new.isVisible = false;
+                        }
+                    }
+                }
+            }
+
+
+            // scene.preventDefaultOnPointerDown = false;
+
+
+            //Does not work
+            canvas.addEventListener("pointerup", function () {
+                // console.log("Mouse UP!");
+
+            });
+            //Does not work
+            canvas.addEventListener("pointerdown", function () {
+                // console.log("Mouse DOWN!");
+            });
+            //Works
+            canvas.addEventListener("click", function () {
+                // console.log("Mouse Click!");
+
+                if (sphereClicked) {
+
+                    // m1.physicsImpostor.applyImpulse(
+                    //                  new BABYLON.Vector3(0, 15, 0), 
+                    //                  m1.getAbsolutePosition());
+
+                    // var timeout = setTimeout(() => {
+                    //     scene.getPhysicsEngine().removeJoint(m01.physicsImpostor, m1.physicsImpostor, joint1);
+                    //     // scene.getPhysicsEngine().removeJoint(m02.physicsImpostor, m1.physicsImpostor, joint2);
+                    // }, 500);
+
+                    sphereClicked = false;
+
+                    // setTimeout(() => {
+                    //             m_new.isVisible = true;
+                    //         }, 2000);
+                }
+            });
+
+
+            return scene;
+        };
+
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

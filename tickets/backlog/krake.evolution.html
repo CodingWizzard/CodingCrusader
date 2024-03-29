@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>architect</title>
+    <script src="https://preview.babylonjs.com/babylon.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 80%;
+            height: 80%;
+            touch-action: none;
+        }
+
+        #fps {
+            position: absolute;
+            background-color: black;
+            /* border: 2px solid red; */
+            text-align: center;
+            font-size: 16px;
+            color: white;
+            top: 15px;
+            right: 10px;
+            width: 60px;
+            height: 20px;
+        }
+    </style>
+
+</head>
+
+<body>
+    <canvas id="renderCanvas" touch-action="none"></canvas>
+    <div id="fps">0</div>
+
+    <br>
+    <button id="prev">prev</button>
+    <button id="next">next</button>
+    <button id="reset">reset</button>
+    <input id="msg" value="test" </input>
+
+    <script>
+        var canvas = document.getElementById("renderCanvas"); // Get the canvas element
+        var msg = document.getElementById("msg");
+        msg.value = 'Hello world!';
+
+        var engine = new BABYLON.Engine(canvas, true);
+
+        var sceneIndex = 0;
+        var scenes_arr = [];
+
+        let createScene = (sceneIndex) => {
+            let scene = new BABYLON.Scene(engine);
+
+            let bgcolor = BABYLON.Color3.FromHexString("#333333");
+            scene.clearColor = bgcolor;
+            scene.ambientColor = bgcolor;
+
+            // scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR;
+            // scene.fogColor = bgcolor;
+            // scene.fogDensity = 0.03;
+            // scene.fogStart = 60.0;
+            // scene.fogEnd = 170.0;
+
+            let camera = new BABYLON.ArcRotateCamera(
+                "camera1",
+                0,
+                0,
+                0,
+                new BABYLON.Vector3(0, 0, 0),
+                scene
+            );
+            camera.attachControl(canvas, true);
+
+            let skyLight = new BABYLON.HemisphericLight(
+                "sky",
+                new BABYLON.Vector3(0, 1.0, 0),
+                scene
+            );
+            skyLight.intensity = 0.2;
+
+            let light = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            light.intensity = 0.7;
+            light.diffuse = BABYLON.Color3.FromHexString("#ff9944");
+            light.position.y = 1;
+
+            let t = 0;
+
+            let delta = 2.5;
+            let max = 10;
+
+            // let brickWallDiffURL = "http://i.imgur.com/Rkh1uFK.png"; // "assets/Rkh1uFK.png";
+            // let brickWallNHURL = "http://i.imgur.com/GtIUsWW.png"; // "assets/GtIUsWW.png";
+
+            let brickWallDiffURL = "assets/Rkh1uFK.png";
+            let brickWallNHURL = "assets/GtIUsWW.png";
+
+            let wallDiffuseTexture = new BABYLON.Texture(brickWallDiffURL, scene);
+            let wallNormalsHeightTexture = new BABYLON.Texture(brickWallNHURL, scene);
+            // let normalsHeightTexture = wallNormalsHeightTexture;
+
+            let material = new BABYLON.StandardMaterial("mtl01", scene);
+            material.diffuseTexture = wallDiffuseTexture;
+            material.bumpTexture = wallNormalsHeightTexture;
+            material.useParallax = true;
+            material.useParallaxOcclusion = true;
+            material.parallaxScaleBias = 0.1;
+            material.specularPower = 1000.0;
+            material.specularColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+
+            let mesh_box = BABYLON.MeshBuilder.CreateBox("box", {
+                size: 1,
+                sideOrientation: BABYLON.Mesh.DOUBLESIDE
+            });
+            mesh_box.isVisible = false;
+            mesh_box.material = material;
+            mesh_box.protected = true;
+
+            let material_sphere = new BABYLON.StandardMaterial("mtl01", scene);
+            let mesh_sphere = BABYLON.MeshBuilder.CreateSphere("sphere1", {
+                slice: 1,
+                arc: 1,
+                sideOrientation: BABYLON.Mesh.DOUBLESIDE
+            });
+            mesh_sphere.isVisible = false;
+            mesh_sphere.material = material_sphere;
+            mesh_sphere.protected = true;
+
+            let instanceId = 0;
+
+            let create = (position, offset, rotation, scaling, base, mesh_mother) => {
+                let mesh = mesh_mother.createInstance(instanceId++);
+                mesh.position.set(
+                    position.x + offset.x,
+                    position.y + offset.y,
+                    position.z + offset.z
+                );
+                mesh.rotation.set(rotation.x, rotation.y, rotation.z);
+                mesh.scaling.set(scaling.x, scaling.y, scaling.z);
+                mesh.parent = base;
+                mesh.isVisible = true;
+                mesh.protected = true;
+                return mesh;
+            };
+
+            let meshes = [];
+
+            let base_offset = { x: 0, y: 0, z: 0 };
+            let base_rotation = { x: 0, y: 0, z: 0 };
+
+            let base = mesh_box.createInstance(instanceId++);
+            base.isVisible = false;
+            base.position.set(base_offset.x, base_offset.y, base_offset.z);
+            base.rotation.set(base_rotation.x, base_rotation.y, base_rotation.z);
+
+            let position = { x: max, y: 0, z: 0 };
+            let offset = { x: 0, y: 0, z: 0 };
+            let rotation = { x: 0, y: 0, z: 0 };
+
+            if (sceneIndex == 0) {
+                msg.value = '0: moving on x';
+                /* Step 1 - move box in x */
+                camera.setPosition(new BABYLON.Vector3(0, 0, -30));
+                camera.alpha = Math.PI / 2;
+                // camera.beta = Math.PI / 2;
+
+                let scaling = { x: delta, y: delta, z: delta };
+                let mesh = create(position, offset, rotation, scaling, base, mesh_box);
+                mesh.position.z = delta;
+                meshes.push(mesh);
+
+                scene.registerBeforeRender(() => {
+                    meshes.forEach((mesh, idx) => {
+                        let ff = (idx + 1) * 0.1;
+                        let f = max * 0.5;
+                        mesh.position.x = f * Math.sin(ff + t);
+                    });
+                    t += 0.05;
+                });
+                /* */
+            }
+            else if (sceneIndex == 1) {
+                msg.value = '1: moving x and rotating';
+                /* next Step - and rotate in z*/
+                camera.setPosition(new BABYLON.Vector3(0, 0, -30));
+                camera.alpha = Math.PI / 2;
+                // camera.beta = Math.PI / 2;
+
+                let scaling = { x: delta, y: delta, z: delta };
+                let mesh = create(position, offset, rotation, scaling, base, mesh_box);
+                mesh.position.z = delta;
+                meshes.push(mesh);
+
+                scene.registerBeforeRender(() => {
+                    meshes.forEach((mesh, idx) => {
+                        let ff = (idx + 1) * 0.1;
+                        let f = max * 0.5;
+                        mesh.position.x = f * Math.sin(ff + t);
+                        mesh.rotation.z = 0.5 * Math.PI * Math.sin(ff + Math.PI + t);
+                    });
+                    t += 0.05;
+                });
+                /* */
+            }
+            else if (sceneIndex == 2) {
+                msg.value = '2: move, rot and jump';
+                /* next Step - and move in y direction */
+                camera.setPosition(new BABYLON.Vector3(0, 0, -30));
+                camera.alpha = Math.PI / 2;
+                // camera.beta = Math.PI / 2;
+
+                let scaling = { x: delta, y: delta, z: delta };
+                let mesh = create(position, offset, rotation, scaling, base, mesh_box);
+                mesh.position.z = delta;
+                meshes.push(mesh);
+
+                scene.registerBeforeRender(() => {
+                    meshes.forEach((mesh, idx) => {
+                        let ff = (idx + 1) * 0.1;
+                        let f = max * 0.5;
+                        mesh.position.x = f * Math.sin(ff + t);
+                        mesh.position.y = f * Math.abs(Math.sin(ff + 0.5 * Math.PI + t));
+                        mesh.rotation.z = 0.5 * Math.PI * Math.sin(ff + Math.PI + t);
+                    });
+                    t += 0.05;
+                });
+                /* */
+            }
+            else if (sceneIndex == 3) {
+                msg.value = '3: recursion';
+                /* next Step - repeat in z */
+                camera.setPosition(new BABYLON.Vector3(0, 0, -90));
+                camera.alpha = Math.PI / 2;
+                // camera.beta = Math.PI / 2;
+
+                for (let i = 0; i < 50; i++) {
+                    let f = 1;
+                    let scaling = { x: f * delta, y: f * delta, z: f * delta };
+                    let mesh = create(position, offset, rotation, scaling, base, mesh_box);
+                    mesh.position.z = i * delta;
+                    meshes.push(mesh);
+                }
+
+                scene.registerBeforeRender(() => {
+                    meshes.forEach((mesh, idx) => {
+                        let ff = (idx + 1) * 0.1;
+                        let f = max * 0.5;
+                        mesh.position.x = f * Math.sin(ff + t);
+                        mesh.position.y = f * Math.abs(Math.sin(ff + 0.5 * Math.PI + t));
+                        mesh.rotation.z = 0.5 * Math.PI * Math.sin(ff + Math.PI + t);
+                    });
+                    t += 0.05;
+                });
+                /* */
+            }
+            else if (sceneIndex == 4) {
+                msg.value = '4: recursion, scaling';
+                /* next Step - scaling */
+                camera.setPosition(new BABYLON.Vector3(0, 0, -130));
+                camera.alpha = Math.PI / 2.2;
+                camera.beta = Math.PI / 2.2;
+
+                for (let i = 0; i < 50; i++) {
+                    let f = (i + 1) * 0.1; // (50 - i + 1) * 0.1;
+                    let scaling = { x: f * delta, y: f * delta, z: f * delta };
+                    let mesh = create(position, offset, rotation, scaling, base, mesh_box);
+                    mesh.position.z = i * delta;
+                    meshes.push(mesh);
+                }
+
+                scene.registerBeforeRender(() => {
+                    meshes.forEach((mesh, idx) => {
+                        let ff = (idx + 1) * 0.1;
+                        let f = max * 0.5;
+                        mesh.position.x = f * Math.sin(ff + t);
+                        mesh.position.y = f * Math.abs(Math.sin(ff + 0.5 * Math.PI + t));
+                        mesh.rotation.z = 0.5 * Math.PI * Math.sin(ff + Math.PI + t);
+                    });
+
+                    t += 0.05;
+                });
+            }
+            else if (sceneIndex == 5) {
+                msg.value = '5: bridge';
+                /* modification 1 */
+                camera.setPosition(new BABYLON.Vector3(0, 0, -30));
+                // camera.alpha = Math.PI / 2.2;
+                // camera.beta = Math.PI / 2.2;
+
+                let scaling = { x: delta * 3, y: delta, z: delta };
+                for (let i = 0; i < 50; i++) {
+                    // let f = (i + 1) * 0.1; // (50 - i + 1) * 0.1;
+                    //let scaling = { x: f * delta, y: f * delta, z: f * delta };
+                    position.z = i * delta;
+                    let mesh = create(position, offset, rotation, scaling, base, mesh_box);
+                    // mesh.position.z = i * delta;
+                    meshes.push(mesh);
+                }
+
+                scene.registerBeforeRender(() => {
+                    meshes.forEach((mesh, idx) => {
+                        let ff = (idx + 1) * 0.1;
+                        let f = max * 0.5;
+                        // mesh.position.x = f * Math.sin(ff + t);
+                        mesh.position.y = f * (Math.sin(ff + 0.5 * Math.PI + t));
+                        mesh.rotation.z = 0.05 * Math.PI * Math.sin(ff + Math.PI + t);
+                    });
+
+                    t += 0.05;
+                });
+            }
+            else if (sceneIndex == 6) {
+                msg.value = '6: wals';
+                /* modification 2 */
+                camera.setPosition(new BABYLON.Vector3(0, 0, -30));
+                // camera.alpha = Math.PI / 2.2;
+                // camera.beta = Math.PI / 2.2;
+
+                let scaling = { x: delta, y: delta, z: delta };
+                for (let x = -9; x <= 9; x++) {
+                    for (let y = -9; y <= 9; y++) {
+                        // let f = (i + 1) * 0.1; // (50 - i + 1) * 0.1;
+                        //let scaling = { x: f * delta, y: f * delta, z: f * delta };
+                        position.x = x * delta;
+                        position.y = y * delta;
+                        // position.z = y * delta;
+                        let mesh = create(position, offset, rotation, scaling, base, mesh_box);
+                        // mesh.position.z = i * delta;
+                        meshes.push(mesh);
+                    }
+                }
+
+                scene.registerBeforeRender(() => {
+                    meshes.forEach((mesh, idx) => {
+                        let ff = (idx + 1) * 0.1;
+                        let f = max * 0.25;
+                        // mesh.position.x = f * Math.sin(ff + t);
+                        // mesh.position.y = f * (Math.sin(ff + 0.5 * Math.PI + t));
+                        mesh.position.z = f * (Math.sin(ff + 0.5 * Math.PI + t));
+                        // mesh.rotation.y = 0.25 * Math.PI * Math.sin(ff + Math.PI + t);
+                    });
+
+                    t += 0.05;
+                });
+            }
+            else if (sceneIndex == 7) {
+                msg.value = '7: hanging blocks';
+                /* modification 3 */
+                camera.setPosition(new BABYLON.Vector3(0, 0, -30));
+                // camera.alpha = Math.PI / 2.2;
+                // camera.beta = Math.PI / 2.2;
+
+                let scaling = { x: delta, y: delta, z: delta };
+                for (let x = -9; x <= 9; x += 3) {
+                    for (let y = -9; y <= 9; y += 1) {
+                        for (let z = -9; z <= 9; z += 3) {
+                            // let f = (i + 1) * 0.1; // (50 - i + 1) * 0.1;
+                            //let scaling = { x: f * delta, y: f * delta, z: f * delta };
+                            position.x = x * delta;
+                            position.y = y * delta;
+                            position.z = z * delta;
+                            let mesh = create(position, offset, rotation, scaling, base, mesh_box);
+                            // mesh.position.z = i * delta;
+                            meshes.push(mesh);
+                        }
+                    }
+                }
+
+                scene.registerBeforeRender(() => {
+                    meshes.forEach((mesh, idx) => {
+                        let ff = (idx + 1) * 0.1;
+                        let f = max * 0.125;
+                        // mesh.position.x = f * Math.sin(ff + t);
+                        // mesh.position.y = f * (Math.sin(ff + 0.5 * Math.PI + t));
+                        // mesh.position.z = f * (Math.sin(ff + 0.5 * Math.PI + t));
+                        mesh.rotation.y = 0.125 * Math.PI * Math.sin(ff + Math.PI + t);
+                    });
+
+                    t += 0.05;
+                });
+            }
+            else if (sceneIndex == 8) {
+                /* jump on keypress */
+                msg.value = '8: Press a to jump!';
+
+                // // Keyboard events
+                let inputMap = {};
+                scene.actionManager = new BABYLON.ActionManager(scene);
+                scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, function (evt) {
+                    inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+                }));
+                scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyUpTrigger, function (evt) {
+                    inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+                }));
+
+
+                camera.setPosition(new BABYLON.Vector3(0, 0, -30));
+                camera.alpha = Math.PI / 2;
+                // camera.beta = Math.PI / 2;
+
+                let scaling = { x: delta, y: delta, z: delta };
+                let mesh = create(position, offset, rotation, scaling, base, mesh_box);
+                mesh.position.z = delta;
+                meshes.push(mesh);
+
+                let f = max * 0.5;
+                let actions = [];
+                actions.push({
+                    active: false,
+                    object: mesh,
+                    t: 0,
+
+                    do: (self) => {
+                        self.object.position.x = f * Math.sin(self.t);
+                        self.t += 0.05;
+                    }
+                });
+
+                actions.push({
+                    active: false,
+                    object: mesh,
+                    t: 0,
+
+                    do: (self) => {
+                        self.object.position.y = f * Math.abs(Math.cos(0.5 * Math.PI + self.t));
+                        self.object.rotation.z = 0.5 * Math.PI * Math.sin(self.t * 0.5);
+
+                        if (self.object.position.y <= 0.1 && self.t > 0) {
+                            self.object.position.y = 0;
+                            self.object.rotation.z = 0;
+                            self.active = false;
+                        }
+
+                        self.t += 0.05;
+                    }
+                });
+
+                actions[0].active = true;
+                scene.registerBeforeRender(() => {
+                    meshes.forEach((mesh, idx) => {
+
+                        if (inputMap["a"]) {
+                            if (!actions[1].active) {
+                                inputMap["a"] = null;
+                                actions[1].active = true;
+                                actions[1].t = 0;
+                            }
+                        }
+
+                        actions.forEach((action) => {
+                            if (action.active) {
+                                action.do(action, f);
+                            }
+                        });
+
+                    });
+                    t += 0.05;
+                });
+            }
+            else if (sceneIndex == 9) {
+                /* jump on keypress */
+                msg.value = '9: Press a or s to jump!';
+
+                // // Keyboard events
+                let inputMap = {};
+                scene.actionManager = new BABYLON.ActionManager(scene);
+                scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, function (evt) {
+                    inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+                }));
+                scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyUpTrigger, function (evt) {
+                    inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+                }));
+
+
+
+
+                camera.setPosition(new BABYLON.Vector3(0, 0, -30));
+                camera.alpha = Math.PI / 2;
+                // camera.beta = Math.PI / 2;
+
+                let state_running = false;
+
+
+                let scaling = { x: delta, y: delta, z: delta };
+                let mesh = create(position, offset, rotation, scaling, base, mesh_box);
+                // mesh.position.z = delta;
+                mesh.position.x = 0;
+                meshes.push(mesh);
+
+                let f = max * 1; // 0.75;
+                let actions = [];
+                actions.push({
+                    active: true,
+                    object: mesh,
+                    t: 0,
+
+                    do: (self) => {
+                        // if (!self.active)
+                        //     return;
+
+                        self.object.position.x = f * Math.sin(self.t);
+                        // self.t += 0.015;
+                    }
+                });
+
+                actions.push({
+                    active: false,
+                    object: mesh,
+                    t: 0,
+
+                    do: (self) => {
+
+                        if (inputMap["a"]) {
+                            if (!self.active) {
+                                inputMap["a"] = null;
+                                self.active = true;
+                                self.t = 0;
+                            }
+                        }
+
+                        if (!self.active)
+                            return;
+
+                        self.object.position.y = f * Math.abs(Math.cos(0.5 * Math.PI + self.t));
+                        self.object.rotation.z = 0.5 * Math.PI * Math.sin(self.t * 0.5);
+
+                        if (self.object.position.y <= 0.1 && self.t > 0) {
+                            self.object.position.y = 0;
+                            self.object.rotation.z = 0;
+                            self.active = false;
+                        }
+
+                        self.t += 0.015;
+                    }
+                });
+
+
+
+
+                // Oponent
+
+                let mesh_oponent = create(position, offset, rotation, scaling, base, mesh_box);
+                // mesh_oponent.position.z = delta;
+                mesh_oponent.position.x = 3 * Math.PI;
+                meshes.push(mesh_oponent);
+
+                // let f = max * 0.5;
+                // let actions = [];
+                actions.push({
+                    active: true,
+                    object: mesh_oponent,
+                    t: 0,
+
+                    do: (self) => {
+                        if (!self.active)
+                            return;
+
+                        // self.object.position.x = -2 * Math.PI - f * Math.sin(self.t);
+                        self.object.position.x = f * Math.cos(self.t);
+                        self.t += 0.015;
+                    }
+                });
+
+                actions.push({
+                    active: false,
+                    object: mesh_oponent,
+                    t: 0,
+
+                    do: (self) => {
+
+                        if (inputMap["s"]) {
+                            if (!self.active) {
+                                inputMap["s"] = null;
+                                self.active = true;
+                                self.t = 0;
+                            }
+                        }
+
+                        if (!self.active)
+                            return;
+
+                        self.object.position.y = f * Math.abs(Math.cos(0.5 * Math.PI + self.t));
+                        self.object.rotation.z = 0.5 * Math.PI * Math.sin(self.t * 0.5);
+
+                        if (self.object.position.y <= 0.1 && self.t > 0) {
+                            self.object.position.y = 0;
+                            self.object.rotation.z = 0;
+                            self.active = false;
+                        }
+
+                        self.t += 0.015;
+                    }
+                });
+
+
+
+                // Oponent
+
+                let mesh_oponent2 = create(position, offset, rotation, scaling, base, mesh_box);
+                // mesh_oponent.position.z = delta;
+                mesh_oponent2.position.x = -3 * Math.PI;
+                meshes.push(mesh_oponent2);
+
+                // let f = max * 0.5;
+                // let actions = [];
+                actions.push({
+                    active: true,
+                    object: mesh_oponent2,
+                    t: 0,
+
+                    do: (self) => {
+                        if (!self.active)
+                            return;
+
+                        // self.object.position.x = -2 * Math.PI - f * Math.sin(self.t);
+                        self.object.position.x = - f * Math.cos(self.t);
+                        self.t += 0.015;
+                    }
+                });
+
+                actions.push({
+                    active: false,
+                    object: mesh_oponent2,
+                    t: 0,
+
+                    do: (self) => {
+
+                        if (inputMap["s"]) {
+                            if (!self.active) {
+                                inputMap["s"] = null;
+                                self.active = true;
+                                self.t = 0;
+                            }
+                        }
+
+                        if (!self.active)
+                            return;
+
+                        self.object.position.y = f * Math.abs(Math.cos(0.5 * Math.PI + self.t));
+                        self.object.rotation.z = 0.5 * Math.PI * Math.sin(self.t * 0.5);
+
+                        if (self.object.position.y <= 0.1 && self.t > 0) {
+                            self.object.position.y = 0;
+                            self.object.rotation.z = 0;
+                            self.active = false;
+                        }
+
+                        self.t += 0.015;
+                    }
+                });
+
+
+
+                // walls
+                // scaling.x = 0.1;
+                for (let i = 0; i < 4; i++) {
+                    let mesh = create(position, offset, rotation, scaling, base, mesh_box);
+                    mesh.position.y = i * delta;
+                    mesh.position.x = -4 * Math.PI;
+
+                    mesh = create(position, offset, rotation, scaling, base, mesh_box);
+                    mesh.position.y = i * delta;
+                    mesh.position.x = 4 * Math.PI;
+                }
+
+                state_running = true;
+                scene.registerBeforeRender(() => {
+                    if (!state_running)
+                        return;
+
+                    meshes.forEach((mesh, idx) => {
+                        actions.forEach((action) => {
+                            action.do(action, f);
+                        });
+                    });
+
+                    // if (mesh.intersectsMesh(mesh_oponent, true)) {
+                    //     actions.forEach((action) => {
+                    //         action.active = false;
+                    //     });
+                    // } else {
+
+                    // }
+
+                    let dx = mesh.position.x - mesh_oponent.position.x;
+                    let dy = mesh.position.y - mesh_oponent.position.y;
+                    // let dz = mesh.position.z - mesh_oponent.position.z;
+
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+
+                    // console.log(dist, delta);
+                    if (dist < delta) {
+                        actions.forEach((action) => {
+                            action.active = false;
+                        });
+
+                        actions[0].active = true;
+                        actions[2].active = true;
+
+                        actions[0].t = 0;
+                        actions[2].t = 0;
+
+                        mesh.position.y = 0;
+                        mesh_oponent.position.y = 0;
+
+                        mesh.rotation.z = 0;
+                        mesh_oponent.rotation.z = 0;
+                    }
+                });
+            }
+
+
+            else if (sceneIndex == 10) {
+                /* jump on keypress */
+                msg.value = '10: Press a to jump - sign!';
+
+                // // Keyboard events
+                let inputMap = {};
+                scene.actionManager = new BABYLON.ActionManager(scene);
+                scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, function (evt) {
+                    inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+                }));
+                scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyUpTrigger, function (evt) {
+                    inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+                }));
+
+
+                camera.setPosition(new BABYLON.Vector3(0, 0, -30));
+                camera.alpha = Math.PI / 2;
+                // camera.beta = Math.PI / 2;
+
+                let scaling = { x: delta, y: delta, z: delta };
+
+                position = { x: 0, y: 0, z: 0 };
+                let mesh = create(position, offset, rotation, scaling, base, mesh_box);
+                mesh.position.z = delta;
+                meshes.push(mesh);
+
+                let f = max * 0.5;
+                let actions = [];
+                actions.push({
+                    active: false,
+                    object: mesh,
+                    t: 0,
+
+                    do: (self) => {
+                        self.object.position.x += .5 * Math.sign(Math.sin(self.t));
+                        self.t += 0.05;
+                    }
+                });
+
+                actions.push({
+                    active: false,
+                    object: mesh,
+                    t: 0,
+
+                    do: (self) => {
+                        self.object.position.y = f * Math.abs(Math.cos(0.5 * Math.PI + self.t));
+                        self.object.rotation.z = 0.5 * Math.PI * Math.sin(self.t * 0.5);
+
+                        if (self.object.position.y <= 0.1 && self.t > 0) {
+                            self.object.position.y = 0;
+                            self.object.rotation.z = 0;
+                            self.active = false;
+                        }
+
+                        self.t += 0.05;
+                    }
+                });
+
+                actions[0].active = true;
+                scene.registerBeforeRender(() => {
+                    meshes.forEach((mesh, idx) => {
+
+                        if (inputMap["a"]) {
+                            if (!actions[1].active) {
+                                inputMap["a"] = null;
+                                actions[1].active = true;
+                                actions[1].t = 0;
+                            }
+                        }
+
+                        actions.forEach((action) => {
+                            if (action.active) {
+                                action.do(action, f);
+                            }
+                        });
+
+                    });
+                    t += 0.05;
+                });
+            }
+
+            /*
+            else if (sceneIndex == 10) {
+                msg.value = 'Jumping boxes';
+
+                // // // Keyboard events
+                // let inputMap = {};
+                // scene.actionManager = new BABYLON.ActionManager(scene);
+                // scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, function (evt) {
+                //     inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+                // }));
+                // scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyUpTrigger, function (evt) {
+                //     inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+                // }));
+
+
+                camera.setPosition(new BABYLON.Vector3(0, 0, -30));
+                camera.alpha = Math.PI / 2;
+                // camera.beta = Math.PI / 2;
+
+                // let actions = [];
+                let meshes = [];
+                let f = max; // * 0.75;
+                let state_running = false;
+                let scaling = { x: delta, y: delta, z: delta };
+                for (let i = 0; i < 7; i++) {
+                    let mesh = create(position, offset, rotation, scaling, base, mesh_sphere);
+                    // mesh.position.z = delta;
+                    mesh.position.x = delta * 3 - Math.random() * delta * 6;
+                    mesh.position.y = Math.random() * delta * 6;
+                    mesh.actions = [];
+
+
+                    mesh.actions.push({
+                        active: true,
+                        object: mesh,
+                        t: Math.random() * 10,
+                        yoffset: 0,
+                        ifactor: 1,
+
+                        do: (self) => {
+                            // if (!self.active)
+                            //     return;
+
+                            self.object.position.x = f * Math.sin(self.t);
+                            self.t += self.ifactor * 0.015;
+                        }
+                    });
+
+                    mesh.actions.push({
+                        active: true,
+                        object: mesh,
+                        t: Math.random() * 10,
+                        yoffset: 0, // Math.random() * 3 * delta,
+                        accel: 0.1,
+                        max_accel: 2,
+
+
+                        do: (self) => {
+
+                            // if (inputMap["a"]) {
+                            //     if (!self.active) {
+                            //         inputMap["a"] = null;
+                            //         self.active = true;
+                            //         self.t = 0;
+                            //     }
+                            // }
+
+                            if (!self.active)
+                                return;
+
+                            // self.object.position.y = self.yoffset + f * Math.abs(Math.cos(0.5 * Math.PI + self.t));
+
+                            self.object.position.y -= self.accel;
+                            self.accel += 0.01;
+                            if (self.accel > self.max_accel)
+                                self.accel = self.max_accel;
+
+                            // self.object.position.y -= .01;
+                            // self.object.rotation.z = 0.5 * Math.PI * Math.sin(self.t * 0.5);
+
+                            if (self.object.position.y <= 0.1 && self.t > 0) {
+                                self.object.position.y = 0;
+                                self.object.rotation.z = 0;
+                                // self.active = false;
+                                self.accel *= -1; // -.9;
+                            }
+
+                            self.t += 0.015;
+                        }
+                    });
+
+                    meshes.push(mesh);
+                }
+
+
+
+                // walls
+                // scaling.x = 0.1;
+                for (let i = 0; i < 4; i++) {
+                    let mesh = create(position, offset, rotation, scaling, base, mesh_box);
+                    mesh.position.y = i * delta;
+                    mesh.position.x = -4 * Math.PI;
+
+                    mesh = create(position, offset, rotation, scaling, base, mesh_box);
+                    mesh.position.y = i * delta;
+                    mesh.position.x = 4 * Math.PI;
+                }
+
+                state_running = true;
+                scene.registerBeforeRender(() => {
+                    if (!state_running)
+                        return;
+
+                    for (let i1 = 0; i1 < meshes.length; i1++) {
+                        for (let i2 = i1 + 1; i2 < meshes.length; i2++) {
+                            let dx = meshes[i1].position.x - meshes[i2].position.x;
+                            let dy = meshes[i1].position.y - meshes[i2].position.y;
+
+                            let dist = Math.sqrt(dx * dx + dy * dy);
+                            if (dist <= delta) {
+                                meshes[i1].actions.forEach((action) => {
+                                    // action.yoffset += 1; // = meshes[i1].position.y;
+                                    // action.t = 0;
+                                    // action.accel *= -1;
+                                    // meshes[i1].position.x += action.ifactor * dist * 5;
+                                    // meshes[i2].position.x += action.ifactor * dist * 5;
+                                    action.ifactor *= -1;
+
+                                    action.t += 0.015 * 3;
+
+                                    // meshes[i1].position.x = Math.floor(meshes[i1].position.x / delta) * delta;
+                                    // meshes[i1].position.y = Math.floor(meshes[i1].position.y / delta) * delta;
+                                })
+
+                                meshes[i2].actions.forEach((action) => {
+                                    // action.yoffset += 1; // = meshes[i2].position.y;
+                                    // action.t = 0;
+                                    // action.accel *= -1;
+
+                                    action.ifactor *= -1;
+
+                                    action.t -= 0.015 * 3;
+
+                                    // meshes[i1].position.x += action.ifactor * delta * 1;
+                                    // meshes[i2].position.x -= action.ifactor * delta * 1;
+                                    // action.ifactor *= -1;
+
+                                    // action.ifactor *= -1;
+                                    // meshes[i2].position.x = Math.floor(meshes[i2].position.x / delta) * delta;
+                                    // meshes[i2].position.y = Math.floor(meshes[i2].position.y / delta) * delta;
+                                })
+                            }
+                        }
+                    }
+
+
+                    meshes.forEach((mesh) => {
+                        mesh.actions.forEach((action) => {
+                            action.do(action, f);
+                        });
+                    });
+
+
+                    // meshes.forEach((mesh, idx) => {
+                    //     actions.forEach((action) => {
+                    //         action.do(action, f);
+                    //     });
+                    // });
+
+
+                    // let dx = mesh.position.x - mesh_oponent.position.x;
+                    // let dy = mesh.position.y - mesh_oponent.position.y;
+                    // // let dz = mesh.position.z - mesh_oponent.position.z;
+
+                    // let dist = Math.sqrt(dx * dx + dy * dy);
+                    // if (dist < delta) {
+                    //     actions.forEach((action) => {
+                    //         // action.active = false;
+                    //         action.t = 0;
+                    //     });
+
+                    //     // actions[0].active = true;
+                    //     // actions[2].active = true;
+
+                    //     // actions[0].t = 0;
+                    //     // actions[2].t = 0;
+
+                    //     // mesh.position.y = 0;
+                    //     // mesh_oponent.position.y = 0;
+
+                    //     // mesh.rotation.z = 0;
+                    //     // mesh_oponent.rotation.z = 0;
+                    // }
+                });
+            }
+            */
+            return scene;
+        };
+
+        //
+        scenes_arr.push(createScene);   // scene 0
+        scenes_arr.push(createScene);   // scene 1
+        scenes_arr.push(createScene);   // scene 2
+        scenes_arr.push(createScene);   // scene 3
+        scenes_arr.push(createScene);   // scene 4
+        scenes_arr.push(createScene);   // scene 5
+        scenes_arr.push(createScene);   // scene 6
+        scenes_arr.push(createScene);   // scene 7
+        scenes_arr.push(createScene);   // scene 8
+        scenes_arr.push(createScene);   // scene 9
+        scenes_arr.push(createScene);   // scene 10
+
+        sceneIndex = scenes_arr.length - 1;
+
+        var scene = scenes_arr[sceneIndex](sceneIndex); //Call the createScene function
+
+        // Register a render loop to repeatedly render the scene
+        engine.runRenderLoop(function () {
+            scene.render();
+        });
+
+        // Watch for browser/canvas resize events
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+
+        function loadPrev() {
+            sceneIndex--;
+            if (!scenes_arr[sceneIndex]) {
+                // jump to last scene
+                sceneIndex = scenes_arr.length - 1;
+            }
+            if (scene) {
+                scene.dispose();
+            }
+            scene = scenes_arr[sceneIndex](sceneIndex);
+        }
+
+        function loadNext() {
+            sceneIndex++;
+            if (!scenes_arr[sceneIndex]) {
+                // jump to first scene
+                sceneIndex = 0;
+            }
+            if (scene) {
+                scene.dispose();
+            }
+            scene = scenes_arr[sceneIndex](sceneIndex);
+        }
+
+        function load() {
+            if (!scenes_arr[sceneIndex]) {
+                // jump to first scene
+                sceneIndex = 0;
+            }
+            if (scene) {
+                scene.dispose();
+            }
+            scene = scenes_arr[sceneIndex](sceneIndex);
+        }
+
+        document
+            .getElementById("prev")
+            .addEventListener("click", loadPrev, { passive: true });
+        document
+            .getElementById("next")
+            .addEventListener("click", loadNext, { passive: true });
+        document
+            .getElementById("reset")
+            .addEventListener("click", load, { passive: true });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

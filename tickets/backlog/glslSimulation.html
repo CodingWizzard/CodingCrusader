@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>blume</title>
+    <meta charset="UTF-8">
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        #fps {
+            position: absolute;
+            background-color: black;
+            /* border: 2px solid red; */
+            text-align: center;
+            font-size: 16px;
+            color: white;
+            top: 15px;
+            right: 10px;
+            width: 60px;
+            height: 20px;
+        }
+    </style>
+
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+        let engine = new BABYLON.Engine(canvas, true);
+
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+
+
+            let MAX = 50;
+            let MAX2 = MAX * 2;
+
+            var camera = new BABYLON.ArcRotateCamera("Camera", -Math.PI / 2, Math.PI / 2.24, MAX, new BABYLON.Vector3(0, 0, 0), scene);
+            camera.attachControl(canvas, true);
+            camera.maxZ = MAX2 * MAX2;
+
+            var light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.position = new BABYLON.Vector3(20, 150, 70);
+            light.intensity = 0.7;
+
+            let time = 0;
+            const points = [];
+            const colors = [];
+
+            let funcColor = (px, py) => {
+                let x = px / MAX2;
+                let y = py / MAX2;
+
+                let color = 0.0;
+                color += Math.sin(x * Math.cos(time / 15.0) * 80.0) + Math.cos(y * Math.cos(time / 15.0) * 10.0);
+                color += Math.sin(y * Math.sin(time / 10.0) * 40.0) + Math.cos(x * Math.sin(time / 25.0) * 40.0);
+                color += Math.sin(x * Math.sin(time / 5.0) * 10.0) + Math.sin(y * Math.sin(time / 35.0) * 80.0);
+                color *= Math.sin(time / 10.0) * 0.5;
+
+                return {
+                    r: color,
+                    g: color * 0.5,
+                    b: Math.sin(color + time / 3.0) * 0.75,
+                    a: 1.0
+                };
+            }
+
+
+            for (let x = -MAX; x <= MAX; x++) {
+                for (let y = -MAX; y <= MAX; y++) {
+                    let c = funcColor(x, y);
+                    points.push(new BABYLON.Vector3(x, y, 0));
+                    colors.push(new BABYLON.Color4(c.r, c.g, c.b, c.a));
+                }
+            }
+
+            var pcs = new BABYLON.PointsCloudSystem("pcs", 5, scene);
+
+            var initParticles = function (particle, i, s) {
+                particle.position = points[i];
+                particle.color = colors[i];
+            };
+            pcs.addPoints(points.length, initParticles);
+            pcs.buildMeshAsync();
+
+
+            pcs.updateParticle = function (particle) {
+                let c = funcColor(particle.position.x, particle.position.y);
+                particle.color.set(c.r, c.g, c.b, c.a);
+            };
+
+
+            scene.registerAfterRender(() => {
+                pcs.setParticles();
+
+                time += 0.125;
+            });
+
+            return scene;
+
+        }
+
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            scene.render();
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>

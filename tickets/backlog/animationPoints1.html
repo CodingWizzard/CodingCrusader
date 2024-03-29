@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>thin instance wrapper</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/cannon.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        let SCREEN_WIDTH = window.innerWidth,
+            SCREEN_HEIGHT = window.innerHeight,
+            SCREEN_WIDTH_HALF = SCREEN_WIDTH / 2,
+            SCREEN_HEIGHT_HALF = SCREEN_HEIGHT / 2;
+
+        let radius = .25;
+        let size = 2;
+        let mouse_pos = new BABYLON.Vector3(0, 0, 0);
+
+
+        class Fighter {
+            constructor(scene, behave) {
+
+                let pcs = new BABYLON.PointsCloudSystem("pcs", size, scene);
+
+                // based on https://glslsandbox.com/e#74719.0
+
+                let time = 0;
+                let factor = 50;
+                
+                let p = new BABYLON.Vector3(0,0,0);
+                let i = new BABYLON.Vector3(0,0,0);
+                let c = new BABYLON.Vector3(0,0,0);
+
+                pcs.recycleParticle = (particle) => {
+                    particle.color.set(1,1,1);
+
+                    particle.x = Math.PI * Math.random();
+                    particle.y = Math.PI * Math.random();
+                    particle.z = Math.PI * Math.random();
+                };
+
+                pcs.addPoints(10000, pcs.recycleParticle);
+                pcs.buildMeshAsync();
+
+                pcs.updateParticle = (particle) => {
+
+                    p.x = particle.x;
+                    p.y = particle.y;
+                    p.z = particle.z;
+ 
+                    let letime = time * .5+23.0;
+    
+                    i.x = p.x;
+                    i.y = p.y;                    
+                    i.z = p.z;
+                    for(let n = 0; n < 5; n++)  {
+                        let t = letime * (1.0 - (.01 / (n+1)));
+                        i.x = p.x + Math.cos(t - i.x) + Math.sin(t + i.y);
+                        i.y = p.y + Math.sin(t - i.y) + Math.cos(t + i.x);
+                        i.z = p.y + Math.sin(t - i.x) + Math.cos(t + i.z);
+                    }
+                                       
+                    particle.position.x = factor * i.x;
+                    particle.position.y = factor * i.y;
+                    particle.position.z = factor * i.z;
+
+                    c.x = BABYLON.Scalar.RangeToPercent(i.x, 0, Math.PI);
+                    c.y = BABYLON.Scalar.RangeToPercent(i.y, 0, Math.PI);
+                    c.z = BABYLON.Scalar.RangeToPercent(i.z, 0, Math.PI);                    
+
+                    particle.color.set(c.x,c.y,c.z);
+                };
+
+                
+                scene.registerAfterRender(() => {
+                    pcs.setParticles();
+                    time += .01;
+                });
+            }
+        }
+
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color3(0,0,0);
+            let light = new BABYLON.DirectionalLight("dir01", new BABYLON.Vector3(0, -0.5, 1.0), scene);
+            let camera = new BABYLON.ArcRotateCamera("Camera", -Math.PI / 2, Math.PI / 2.24, 500, new BABYLON.Vector3(0, 0, 0), scene);
+            light.position = new BABYLON.Vector3(20, 150, 70);
+            camera.attachControl(canvas, true);
+
+
+            let behave_player1 = (t) => { return Math.sin(t)}
+            let behave_player2 = (t) => { return -Math.sin(t)}
+
+            let player1 = new Fighter(scene, behave_player1);
+            // let player2 = new Fighter(scene, behave_player2);
+
+            // scene.onPointerMove = () => {
+            //     // mouse_pos.set(scene.pointerX - SCREEN_WIDTH_HALF, - scene.pointerY + SCREEN_HEIGHT_HALF, 0);
+            // };
+
+
+            return scene;
+        };
+
+
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

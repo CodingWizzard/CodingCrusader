@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>thin instance wrapper</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/cannon.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+
+        class LifeForm {
+            constructor(scene, x0, y0, z0, time0, circle0) {
+                this.pcs = new BABYLON.PointsCloudSystem("pcs", 1, scene)
+
+                this.pcs.recycleParticle = function (particle) {
+                    particle.iCircle = circle0*BABYLON.Scalar.RandomRange(1, 25);
+                    particle.iCircum = BABYLON.Scalar.RandomRange(1, 25 * Math.PI * 2);
+                };
+
+                this.pcs.addPoints(500, this.pcs.recycleParticle);
+                this.pcs.buildMeshAsync();
+
+                this.pcs.updateParticle = function (particle) {
+                    particle.position.x = x0 + particle.iCircle * Math.sin(0.1*time + particle.iCircum);
+                    particle.position.y = y0 + particle.iCircle * Math.cos(0.1*time + particle.iCircum);
+
+                    particle.position.z = z0 + 15 * Math.sin(time + particle.iCircle * 0.125 * 0.5) + 
+                        5 * Math.sin(time + (5 + particle.iCircle) * 0.25) +
+                        5 * Math.sin(time + (15 + particle.iCircle) * 0.25);
+
+                    particle.iCircle += Math.sin(time);
+                };
+
+
+                let time = time0;
+                scene.registerAfterRender(() => {
+                    this.pcs.setParticles();
+
+                    time += 0.125;
+                    // z0 -= .1;
+                });
+
+            }
+        }
+
+        let createScene = function () {
+            var scene = new BABYLON.Scene(engine);
+            // scene.ambientColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+            scene.clearColor = new BABYLON.Color3(0, 0, 0);
+            var light = new BABYLON.DirectionalLight("dir01", new BABYLON.Vector3(0, -0.5, 1.0), scene);
+            var camera = new BABYLON.ArcRotateCamera("Camera", -Math.PI / 2, Math.PI / 2.24, 500, new BABYLON.Vector3(0, 0, 0), scene);
+            light.position = new BABYLON.Vector3(20, 150, 70);
+            camera.attachControl(canvas, true);
+
+            // let lf1 = new LifeForm(scene, 0, 0, 0, 0);
+            // let lf2 = new LifeForm(scene, 30, 30, 30, 1);
+
+            let fa = 200;
+            for (let i = 0; i < 50; i++) {
+                let x0 = fa*0.5 - fa * Math.random();
+                let y0 = fa*0.5 - fa * Math.random();
+                let z0 = fa*0.5 - fa * Math.random();
+                let t0 = fa * Math.random();
+
+                new LifeForm(scene, x0, y0, z0, t0, Math.random()*2);
+
+            }
+
+
+            return scene;
+        };
+
+
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>
