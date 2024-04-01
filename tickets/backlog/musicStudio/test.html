@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Music Studio</title>
+
+    <script src="https://preview.babylonjs.com/babylon.js"></script>
+
+    <script src="tracks/melodyLaudateOmnesGentes.js"></script>
+    <script src="tracks/instruments.js"></script>
+    <script src="tracks/controller_track.js"></script>
+    <script src="tracks/controller.js"></script>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <p>open the console and click the box</p>
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+            let light = new BABYLON.HemisphericLight("", new BABYLON.Vector3(0, 1, 0), scene);
+            let camera = new BABYLON.ArcRotateCamera("", 3 * Math.PI / 2, Math.PI / 1.3, 3, BABYLON.Vector3.Zero(), scene);
+            camera.panningSensibility = 80;
+            camera.attachControl(canvas, true);
+            camera.upperBetaLimit = null;
+            camera.lowerBetaLimit = null;
+
+            let params = { scene: scene };
+
+            let controller_Tracks = new Controller_Tracks(params);
+
+            let box = BABYLON.MeshBuilder.CreateBox("", { width: 1, height: 1, depth: 1 }, scene, true);
+            scene.onPointerDown = (evt, pickResult) => {
+                if (pickResult.hit) {
+                    controller_Tracks.state = controller_Tracks.state_start;
+                }
+            };
+
+            scene.registerBeforeRender(function () {
+                controller_Tracks.update();
+
+                // let index1 = 0;
+                // let model1 = controller_Tracks.controller_tracks[0].model;
+                // if (model1.index > -1 && model1.index < model1.melody.length - 1) {
+                //     index1 = model1.melody[model1.index].note + 12 * model1.melody[model1.index].pitch;
+                // }
+            });
+
+            return scene;
+        }
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

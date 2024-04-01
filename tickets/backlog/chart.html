@@ -18,11 +18,11 @@
             padding: 0;
         }
 
-        #renderCanvas {
+        /* #renderCanvas {
             width: 100%;
             height: 100%;
             touch-action: none;
-        }
+        } */
 
         #fps {
             position: absolute;
@@ -138,7 +138,7 @@
             // var time = 0;
             // var fps = 30;
 
-            let max = 15;
+            let max = 25;
             // // chart.data.datasets[0].data = [];
             // chart.data.datasets[0].data.labels = [];
             // chart.data.datasets[0].data.datasets = [];            
@@ -150,7 +150,7 @@
 
             for (let i = 0; i < max; i++) {
                 let x = i; // 10*Math.sin(i*2*Math.PI/max);
-                let y = 10 * Math.sin(i * 2 * Math.PI / max);
+                let y = 0 * Math.sin(i * 2 * Math.PI / max);
                 xValues.push(x);
                 yValues.push(y);
                 barColors.push("blue");
@@ -171,26 +171,39 @@
                     legend: { display: false },
                     title: {
                         display: true,
-                        text: "World Wine Production 2018"
+                        text: "FPS"
                     }
                 }
             });
 
             let t = 0;
+            let i = 0;
+            // const xValues = [];
+            //     const yValues = [];
+            //     const barColors = [];
             scene.registerBeforeRender(() => {
 
                 t += 0.1;
                 divFps.innerHTML = engine.getFps().toFixed() + " fps";
 
 
-                const xValues = [];
-                const yValues = [];
-                const barColors = [];
 
-                for (let i = 0; i < max; i++) {
-                    let y = 10 * Math.sin(t + i * 2 * Math.PI / max);
-                    yValues.push(y);
+
+                // for (let i = 0; i < max; i++) {
+                //     let y = 10 * Math.sin(t + i * 2 * Math.PI / max);                    
+                //     yValues.push(y);
+                // }
+
+                for (let i = 0; i < max - 1; i++) {
+                    yValues[i] = yValues[i + 1];
                 }
+
+
+                yValues[max - 1] = engine.getFps();
+                // i++;
+                // if (i > max)
+                //     i = 0;
+
                 chart.data.datasets[0].data = yValues;
                 chart.update();
 
