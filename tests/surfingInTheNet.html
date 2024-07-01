@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Coding Crusader's</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+
+
+        let createScene = async function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = BABYLON.Color3.Gray();
+            let camera = new BABYLON.ArcRotateCamera("camera1",
+                BABYLON.Tools.ToRadians(-90 - 20),
+                BABYLON.Tools.ToRadians(90 - 20),
+                10,
+                new BABYLON.Vector3(0, 0, 0), scene);
+            camera.attachControl(canvas, true);
+            camera.upperBetaLimit = null;
+            camera.lowerBetaLimit = null;
+            camera.wheelPrecision = 15;
+
+
+
+            class HoverCraft {
+                constructor(scene) {
+                    let material = new BABYLON.StandardMaterial("mat", scene);
+                    material.emissiveColor = BABYLON.Color3.White();
+                    let meshBase = BABYLON.MeshBuilder.CreateBox("point", { width: 1, height: 0.25, depth: 10 });
+                    meshBase.isVisible = false;
+                    meshBase.material = material;
+
+                    let instanceId = 0;
+                    let meshes = [];
+                    let len = 1;
+                    for (let i = 0; i < len; i++) {
+                        let mesh = meshBase.createInstance(instanceId++);
+                        mesh.material = material;
+                        mesh.velo = new BABYLON.Vector3.Zero();
+                        mesh.dir = new BABYLON.Vector3.Zero();
+                        mesh.dist = new BABYLON.Vector3.Zero();
+                        mesh.p0 = new BABYLON.Vector3.Zero();
+                        mesh.p0.z = 5 + i;
+
+                        mesh.enableEdgesRendering();
+                        mesh.edgesWidth = 2.0;
+                        mesh.edgesColor = new BABYLON.Color4(0, 0, 1, 1);
+                        meshes.push(mesh);
+                    }
+
+
+                    let sig = (t) => { return 0.5 * Math.tanh(t * 0.5); }
+                    scene.registerAfterRender(() => {
+                        meshes.forEach((mesh) => {
+                            mesh.velo.scaleInPlace(0.9);
+
+                            mesh.dist = BABYLON.Vector3.Distance(mesh.p0, mesh.position);
+                            mesh.dir = mesh.position.subtract(mesh.p0).normalize().scale(-0.1 * sig(mesh.dist));
+                            mesh.velo.addInPlace(mesh.dir);
+
+                            mesh.position.addInPlace(mesh.velo);
+                            mesh.rotation.z = mesh.velo.x;
+                        })
+                    });
+
+
+                    window.addEventListener("mousemove", function (event) {
+                        event.preventDefault();
+                        var mouseVector = new BABYLON.Vector3();
+                        mouseVector.set((event.clientX / engine.getRenderWidth()), (event.clientY / engine.getRenderHeight()), 0.5);
+                        let uvec = BABYLON.Vector3.Unproject(mouseVector, 1, 1, BABYLON.Matrix.Identity(), camera.getViewMatrix(), camera.getProjectionMatrix());
+                        var dir = uvec.subtract(camera.position).normalize();
+                        var distance = -camera.position.z / dir.z;
+                        var pos = camera.position.clone().add(dir.scale(distance));
+
+                        meshes.forEach((mesh, index) => {
+                            mesh.p0.copyFrom(pos);
+                            mesh.p0.z = 5 + index;
+                        });
+
+                    });
+
+
+
+                    // publish
+                    this.meshes = meshes;
+                }
+            }
+
+            class Bullet {
+                constructor(scene) {
+                    // let light = new BABYLON.HemisphericLight("", new BABYLON.Vector3(0, 1, 0), scene);
+
+                    let material = new BABYLON.StandardMaterial("mat", scene);
+                    material.emissiveColor = BABYLON.Color3.White();
+                    material.alpha = 0.5;
+
+                    let meshBase = BABYLON.MeshBuilder.CreateBox("point", { width: 0.25, height: 0.25, depth: 10 });
+                    meshBase.isVisible = false;
+                    meshBase.material = material;
+
+                    let instanceId = 0;
+                    let meshes = [];
+
+                    let rnd = (f) => { return f * (0.5 - Math.random()) }
+                    let rndabs = (f) => { return 1 + f * (Math.random()) }
+
+                    let len = 2000;
+                    for (let i = 0; i < len; i++) {
+                        let mesh = meshBase.createInstance(instanceId++);
+                        mesh.velo = new BABYLON.Vector3(0, 0, -5);
+
+                        mesh.scaling.z = 1 + rndabs(3);
+
+                        mesh.position.x = rnd(100);
+                        mesh.position.y = rnd(100);
+                        mesh.position.z = 300 + rnd(300);
+
+                        mesh.enableEdgesRendering();
+                        mesh.edgesWidth = 20.0;
+                        mesh.edgesColor = new BABYLON.Color4(Math.random(), Math.random(), Math.random(), 1);
+
+                        mesh.checkCollisions = true;
+
+                        meshes.push(mesh);
+                    }
+
+
+                    scene.registerAfterRender(() => {
+
+                        meshes.forEach((mesh, i) => {
+                            mesh.position.addInPlace(mesh.velo);
+
+                            if (mesh.position.z < 0) {
+                                mesh.position.x = rnd(100);
+                                mesh.position.y = rnd(100);
+                                mesh.position.z = 300 + rnd(300);
+                            }
+
+                        })
+
+                    });
+
+
+
+                    // publish
+                    this.meshes = meshes;
+                }
+            }
+
+
+            new Bullet(scene);
+            new HoverCraft(scene);
+
+            return scene;
+        }
+
+
+
+        const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, disableWebGL2Support: false });
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(function () {
+                if (scene) {
+                    scene.render();
+                }
+            });
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>
