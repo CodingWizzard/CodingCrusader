@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Soft Cloth Simulator</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <!-- <script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script> -->
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+
+        // 101124 CodingCrusader & ChatGPT - TextEditor with special effects
+        // https://forum.babylonjs.com/t/i-want-this-on-the-playground-d/54557/27
+
+        let createScene = async function () {
+            let scene = new BABYLON.Scene(engine);
+
+            let camera = new BABYLON.ArcRotateCamera("",
+                BABYLON.Tools.ToRadians(-90),
+                BABYLON.Tools.ToRadians(90),
+                10, BABYLON.Vector3.Zero(), scene);
+            camera.panningSensibility = 80;
+            camera.attachControl(canvas, true);
+            camera.upperBetaLimit = null;
+            camera.lowerBetaLimit = null;
+
+
+            let light = new BABYLON.HemisphericLight("", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.8;
+
+            // KeyPressController - Handles key press and release events and notifies registered controllers
+            class KeyPressController {
+                constructor() {
+                    this.subscribers = [];
+                    window.addEventListener("keydown", (event) => this.notify("keydown", event));
+                    window.addEventListener("keyup", (event) => this.notify("keyup", event));
+                }
+
+                subscribe(controller) {
+                    this.subscribers.push(controller);
+                }
+
+                notify(type, event) {
+                    this.subscribers.forEach(controller => controller.update(type, event));
+                }
+            }
+
+            // Create a parent object for letters to make them easier to manage
+            const textParent = new BABYLON.TransformNode("textParent", scene);
+
+            // EffectsController - Handles cursor animations, with states idle and running
+            class EffectsController {
+                constructor(cursorController) {
+                    this.cursorController = cursorController;
+                    this.state = "idle";
+                    this.particleSystem = null;
+                    this.dummyEmitter = new BABYLON.TransformNode("dummyEmitter", scene); // Dient als Bewegungsanker
+                }
+
+                initializeParticleSystem(scene) {
+                    const particleSystem = new BABYLON.ParticleSystem("particles", 1000, scene);
+                    particleSystem.particleTexture = new BABYLON.Texture("https://www.babylonjs-playground.com/textures/flare.png", scene); // Nutze eine kleine Textur für Partikel
+                    particleSystem.emitter = this.dummyEmitter;  // Setzt den Emitter auf den TransformNode
+                    particleSystem.minSize = 0.05;
+                    particleSystem.maxSize = 0.1;
+                    particleSystem.minLifeTime = 0.2;
+                    particleSystem.maxLifeTime = 0.4;
+                    particleSystem.direction1 = new BABYLON.Vector3(1, 1, 0);
+                    particleSystem.direction2 = new BABYLON.Vector3(-1, -1, 0);
+                    particleSystem.emitRate = 200;
+                    particleSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_ONEONE;
+                    particleSystem.gravity = new BABYLON.Vector3(0, -9.81, 0);
+                    // particleSystem.disposeOnStop = true;
+                    this.particleSystem = particleSystem;
+                }
+
+                playParticleEffect(oldPosition, newPosition) {
+                    if (!this.particleSystem) return;
+
+                    // Setze den dummyEmitter auf die alte Position
+                    this.dummyEmitter.position.copyFrom(oldPosition);
+
+                    // Starte das Partikelsystem
+                    this.particleSystem.start();
+
+                    // Erstelle eine Animation für die Bewegung des Partikelemitters
+                    const animation = new BABYLON.Animation("particleAnimation", "position", 30,
+                        BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+
+                    const keys = [
+                        { frame: 0, value: oldPosition.clone() },
+                        { frame: 10, value: newPosition.clone() }
+                    ];
+
+                    animation.setKeys(keys);
+
+                    // Führe die Animation auf dem dummyEmitter aus
+                    this.dummyEmitter.animations = [animation];
+                    scene.beginAnimation(this.dummyEmitter, 0, 10, false, 1, () => {
+                        // Beende das Partikelsystem nach der Animation und setze den Status zurück
+                        this.particleSystem.stop();
+                        this.state = "idle";
+                    });
+                }
+
+                update(type, event, oldPosition, newPosition) {
+                    if (type === "keydown" && this.state === "idle") {
+                        this.state = "running";
+                        this.playParticleEffect(oldPosition, newPosition);
+                        // this.state = "idle";
+                    }
+                }
+            }
+
+            // CursorController - Enhanced with methods for moving backwards and setting the cursor position
+            class CursorController {
+                constructor(scene) {
+                    this.cursorSize = 0.2;
+                    this.cursorSizeMove = 0.5 * this.cursorSize;
+                    this.cursorPosition = { x: 0, y: 0 };
+                    this.cursorMesh = BABYLON.MeshBuilder.CreateBox("cursor", { height: this.cursorSize, width: 0.05, depth: 0.05 }, scene);
+                    this.cursorMesh.position.x = this.cursorPosition.x;
+                    this.cursorMesh.position.y = this.cursorPosition.y;
+                }
+
+                moveRight() {
+                    this.cursorPosition.x += this.cursorSizeMove;
+                    this.updateCursorView();
+                }
+
+                moveLeft() {
+                    this.cursorPosition.x -= this.cursorSizeMove;
+                    this.updateCursorView();
+                }
+
+                newLine() {
+                    this.cursorPosition.x = 0;
+                    this.cursorPosition.y -= this.cursorSizeMove * 2;
+                    this.updateCursorView();
+                }
+
+                moveToEndOfLine(length) {
+                    this.cursorPosition.x = length * this.cursorSizeMove;
+                    this.updateCursorView();
+                }
+
+                getPosition() {
+                    return new BABYLON.Vector3(this.cursorPosition.x, this.cursorPosition.y, 0);
+                }
+
+                updateCursorView() {
+                    this.cursorMesh.position.x = this.cursorPosition.x;
+                    this.cursorMesh.position.y = this.cursorPosition.y;
+                }
+
+                update() { }
+            }
+
+            // TextStorageController - Updated to control the position and effect of each deletion
+            class TextStorageController {
+                constructor(cursorController, effectsController) {
+                    this.cursorController = cursorController;
+                    this.effectsController = effectsController;
+                    this.textMeshes = [];
+                    this.lines = [""];
+                    this.currentLine = 0;
+                    this.highlightedWords = ["babylon", "javascript"]; // Liste der hervorgehobenen Wörter
+                }
+
+                update(type, event) {
+                    const oldPosition = this.cursorController.getPosition().clone();
+
+                    if (type === "keydown") {
+                        if (event.key === "Enter") {
+                            this.currentLine++;
+                            this.lines.push("");
+                            this.cursorController.newLine();
+                        } else if (event.key === "Backspace") {
+                            if (this.lines[this.currentLine].length > 0) {
+                                this.lines[this.currentLine] = this.lines[this.currentLine].slice(0, -1);
+                                this.deleteLastCharacter();
+                            } else if (this.currentLine > 0) {
+                                this.lines.pop();
+                                this.currentLine--;
+                                this.cursorController.moveToEndOfLine(this.lines[this.currentLine].length);
+                            }
+                        } else if (event.key.length === 1) {
+                            this.lines[this.currentLine] += event.key;
+                            this.addCharacter(event.key);
+                            this.checkForHighlight();  // Worterkennung nach jedem Tastendruck prüfen
+                        }
+
+                        const newPosition = this.cursorController.getPosition().clone();
+                        this.effectsController.update(type, event, oldPosition, newPosition);
+                    }
+                }
+
+                addCharacter(char) {
+                    const charMesh = BABYLON.MeshBuilder.CreatePlane("charMesh", { size: this.cursorController.cursorSize }, scene);
+                    const dynamicTexture = new BABYLON.DynamicTexture("charTexture", 256, scene, false);
+                    dynamicTexture.hasAlpha = true;
+                    const fontSize = 200;
+                    dynamicTexture.drawText(
+                        char, null, 200, `bold ${fontSize}px TimeRoman`, "white", "transparent", true
+                    );
+
+                    const material = new BABYLON.StandardMaterial("charMaterial", scene);
+                    material.diffuseTexture = dynamicTexture;
+                    material.opacityTexture = dynamicTexture;
+                    charMesh.material = material;
+
+                    charMesh.position = this.cursorController.getPosition();
+                    charMesh.parent = textParent;
+                    this.textMeshes.push(charMesh);
+
+                    this.cursorController.moveRight();
+                }
+
+                deleteLastCharacter() {
+                    const lastMesh = this.textMeshes.pop();
+                    if (lastMesh) lastMesh.dispose();
+                    this.cursorController.moveLeft();
+                }
+
+                checkForHighlight() {
+                    const currentLineText = this.lines[this.currentLine].toLowerCase();
+                    this.highlightedWords.forEach(word => {
+                        if (currentLineText.endsWith(word)) {
+                            this.applyHighlight(word);
+                        }
+                    });
+                }
+
+                applyHighlight(word) {
+                    const startIdx = this.textMeshes.length - word.length;
+                    for (let i = startIdx; i < this.textMeshes.length; i++) {
+                        this.textMeshes[i].material.diffuseColor = new BABYLON.Color3(1, 0, 0);  // Setze Farbe auf rot
+                    }
+                }
+            }
+
+
+            // Audio und Picture-Setup
+            const sound = new BABYLON.Sound("alphaSound", "https://www.babylonjs-playground.com/sounds/violons11.wav", scene);
+            const imageTexture = new BABYLON.Texture("https://www.babylonjs-playground.com/textures/BJS-logo_v3.png", scene);
+            imageTexture.hasAlpha = true;
+
+            // Plane für das Bild erstellen
+            const imagePlane = BABYLON.MeshBuilder.CreatePlane("imagePlane", { size: 0.5 }, scene);
+            imagePlane.material = new BABYLON.StandardMaterial("imageMaterial", scene);
+            imagePlane.material.diffuseTexture = imageTexture;
+            imagePlane.isVisible = false; // Unsichtbar, bis es angezeigt werden soll
+
+            // WordTrackerController - Speichert und prüft eingegebene Buchstaben
+            class WordTrackerController {
+                constructor(cursorController) {
+                    this.cursorController = cursorController;
+                    this.typedChars = [];
+                }
+
+                update(type, event) {
+                    if (type === "keydown" && event.key.length === 1) {
+                        this.typedChars.push(event.key.toLowerCase());
+
+                        let word = "babylon";
+                        let len = word.length;
+
+                        if (this.typedChars.length > len) this.typedChars.shift();
+
+                        if (this.typedChars.join('').endsWith(word)) {
+                            this.playAlphaEffect();
+                        }
+                    }
+                }
+
+                playAlphaEffect() {
+                    // Sound abspielen
+                    sound.play();
+
+                    // Bild für 1 Sekunde über dem Cursor anzeigen
+                    imagePlane.position = this.cursorController.getPosition().clone();
+                    imagePlane.isVisible = true;
+                    setTimeout(() => { imagePlane.isVisible = false; }, 1000);
+                }
+            }
+
+
+
+            // 2. BracketController - Verbindet öffnende und schließende geschweifte Klammern mit einer Linie
+            class BracketController {
+                constructor(cursorController) {
+                    this.cursorController = cursorController;
+                    this.openBracketPositions = [];
+                    this.lines = [];
+                }
+
+                update(type, event) {
+                    if (type === "keydown") {
+                        if (event.key === "{") {
+                            // Speichere Position der öffnenden Klammer
+                            this.openBracketPositions.push(this.cursorController.getPosition().clone());
+                        } else if (event.key === "}") {
+                            // Hole Position der letzten öffnenden Klammer und zeichne Linie
+                            if (this.openBracketPositions.length > 0) {
+                                const startPosition = this.openBracketPositions.pop();
+                                const endPosition = this.cursorController.getPosition().clone();
+
+                                const line = BABYLON.MeshBuilder.CreateLines("line", {
+                                    points: [startPosition, endPosition]
+                                }, scene);
+                                line.color = new BABYLON.Color3(0.5, 0.8, 1); // Farbe der Linie
+                                this.lines.push(line);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. LightningController - Zeigt einen Blitz-Effekt beim Zeilenwechsel an
+            class LightningController {
+                constructor(scene, cursorController) {
+                    this.scene = scene;
+                    this.cursorController = cursorController;
+                    this.lightningMaterial = new BABYLON.StandardMaterial("lightningMat", scene);
+                    this.lightningMaterial.emissiveColor = new BABYLON.Color3(0.8, 0.8, 1);
+                    this.lightningMaterial.alpha = 0.7;
+                    this.isRunning = false;
+
+                    // this.previousCursorPosition = cursorController.getPosition().clone(); // Initialisiert mit aktueller Position
+
+                    // Fullscreen overlay für den Flash-Effekt
+                    this.createFlashOverlay();
+                }
+
+                createFlashOverlay() {
+                    this.flashOverlay = BABYLON.MeshBuilder.CreatePlane("flashOverlay", { size: 1 }, this.scene);
+                    const flashMaterial = new BABYLON.StandardMaterial("flashMaterial", this.scene);
+                    flashMaterial.emissiveColor = new BABYLON.Color3(1, 1, 1);
+                    flashMaterial.alpha = 0;
+                    flashMaterial.backFaceCulling = false;
+                    flashMaterial.disableLighting = true;
+                    this.flashOverlay.material = flashMaterial;
+
+                    this.flashOverlay.parent = this.scene.activeCamera;
+                    this.flashOverlay.position = new BABYLON.Vector3(0, 0, 1);
+                    this.flashOverlay.scaling = new BABYLON.Vector3(5, 5, 1);
+                }
+
+                createLightningBolt(start, end, maxBranches = 5, branchDepth = 0) {
+                    if (branchDepth > 3) return null;
+
+                    const mainBranch = this.generateLightningPoints(start, end, 8);
+                    const meshes = [];
+
+                    const lightning = BABYLON.MeshBuilder.CreateTube(
+                        "lightning",
+                        {
+                            path: mainBranch,
+                            radius: 0.02 / (branchDepth + 1),
+                            tessellation: 3
+                        },
+                        this.scene
+                    );
+
+                    lightning.material = this.lightningMaterial;
+                    meshes.push(lightning);
+
+                    if (branchDepth < 2) {
+                        const branchCount = Math.floor(Math.random() * maxBranches) + 1;
+
+                        for (let i = 0; i < branchCount; i++) {
+                            const startIndex = Math.floor(Math.random() * (mainBranch.length - 4)) + 2;
+                            const branchStart = mainBranch[startIndex];
+
+                            const direction = new BABYLON.Vector3(
+                                (Math.random() - 0.5) * 6,
+                                -Math.random() * 8 - 2,
+                                (Math.random() - 0.5) * 6
+                            );
+
+                            const branchLength = BABYLON.Vector3.Distance(start, end) * (0.2 + Math.random() * 0.2);
+                            const branchEnd = branchStart.add(direction.normalize().scale(branchLength));
+
+                            const branch = this.createLightningBolt(
+                                branchStart,
+                                branchEnd,
+                                Math.max(1, maxBranches - 2),
+                                branchDepth + 1
+                            );
+
+                            if (branch) {
+                                meshes.push(...branch.meshes);
+                            }
+                        }
+                    }
+
+                    const light = new BABYLON.PointLight(
+                        "lightningLight",
+                        start,
+                        this.scene
+                    );
+                    light.intensity = 1 / (branchDepth + 1);
+                    light.diffuse = new BABYLON.Color3(0.8, 0.8, 1);
+                    light.range = 20 / (branchDepth + 1);
+
+                    if (branchDepth === 0) {
+                        this.animateLightningGroupWithFlash(meshes, light);
+                    } else {
+                        this.animateLightningGroup(meshes, light);
+                    }
+
+                    return { meshes, light };
+                }
+
+                generateLightningPoints(start, end, segments) {
+                    const points = [];
+                    points.push(start);
+
+                    const mainDirection = end.subtract(start);
+                    const distance = BABYLON.Vector3.Distance(start, end);
+                    const verticalDistance = end.y - start.y;
+
+                    for (let i = 1; i < segments; i++) {
+                        const fraction = i / segments;
+                        const basePoint = start.add(mainDirection.scale(fraction));
+
+                        const verticalBias = Math.abs(verticalDistance) * 0.1;
+                        const horizontalScale = Math.max(0.1, 1.0 - fraction);
+
+                        const deviation = new BABYLON.Vector3(
+                            (Math.random() - 0.5) * distance * 0.2 * horizontalScale,
+                            (Math.random() - 0.5) * verticalBias - verticalBias * 0.5,
+                            (Math.random() - 0.5) * distance * 0.2 * horizontalScale
+                        );
+
+                        const zigzagScale = Math.sin(fraction * Math.PI * 6) * distance * 0.05;
+                        deviation.x *= (1 + zigzagScale);
+                        deviation.z *= (1 + zigzagScale);
+
+                        basePoint.addInPlace(deviation);
+                        points.push(basePoint);
+                    }
+
+                    points.push(end);
+                    return points;
+                }
+
+                animateLightningGroup(meshes, light) {
+                    const frames = 12;
+
+                    const visibilityAnimation = new BABYLON.Animation(
+                        "visibility",
+                        "visibility",
+                        30,
+                        BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                        BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
+                    );
+
+                    const visibilityKeys = [
+                        { frame: 0, value: 1 },
+                        { frame: 2, value: 0.7 },
+                        { frame: 4, value: 0.3 },
+                        { frame: 6, value: 0.6 },
+                        { frame: 8, value: 0.2 },
+                        { frame: frames, value: 0 }
+                    ];
+
+                    visibilityAnimation.setKeys(visibilityKeys);
+
+                    meshes.forEach(mesh => {
+                        mesh.animations = [visibilityAnimation];
+                        this.scene.beginAnimation(mesh, 0, frames, false, 1.5);
+                    });
+
+                    const lightAnimation = new BABYLON.Animation(
+                        "lightIntensity",
+                        "intensity",
+                        30,
+                        BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                        BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
+                    );
+
+                    const lightKeys = visibilityKeys.map(k => ({ frame: k.frame, value: k.value }));
+
+                    lightAnimation.setKeys(lightKeys);
+                    light.animations = [lightAnimation];
+
+                    this.scene.beginAnimation(light, 0, frames, false, 1.5, () => {
+                        setTimeout(() => {
+                            meshes.forEach(mesh => mesh.dispose());
+                            light.dispose();
+                            this.isRunning = false;
+                        }, 50);
+                    });
+                }
+
+
+                animateLightningGroupWithFlash(meshes, light) {
+                    const frames = 12;
+
+                    const flashAnimation = new BABYLON.Animation(
+                        "flashAlpha",
+                        "material.alpha",
+                        30,
+                        BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                        BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
+                    );
+
+                    const flashKeys = [
+                        { frame: 0, value: 0 },
+                        { frame: 2, value: 0.4 },
+                        { frame: 4, value: 0.1 },
+                        { frame: 6, value: 0.3 },
+                        { frame: 8, value: 0.05 },
+                        { frame: frames, value: 0 }
+                    ];
+
+                    flashAnimation.setKeys(flashKeys);
+                    this.flashOverlay.animations = [flashAnimation];
+
+                    meshes.forEach(mesh => {
+                        const visibilityAnimation = new BABYLON.Animation(
+                            "visibility",
+                            "visibility",
+                            30,
+                            BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                            BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
+                        );
+
+                        const visibilityKeys = flashKeys.map(k => ({
+                            frame: k.frame,
+                            value: Math.max(0.5, k.value * 2)
+                        }));
+
+                        visibilityAnimation.setKeys(visibilityKeys);
+                        mesh.animations = [visibilityAnimation];
+                        this.scene.beginAnimation(mesh, 0, frames, false, 1.5);
+                    });
+
+                    const lightAnimation = new BABYLON.Animation(
+                        "lightIntensity",
+                        "intensity",
+                        30,
+                        BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+                        BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
+                    );
+
+                    const lightKeys = flashKeys.map(k => ({ frame: k.frame, value: k.value * 4 }));
+
+                    lightAnimation.setKeys(lightKeys);
+                    light.animations = [lightAnimation];
+
+                    this.scene.beginAnimation(this.flashOverlay, 0, frames, false, 1.5);
+                    this.scene.beginAnimation(light, 0, frames, false, 1.5, () => {
+                        setTimeout(() => {
+                            meshes.forEach(mesh => mesh.dispose());
+                            light.dispose();
+                        }, 50);
+                    });
+                }
+
+
+                update(type, event) {
+                    if (type === "keydown" && event.key === "Enter") {
+
+                        if (!this.isRunning) {
+
+
+                            let max = 100;
+                            let index = max * Math.random();
+
+                            let start = this.cursorController.getPosition().clone();
+
+                            // const start = new BABYLON.Vector3(
+                            //     2 * Math.sin(index * Math.PI / max),
+                            //     2 * Math.cos(index * Math.PI / max),
+                            //     0);
+
+
+                            const end = new BABYLON.Vector3(
+                                start.x + 2 * Math.sin(index * Math.PI / max),
+                                start.y + 2 * Math.cos(index * Math.PI / max),
+                                0);
+
+                            this.isRunning = true;
+                            this.createLightningBolt(start, end, 5);
+                        }
+                    }
+                }
+
+
+                // update(type, event) {
+                //     if (type === "keydown" && event.key === "Enter") {
+                //         if (!this.isRunning) {
+                //             let start = this.previousCursorPosition.clone();  // Alte Position
+                //             let end = this.cursorController.getPosition().clone();  // Neue Position
+
+                //             this.isRunning = true;
+                //             this.createLightningBolt(start, end, 3);
+
+                //             // Aktualisiere die alte Position für den nächsten Aufruf
+                //             this.previousCursorPosition.copyFrom(end);
+                //         }
+                //     }
+                // }
+            }
+
+
+            // CameraShakeController - Lässt die Kamera bei jedem Tastendruck zittern
+            class CameraShakeController {
+                constructor(camera) {
+                    this.camera = camera;
+                    this.shaking = false;
+                }
+
+                shake() {
+                    if (this.shaking) return; // Verhindert doppeltes Zittern, falls mehrere Tasten schnell gedrückt werden
+
+                    this.shaking = true;
+                    const originalPosition = this.camera.position.clone();
+
+                    // Animation für das Zittern
+                    const shakeAnimation = new BABYLON.Animation("shake", "position", 30,
+                        BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+                    // Definiere zufällige Shake-Positionen
+                    const frames = [];
+                    for (let i = 0; i < 5; i++) {
+                        frames.push({
+                            frame: i * 2,
+                            value: originalPosition.add(new BABYLON.Vector3(
+                                (Math.random() - 0.5) * 0.1, // Zufällige X-Verschiebung
+                                (Math.random() - 0.5) * 0.1, // Zufällige Y-Verschiebung
+                                (Math.random() - 0.5) * 0.1  // Zufällige Z-Verschiebung
+                            ))
+                        });
+                    }
+                    frames.push({ frame: 10, value: originalPosition }); // Rückkehr zur Originalposition
+
+                    shakeAnimation.setKeys(frames);
+
+                    // Führe die Animation auf der Kamera aus und setze danach das Zittern zurück
+                    this.camera.animations = [shakeAnimation];
+                    scene.beginAnimation(this.camera, 0, 10, false, 1, () => {
+                        this.shaking = false;
+                    });
+                }
+
+                update(type, event) {
+                    if (type === "keydown") {
+                        this.shake();
+                    }
+                }
+            }
+
+
+            // SimulatedInputController - Simuliert die Eingabe eines Textes mit Fehlern und Korrekturen
+            class SimulatedInputController {
+                constructor(text, keyPressController) {
+                    this.text = text;                // Der Text, der simuliert wird
+                    this.keyPressController = keyPressController;
+                    this.currentIndex = 0;
+                    this.isSimulating = false;
+                }
+
+                startSimulation() {
+                    this.isSimulating = true;
+                    this.simulateNextCharacter();
+                }
+
+                simulateNextCharacter() {
+                    if (!this.isSimulating || this.currentIndex >= this.text.length) return;
+
+                    const currentChar = this.text[this.currentIndex];
+
+                    // Simulation von Spezialzeichen \d und \r
+                    if (currentChar === "\\" && this.text[this.currentIndex + 1] === "d") {
+                        // Simuliere Backspace für Löschung
+                        this.keyPressController.notify("keydown", { key: "Backspace" });
+                        this.currentIndex += 2; // Überspringe "\d"
+                    } else if (currentChar === "\\" && this.text[this.currentIndex + 1] === "r") {
+                        // Simuliere Enter für Zeilenumbruch
+                        this.keyPressController.notify("keydown", { key: "Enter" });
+                        this.currentIndex += 2; // Überspringe "\r"
+                    } else {
+                        // Simuliere normale Zeicheneingabe
+                        this.keyPressController.notify("keydown", { key: currentChar });
+                        this.currentIndex++;
+                    }
+
+                    // Verzögere die Eingabe des nächsten Zeichens für realistische Simulation
+                    setTimeout(() => this.simulateNextCharacter(), 100 + 300 * Math.random());  // 200ms Verzögerung für den nächsten Charakter
+                }
+
+                stopSimulation() {
+                    this.isSimulating = false;
+                }
+            }
+
+
+
+            const keyPressController = new KeyPressController();
+            const cursorController = new CursorController(scene);
+            const effectsController = new EffectsController(cursorController);
+            const textStorageController = new TextStorageController(cursorController, effectsController);
+            const wordTrackerController = new WordTrackerController(cursorController);
+            const bracketController = new BracketController(cursorController);
+            const lightningController = new LightningController(scene, cursorController);
+            const cameraShakeController = new CameraShakeController(camera);
+
+
+            // Partikelsystem initialisieren
+            effectsController.initializeParticleSystem(scene);
+
+            keyPressController.subscribe(textStorageController);
+            keyPressController.subscribe(cursorController);
+            keyPressController.subscribe(effectsController);
+            keyPressController.subscribe(wordTrackerController);
+            keyPressController.subscribe(bracketController);
+            keyPressController.subscribe(lightningController);
+            keyPressController.subscribe(cameraShakeController);
+
+            const exampleText =
+                "Babylon.js is a powerful\\r" +
+                "C#\\d\\dPython\\d\\d\\d\\d\\d\\dJavaScript lu\\dibrary\\r" +
+                "designed for cru\\deating\\r" +
+                "2\\d3D content on websites.\\r\\r\\r";
+
+            // SimulatedInputController instanziieren und starten
+            const simulatedInputController = new SimulatedInputController(exampleText, keyPressController);
+            simulatedInputController.startSimulation();
+
+            return scene;
+        }
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(function () {
+                if (scene) {
+                    scene.render();
+                }
+            });
+        });
+
+
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

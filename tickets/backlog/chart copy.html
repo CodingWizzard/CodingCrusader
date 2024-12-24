@@ -4,7 +4,7 @@
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <script src="https://preview.babylonjs.com/babylon.js"></script>
-    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.js"></script> -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.js"></script>
 
     <canvas id="myChart" style="width:100%;max-width:700px"></canvas>
 
@@ -41,59 +41,25 @@
 
 <body>
     <canvas id="renderCanvas"></canvas>
-    <!-- <div id="fps">0</div> -->
+    <div id="fps">0</div>
 
-    <!-- <div id="chart-container">
+    <div id="chart-container">
         <canvas id="chart"></canvas>
-    </div> -->
+    </div>
 
     <script>
-        // let SCREEN_WIDTH = window.innerWidth,
-        //     SCREEN_HEIGHT = window.innerHeight,
-        //     SCREEN_WIDTH_HALF = SCREEN_WIDTH / 2,
-        //     SCREEN_HEIGHT_HALF = SCREEN_HEIGHT / 2;
+        let SCREEN_WIDTH = window.innerWidth,
+            SCREEN_HEIGHT = window.innerHeight,
+            SCREEN_WIDTH_HALF = SCREEN_WIDTH / 2,
+            SCREEN_HEIGHT_HALF = SCREEN_HEIGHT / 2;
 
         let canvas = document.getElementById("renderCanvas");
-        // let divFps = document.getElementById("fps")
+        let divFps = document.getElementById("fps")
 
-        // let desiredFps = 3;
-        // let interval = 1000 / (10 * desiredFps);
+        let desiredFps = 3;
+        let interval = 1000 / (10 * desiredFps);
 
-
-
-        let createScene = async function () {
-
-            const loadScriptAsync = function (url) {
-                return new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    document.body.appendChild(script);
-                    script.onerror = reject;
-                    script.async = true;
-                    script.src = url;
-
-                    script.onload = () => {
-                        console.log("Script loaded: " + url);
-                        resolve();
-                    };
-                })
-            };
-
-            await loadScriptAsync("https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.js");
-
-
-
-            const div = document.createElement('div');
-            div.innerHTML = `
-                <div id="chart-container">
-                    <canvas id="myChart"  style="width: 500px;"></canvas>
-                </div>
-            `;
-            // document.body.appendChild(div);
-
-            const parent = document.body;
-            const firstChild = parent.firstChild;
-            parent.insertBefore(div, firstChild);
-
+        let createScene = function () {
 
             let scene = new BABYLON.Scene(engine);
             let bgcolor = BABYLON.Color3.FromHexString('#000000');
@@ -114,9 +80,68 @@
 
 
 
+            // var ctx = document.getElementById("chart").getContext('2d');
+            // var chart = new Chart(ctx, {
+            //     type: 'line',
+            //     data: {
+            //         labels: [],
+            //         datasets: [{
+            //             label: 'CPU Auslastung',
+            //             borderColor: 'rgb(255, 99, 132)',
+            //             data: []
+            //         }, {
+            //             label: 'GPU Auslastung',
+            //             borderColor: 'rgb(54, 162, 235)',
+            //             data: []
+            //         }]
+            //     },
+            //     options: {
+            //         scales: {
+            //             yAxes: [{
+            //                 scaleLabel: {
+            //                     display: true,
+            //                     labelString: 'Auslastung (%)'
+            //                 },
+            //                 ticks: {
+            //                     min: 0,
+            //                     max: 100
+            //                 }
+            //             }]
+            //         }
+            //     }
+            // });
 
+
+            // https://www.w3schools.com/js/js_graphics_chartjs.asp
+            // const xValues = []; // ["Italy", "France", "Spain", "USA", "Argentina"];
+            // const yValues = []; // [55, 49, 44, 24, 15];
+            // const barColors = []; // ["red", "green", "blue", "orange", "brown"];
+
+            // let chart = new Chart("myChart", {
+            //     type: "bar",
+            //     data: {
+            //         labels: xValues,
+            //         datasets: [{
+            //             backgroundColor: barColors,
+            //             data: yValues
+            //         }]
+            //     },
+            //     options: {
+            //         legend: { display: false },
+            //         title: {
+            //             display: true,
+            //             text: "World Wine Production 2018"
+            //         }
+            //     }
+            // });
+
+            // var time = 0;
+            // var fps = 30;
 
             let max = 25;
+            // // chart.data.datasets[0].data = [];
+            // chart.data.datasets[0].data.labels = [];
+            // chart.data.datasets[0].data.datasets = [];            
 
             const xValues = [];
             const yValues = [];
@@ -130,6 +155,7 @@
                 yValues.push(y);
                 barColors.push("blue");
             }
+            // chart.update();
 
 
             let chart = new Chart("myChart", {
@@ -158,6 +184,7 @@
             scene.registerBeforeRender(() => {
 
                 t += 0.1;
+                divFps.innerHTML = engine.getFps().toFixed() + " fps";
 
 
 
@@ -194,33 +221,22 @@
                 // chart.update();
             });
 
-
-
-            window.addEventListener("resize", function () {
-                engine.resize();
-
-                const canvas = document.getElementById("myChart");
-                canvas.width = 100;  // interne Pixelgröße
-                canvas.height = 100; // interne Pixelgröße
-                // canvas.style.width = "100px";  // Darstellungsgröße
-                // canvas.style.height = "100px"; // Darstellungsgröße
-            });
-
             return scene;
         }
+
+
 
 
         let engine = new BABYLON.Engine(canvas, true, {
             preserveDrawingBuffer: true,
             stencil: true
         });
+        let scene = createScene();
 
-        createScene().then((scene) => {
-            engine.runRenderLoop(function () {
-                if (scene) {
-                    scene.render();
-                }
-            });
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
         });
 
         window.addEventListener("resize", function () {

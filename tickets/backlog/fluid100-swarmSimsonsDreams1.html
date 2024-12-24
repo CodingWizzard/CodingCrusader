@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title></title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+            let bgcolor = BABYLON.Color3.FromHexString('#000055');
+            scene.clearColor = bgcolor;
+            scene.ambientColor = bgcolor;
+            scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR;
+            scene.fogColor = bgcolor;
+            scene.fogDensity = 0.03;
+            scene.fogStart = 20.0;
+            scene.fogEnd = 70.0;
+
+            let camera = new BABYLON.ArcRotateCamera("initialCamera",
+
+                // from left to right
+                BABYLON.Tools.ToRadians(-90 + 45),
+                BABYLON.Tools.ToRadians(90),
+
+                // // away from camera view
+                // BABYLON.Tools.ToRadians(-90 - 90),
+                // BABYLON.Tools.ToRadians(90),
+
+                // to the camera
+                // BABYLON.Tools.ToRadians(-90 + 90),
+                // BABYLON.Tools.ToRadians(90),
+                30, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+
+
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
+
+            // var gl = new BABYLON.GlowLayer("glow", scene);
+            // gl.intensity = 2;
+
+            let material = new BABYLON.StandardMaterial("mat", scene);
+            material.emissiveColor = BABYLON.Color3.White();
+
+            // Partikel-Array
+
+            const particles = [];
+            const bounds = 20;
+
+
+
+
+            let clouds = [];
+            let texture = new BABYLON.Texture("https://playground.babylonjs.com/textures/cloud.png", scene);
+
+            let max = 500;
+            let DIM = 10;
+            let f = 5;
+            let z = 0;
+            for (let i = 0; i < max; i++) {
+                let x = -DIM + 2 * DIM * Math.random();
+                let y = -DIM + 2 * DIM * Math.random();
+                z -= 1;
+
+                const mesh = BABYLON.MeshBuilder.CreatePlane("point", { width: 1, height: 1 }, scene);
+
+                mesh.position.set(x * f, y * f, z);
+                mesh.rotation.set(0, 0, 2 * Math.PI * Math.random());
+                mesh.rotation.y = -0.5 * Math.PI;
+                mesh.scaling = mesh.scaling.scale((f * f + f * Math.random()));
+                mesh.material = new BABYLON.StandardMaterial("", scene);
+                mesh.material.diffuseTexture = texture;
+                mesh.material.opacityTexture = texture;
+                mesh.material.diffuseTexture.hasAlpha = true;
+                mesh.material.backFaceCulling = false;
+                mesh.material.alpha = 0.5;
+                // mesh.material.diffuseColor = colors[i];
+                clouds.push(mesh);
+            }
+
+
+
+            // Instanzierte Partikel und Linien
+            const particleInstances = [];
+            const lines = []; // Array für die Linien-Meshes
+
+
+
+            function getRandomImageUrl() {
+                return `https://picsum.photos/800/600?random=${Math.random()}`;
+            }
+
+            function createImagePlane(index) {
+                const plane = BABYLON.MeshBuilder.CreatePlane(`plane${index}`, { width: 3, height: 2 }, scene);
+                // plane.position.x = (index - 2) * 3.5;
+                plane.rotation.y = -0.5 * Math.PI;
+
+                const material = new BABYLON.StandardMaterial(`material${index}`, scene);
+                plane.material = material;
+
+                let s = 0.5 + 1 * Math.random();
+                plane.scaling.set(s, s, s);
+
+
+                plane.enableEdgesRendering();
+                plane.edgesWidth = 1.0; // Breite der Kanten
+                plane.edgesColor = new BABYLON.Color4(1, 0, 0, 0.5); // Farbe der Kanten (RGBA)
+
+
+                return plane;
+            }
+
+            function loadImageToPlane(plane) {
+                const material = plane.material;
+                material.diffuseTexture = new BABYLON.Texture(getRandomImageUrl(), scene);
+                material.alpha = 0.8;
+            }
+
+            const length = 200;
+            for (let i = 0; i < length; i += 3) {
+                // Erstelle ein Partikel
+                const instance = createImagePlane(i);
+                loadImageToPlane(instance);
+                // const instance = particleMesh.createInstance("particle" + i);
+                // instance.isVisible = false
+                instance.position = new BABYLON.Vector3(
+                    12 * (Math.random() - 1), // positions[i + 0],
+                    12 * (Math.random() - 1), // positions[i + 1],
+                    12 * (Math.random() - 1) // positions[i + 2]
+                );
+                instance.index = Math.random() * length;
+                instance.velocity = new BABYLON.Vector3(0, 0, 0);
+                // instance.isVisible = false;
+                // particles.push({ rotation: instance.rotation, position: instance.position, velocity: new BABYLON.Vector3(0, 0, 0) });
+                particles.push(instance);
+                particleInstances.push(instance);
+
+                // // Erstelle eine Linie für das Partikel
+                // const line = BABYLON.MeshBuilder.CreateLines("line" + i, {
+                //     points: [
+                //         instance.position, // Startpunkt der Linie
+                //         instance.position.add(new BABYLON.Vector3(0, 0, 0)) // Endpunkt (initial ohne Richtung)
+                //     ],
+                //     updatable: true // Wichtig: Updatable aktivieren
+                // }, scene);
+                // lines.push(line);
+            }
+
+            // Einfaches Vektorfeld (z.B. fließender Fluss)
+            function vectorField(position) {
+                const flowDirection = new BABYLON.Vector3(0.1, 0, 0); // Grundflussrichtung
+                const turbulence = new BABYLON.Vector3(
+                    Math.sin(position.z * 0.5 + performance.now() * 0.001) * 0.05,
+                    Math.cos(position.z * 0.5 + performance.now() * 0.001) * 0.05,
+                    Math.sin(position.x * 0.3 + position.y * 0.2 + performance.now() * 0.001) * 0.05
+                );
+                return flowDirection.add(turbulence);
+            }
+
+            // Update-Schleife für die Partikel und Linien
+            scene.registerBeforeRender(() => {
+
+                clouds.forEach((cloud) => {
+                    cloud.position.x += 0.2;
+
+                    if (cloud.position.x > 2 * DIM)
+                        cloud.position.x = -2 * DIM;
+                })
+
+                particles.forEach((particle, index) => {
+                    // Berechne die neue Geschwindigkeit basierend auf dem Vektorfeld
+                    const force = vectorField(particle.position).scale(0.3);
+                    particle.velocity.addInPlace(force);
+                    particle.velocity.scaleInPlace(0.9); // Dämpfung
+
+                    // Aktualisiere die Position
+                    particle.position.addInPlace(particle.velocity);
+
+                    // Begrenze die Partikelposition
+
+                    // Begrenzung überprüfen und korrigieren
+                    if (particle.position.x < -bounds) {
+                        particle.position.x = bounds;
+                        // particle.velocity.x *= -1;
+                    }
+                    if (particle.position.x > bounds) {
+                        particle.position.x = -bounds;
+                        // particle.velocity.x *= -1;
+                    }
+                    if (particle.position.y < -bounds) {
+                        particle.position.y = bounds;
+                        // particle.velocity.y *= -1;
+                    }
+                    if (particle.position.y > bounds) {
+                        particle.position.y = -bounds;
+                        // particle.velocity.y *= -1;
+                    }
+                    if (particle.position.z < -bounds) {
+                        particle.position.z = bounds;
+                        // particle.velocity.z *= -1;
+                    }
+                    if (particle.position.z > bounds) {
+                        particle.position.z = -bounds;
+                        // particle.velocity.z *= -1;
+                    }
+
+
+
+                    particle.rotation.z = 0.25 * Math.sin(particle.index);
+                    particle.index += 0.1;
+                    // Linie aktualisieren
+                    // let line = lines[index];
+                    // const updatedPoints = [
+                    //     particle.position, // Startpunkt
+                    //     particle.position.add(particle.velocity.scale(-2)) // Richtungsspitze
+                    // ];
+                    // line = BABYLON.MeshBuilder.CreateLines(null, { points: updatedPoints, instance: line });
+                });
+            });
+
+
+
+
+            return scene;
+        };
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>

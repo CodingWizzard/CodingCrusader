@@ -289,8 +289,8 @@ class TubeSpaceShip extends PluginBase {
         // mesh.position.y += 2;
 
 
-        let materialUrl = "media/tubeSpaceShip/tubeSpaceShipMaterial.png";
-        let normalUrl = "media/tubeSpaceShip/tubeSpaceShipNormal.png";
+        let materialUrl = "../media/tubeSpaceShip/tubeSpaceShipMaterial.png";
+        let normalUrl = "../media/tubeSpaceShip/tubeSpaceShipNormal.png";
 
         // let materialUrl = "media/tubeSpaceShip/wall.png";
         // let normalUrl = "media/tubeSpaceShip/wallNormal.png";

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Partikelanimation</title>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+
+        const createScene = function () {
+            const scene = new BABYLON.Scene(engine);
+            scene.clearColor = BABYLON.Color3.Black();
+
+            let camera = new BABYLON.ArcRotateCamera("initialCamera",
+                BABYLON.Tools.ToRadians(-90),
+                BABYLON.Tools.ToRadians(90),
+                150, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+
+
+            // let meshSphere = BABYLON.MeshBuilder.CreateSphere("", { diameter: 20 }, scene);
+            // meshSphere.material = new BABYLON.StandardMaterial("mat", scene);
+            // meshSphere.material.alpha = 0.2;
+
+
+            // Partikel-Setup
+            const particleCount = 200;
+            const particlePositions = new Float32Array(particleCount * 3);
+            const particleColors = new Float32Array(particleCount * 4);
+
+            for (let i = 0; i < particleCount; i++) {
+
+                let x = 10 * Math.sin(Math.random() * 2 * Math.PI);
+                let y = 10 * Math.sin(Math.random() * 2 * Math.PI);
+                let z = 10 * Math.sin(Math.random() * 2 * Math.PI);
+
+                particlePositions[i * 3 + 0] = x; // (Math.random() * 10 - 5);
+                particlePositions[i * 3 + 1] = y; // (Math.random() * 10 - 5);
+                particlePositions[i * 3 + 2] = z; // (Math.random() * 10 - 5);
+
+                particleColors[i * 4 + 0] = Math.random();
+                particleColors[i * 4 + 1] = Math.random();
+                particleColors[i * 4 + 2] = Math.random();
+                particleColors[i * 4 + 3] = 1.0;
+            }
+
+            // for (let i = 0; i < particleCount; i++) {
+            //     particlePositions[i * 3 + 0] = 25 * Math.sin(i * 4 * Math.PI / particleCount);
+            //     particlePositions[i * 3 + 1] = 25 * Math.cos(i * 4 * Math.PI / particleCount);
+            //     particlePositions[i * 3 + 2] = 10 * (Math.random() - 1)
+
+            //     particleColors[i * 4 + 0] = Math.random();
+            //     particleColors[i * 4 + 1] = Math.random();
+            //     particleColors[i * 4 + 2] = Math.random();
+            //     particleColors[i * 4 + 3] = 1.0;
+            // }
+
+            const particleMesh = new BABYLON.Mesh("particleMesh", scene);
+            const vertexData = new BABYLON.VertexData();
+            vertexData.positions = particlePositions;
+            vertexData.colors = particleColors;
+            vertexData.applyToMesh(particleMesh);
+
+            const shaderMaterial = new BABYLON.ShaderMaterial(
+                "shader",
+                scene,
+                {
+                    vertexSource: `
+                        precision highp float;
+                        attribute vec3 position;
+                        attribute vec4 color;
+                        uniform mat4 worldViewProjection;
+                        varying vec4 vColor;
+                        void main(void) {
+                            gl_Position = worldViewProjection * vec4(position, 1.0);
+                            vColor = color;
+                            gl_PointSize = 200.0;
+                        }`,
+                    fragmentSource: `
+                        precision highp float;
+                        varying vec4 vColor;
+
+                        void main(void) {
+                            float dist = distance(gl_PointCoord, vec2(0.5));
+                            float gaussian = exp(-dist * dist * 20.0);
+                            gl_FragColor = vec4(vColor.rgb * gaussian, vColor.a * gaussian);
+                        }`
+                },
+                {
+                    attributes: ["position", "color"],
+                    uniforms: ["world", "worldView", "worldViewProjection", "view", "projection"]
+                }
+            );
+
+            shaderMaterial.setArray4("colors", particleColors);
+            shaderMaterial.pointsCloud = true;
+            shaderMaterial.pointSize = 1;
+            shaderMaterial.backFaceCulling = false;
+            shaderMaterial.needDepthPrePass = false;
+            shaderMaterial.transparencyMode = BABYLON.Material.MATERIAL_ALPHABLEND;
+            shaderMaterial.alpha = 0.; // Background fully transparent
+
+            particleMesh.material = shaderMaterial;
+
+            // function vectorField(position) {
+            //     const flowDirection = new BABYLON.Vector3(0.1, 0, 0); // Grundflussrichtung
+            //     const turbulence = new BABYLON.Vector3(
+            //         Math.sin(position.z * 0.5 + performance.now() * 0.001) * 0.05,
+            //         Math.cos(position.x * 0.5 + performance.now() * 0.001) * 0.05,
+            //         Math.sin(position.x * 0.3 + position.y * 0.2 + performance.now() * 0.001) * 0.05
+            //     );
+            //     return flowDirection.add(turbulence);
+            // }
+
+            let pos = new BABYLON.Vector3.Zero();
+            let i = 0;
+            scene.registerBeforeRender(() => {
+
+                // pos.x = 3 * Math.sin(i);
+                // // pos.y = 1 * Math.sin(i);
+                // // pos.z = 1 * Math.cos(i);
+                // i += 0.01;
+
+                for (let i = 0; i < particleCount; i++) {
+                    particlePositions[i * 3 + 0] += Math.sin(performance.now() * 0.001 + i) * 0.01;
+                    particlePositions[i * 3 + 1] += Math.cos(performance.now() * 0.002 + i) * 0.01;
+                    particlePositions[i * 3 + 2] += Math.sin(performance.now() * 0.003 + i) * 0.01;
+                }
+                vertexData.applyToMesh(particleMesh);
+            });
+
+            return scene;
+        };
+
+        const scene = createScene();
+
+        engine.runRenderLoop(function () {
+            scene.render();
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
+
+</html>

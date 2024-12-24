@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title></title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = BABYLON.Color3.Black();
+
+            let camera = new BABYLON.ArcRotateCamera("initialCamera",
+                BABYLON.Tools.ToRadians(-90),
+                BABYLON.Tools.ToRadians(90),
+                30, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+
+            camera.upperBetaLimit = null;
+            camera.lowerBetaLimit = null;
+
+
+            let gl = new BABYLON.GlowLayer("glow", scene);
+            gl.intensity = 2;
+
+            // const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
+
+            // let texture = new BABYLON.Texture("https://www.babylonjs-playground.com/textures/Dot.png", scene);
+            // let texture = new BABYLON.Texture("https://www.babylonjs-playground.com/textures/Dot.png", scene);
+            // texture.hasAlpha = true;
+
+            // Partikel-Array
+            const particleCount = 300;
+            const particles = [];
+            // const particleMesh = new BABYLON.MeshBuilder.CreateSphere("particle", { diameter: 0.2 }, scene);
+            // particleMesh.material = material = new BABYLON.StandardMaterial("mat", scene);
+            // particleMesh.material.alpha = 0.5;
+            // particleMesh.isVisible = false; // Unsichtbare Vorlage für Instanzen
+
+            // Instanzierte Partikel und Linien
+            // const particleInstances = [];
+            // const lines = []; // Array für die Linien-Meshes
+
+            const f = 5;
+            for (let i = 0; i < particleCount; i++) {
+                // Erstelle ein Partikel
+                // const instance = particleMesh.createInstance("particle" + i);
+
+                const instance = new BABYLON.MeshBuilder.CreateSphere("particle", { diameter: 0.2 + 1.2 * Math.random(), segments: 9 }, scene);
+                // const instance = new BABYLON.MeshBuilder.CreatePlane("particle", { size: 0.3 }, scene);
+                // const instance = new BABYLON.MeshBuilder.CreateBox("particle", { size: 0.3 }, scene);
+                instance.material = new BABYLON.StandardMaterial("mat", scene);
+                instance.material.emissiveColor = new BABYLON.Color3(1, 1, 1);
+                instance.material.alpha = 0.5;
+                // instance.material.diffuseTexture = texture;
+
+                instance.material.glossiness = 1.0;
+
+                // instance.material.alpha = 0.5;
+
+                // instance.isVisible = false
+                instance.position = new BABYLON.Vector3(
+                    Math.random() * 2 * f - f,
+                    Math.random() * 2 * f - f,
+                    Math.random() * 2 * f - f
+                );
+                instance.velocity = new BABYLON.Vector3(0, 0, 0);
+                particles.push(instance); // { position: instance.position, velocity: new BABYLON.Vector3(0, 0, 0) });
+                // particleInstances.push(instance);
+
+                // // Erstelle eine Linie für das Partikel
+                // const line = BABYLON.MeshBuilder.CreateLines("line" + i, {
+                //     points: [
+                //         instance.position, // Startpunkt der Linie
+                //         instance.position.add(new BABYLON.Vector3(0, 0, 0)) // Endpunkt (initial ohne Richtung)
+                //     ],
+                //     updatable: true // Wichtig: Updatable aktivieren
+                // }, scene);
+                // lines.push(line);
+            }
+
+            // Einfaches Vektorfeld (z.B. fließender Fluss)
+            function vectorField(position) {
+                const flowDirection = new BABYLON.Vector3(0, -0.1, 0); // Grundflussrichtung
+                const turbulence = new BABYLON.Vector3(
+                    Math.sin(position.z * 0.5 + performance.now() * 0.001) * 0.05,
+                    Math.cos(position.z * 0.5 + performance.now() * 0.001) * 0.05,
+                    Math.sin(position.x * 0.3 + position.y * 0.2 + performance.now() * 0.001) * 0.05
+                );
+                return flowDirection.add(turbulence);
+            }
+
+
+            let rnd = (f) => { return 0.5 * f - f * Math.random(); }
+            // let spheresMax = 1;
+            // let spheresBase = [];
+            // let spheres = [];
+            // for (let i = 0; i < spheresMax; i++) {
+            //     let x = rnd(f);
+            //     let y = rnd(f);
+            //     let z = rnd(f);
+
+            //     spheres.push(new BABYLON.Vector3(x, y, z));
+            //     spheresBase.push(new BABYLON.Vector3(x, y, z));
+            // }
+
+
+
+            //  let lightDir = new BABYLON.Vector3(0, -1, 0);
+
+            // Update-Schleife für die Partikel und Linien
+
+
+            // Gerade erstellen
+            const start = new BABYLON.Vector3(-5, 0, 0);
+            const end = new BABYLON.Vector3(5, 2, 0);
+            // let line = BABYLON.MeshBuilder.CreateLines("line", { points: [start, end], updatable: true }, scene);
+            // line.color = new BABYLON.Color3(1, 1, 1);
+
+            // const cylinder = BABYLON.MeshBuilder.CreateCylinder("cylinder", { diameter: 0.2, height: 5 }, scene);
+            // cylinder.material = new BABYLON.StandardMaterial("cylinderMat", scene);
+            // cylinder.material.emissiveColor = new BABYLON.Color3(1, 1, 1);
+
+            function createCylinderBetweenPoints(scene, start, end, diameter) {
+                // Berechne die Distanz zwischen den Punkten
+                var distance = BABYLON.Vector3.Distance(start, end);
+
+                // Erstelle den Zylinder
+                var cylinder = BABYLON.MeshBuilder.CreateCylinder("cylinder", {
+                    height: distance,
+                    diameter: diameter
+                }, scene);
+                cylinder.material = new BABYLON.StandardMaterial("cylinderMat", scene);
+                cylinder.material.emissiveColor = new BABYLON.Color3(0.8, 0.2, 0.2);
+
+                // Berechne die Mittelpunktposition
+                var direction = end.subtract(start);
+                var midpoint = start.add(direction.scale(0.5));
+
+                // Positioniere den Zylinder
+                cylinder.position = midpoint;
+
+                // Rotiere den Zylinder, um ihn auszurichten
+                var rotationAxis = BABYLON.Vector3.Cross(BABYLON.Axis.Y, direction.normalize());
+                var angle = Math.acos(BABYLON.Vector3.Dot(BABYLON.Axis.Y, direction.normalize()) / direction.length());
+
+                cylinder.rotationQuaternion = BABYLON.Quaternion.RotationAxis(rotationAxis, angle);
+
+                return cylinder;
+            }
+
+
+            function updateCylinder(cylinder, start, end) {
+                var direction = end.subtract(start);
+                var midpoint = start.add(direction.scale(0.5));
+
+                // Positioniere den Zylinder
+                cylinder.position = midpoint;
+
+                // Rotiere den Zylinder, um ihn auszurichten
+                var rotationAxis = BABYLON.Vector3.Cross(BABYLON.Axis.Y, direction.normalize());
+                var angle = Math.acos(BABYLON.Vector3.Dot(BABYLON.Axis.Y, direction.normalize()) / direction.length());
+
+                cylinder.rotationQuaternion = BABYLON.Quaternion.RotationAxis(rotationAxis, angle);
+            }
+
+            let cylinder = createCylinderBetweenPoints(scene, start, end, 0.5);
+
+            const direction = end.subtract(start).normalize();
+
+            // // Punkt erstellen
+            // const point = BABYLON.MeshBuilder.CreateSphere("point", { diameter: 0.2 }, scene);
+            // point.position = new BABYLON.Vector3(2, 3, 1);
+            // point.material = new BABYLON.StandardMaterial("pointMat", scene);
+            // point.material.diffuseColor = new BABYLON.Color3(0, 1, 0);
+
+            // // Abstand berechnen und visualisieren
+            // const direction = end.subtract(start).normalize();
+            // const v = point.position.subtract(start);
+            // const d = BABYLON.Vector3.Dot(v, direction);
+            // const closestPoint = start.add(direction.scale(d));
+
+            // const distanceLine = BABYLON.MeshBuilder.CreateLines("distanceLine", { points: [point.position, closestPoint] }, scene);
+            // distanceLine.color = new BABYLON.Color3(0, 0, 1);
+
+            // const distance = BABYLON.Vector3.Distance(point.position, closestPoint);
+            // console.log(distance)
+
+
+            const boundsX = f;
+            const boundsY = f;
+            const boundsZ = f;
+
+            let i = 0;
+            scene.registerBeforeRender(() => {
+
+                // spheres.forEach((sphere, index) => {
+                //     sphere.x = spheresBase[index].x + 0.25 * f * Math.sin(i + (index + 1) * 2);
+                //     sphere.y = spheresBase[index].y + 0.25 * f * Math.cos(i + (index + 1) * 2);
+                //     sphere.z = spheresBase[index].y + 0.25 * f * Math.cos(i + (index + 1) * 2);
+                // })
+
+
+                start.x = 10 * Math.sin(i);
+                start.y = 10 * Math.cos(i * 2);
+                start.z = 10 * Math.sin(i);
+
+                end.x = 10 * Math.sin(Math.PI + i);
+                end.y = 10 * Math.cos(Math.PI + i);
+                end.z = 10 * Math.sin(Math.PI + i);
+
+
+                // line.dispose();
+                // line = BABYLON.MeshBuilder.CreateLines("line", { points: [start, end] }, scene);
+                // line.color = new BABYLON.Color3(1, 0, 0);
+
+                // let lines = BABYLON.MeshBuilder.CreateLines("lightning", { points: [start, end], instance: line });
+
+                // cylinder.position = start; // point.position.add(closestPoint).scale(0.5);
+                // cylinder.lookAt(end);
+                // cylinder.scaling.y = distance;
+                // cylinder.lookAt(closestPoint);
+
+                updateCylinder(cylinder, start, end);
+
+                const direction = end.subtract(start).normalize();
+
+
+
+
+
+
+
+
+                i += 0.01;
+
+                particles.forEach((particle, index) => {
+                    // Berechne die neue Geschwindigkeit basierend auf dem Vektorfeld
+                    const force = vectorField(particle.position).scale(-0.1);
+                    particle.velocity.addInPlace(force);
+                    particle.velocity.scaleInPlace(0.9); // Dämpfung
+
+                    // Aktualisiere die Position
+                    particle.position.addInPlace(particle.velocity);
+                    particle.rotation.addInPlace(particle.velocity);
+
+                    // Begrenze die Partikelposition
+
+                    // if (particle.position.x < -bounds || particle.position.x > bounds) particle.velocity.x *= -1;
+                    // if (particle.position.y < -bounds || particle.position.y > bounds) particle.velocity.y *= -1;
+                    // if (particle.position.z < -bounds || particle.position.z > bounds) particle.velocity.z *= -1;
+
+                    // Begrenzung überprüfen und korrigieren
+                    if (particle.position.x < -boundsX) {
+                        particle.position.x = boundsX;
+                        particle.velocity.x *= -1 * 0;
+                    }
+                    if (particle.position.x > boundsX) {
+                        particle.position.x = -boundsX;
+                        particle.velocity.x *= -1 * 0;
+                    }
+                    if (particle.position.y < - boundsY) {
+                        particle.position.y = boundsY;
+                        particle.velocity.y *= -1 * 0;
+                    }
+                    if (particle.position.y > boundsY) {
+                        particle.position.y = -boundsY;
+                        particle.velocity.y *= -1 * 0;
+                    }
+                    if (particle.position.z < -boundsZ) {
+                        particle.position.z = boundsZ;
+                        particle.velocity.z *= -1 * 0;
+                    }
+                    if (particle.position.z > boundsZ) {
+                        particle.position.z = -boundsZ;
+                        particle.velocity.z *= -1 * 0;
+                    }
+
+                    // Linie aktualisieren
+                    // let line = lines[index];
+                    // const updatedPoints = [
+                    //     particle.position, // Startpunkt
+                    //     particle.position.add(particle.velocity.scale(-2)) // Richtungsspitze
+                    // ];
+                    // line = BABYLON.MeshBuilder.CreateLines(null, { points: updatedPoints, instance: line });
+
+                    // let dot = BABYLON.Vector3.Dot(lightDir, particle.velocity);
+                    // let lightIntensity = 1 - BABYLON.Scalar.RangeToPercent(dot, 0.1, 0.2);
+
+
+
+                    // const dotProduct = BABYLON.Vector3.Dot(lightDir, particle.velocity); // Skalarprodukt
+                    // const magnitudeA = lightDir.length(); // Länge von Vektor A
+                    // const magnitudeB = particle.velocity.length(); // Länge von Vektor B
+                    // const cosTheta = dotProduct / (magnitudeA * magnitudeB);
+                    // // Prüfen, ob cosTheta nahe 1 ist
+                    // const alpha = Math.abs(cosTheta - 1); // < 0.0001; 
+                    // let lightIntensity = BABYLON.Scalar.RangeToPercent(alpha, 0., 0.2);
+
+
+                    // let radius = 14;
+                    // let lightIntensity = 0;
+                    // spheres.forEach((sphere) => {
+                    //     let dist = sphere.subtract(particle.position);
+                    //     let len = radius - dist.length();
+                    //     let intensity = BABYLON.Scalar.RangeToPercent(len, 0, radius);
+
+                    //     if (intensity > 0)
+                    //         lightIntensity += intensity / spheres.length;
+                    // })
+
+
+                    // Abstand berechnen und visualisieren
+
+                    const v = particle.position.subtract(start);
+                    const d = BABYLON.Vector3.Dot(v, direction);
+                    const closestPoint = start.add(direction.scale(d));
+
+                    // const distanceLine = BABYLON.MeshBuilder.CreateLines("distanceLine", { points: [point.position, closestPoint] }, scene);
+                    // distanceLine.color = new BABYLON.Color3(0, 0, 1);
+
+                    const distance = BABYLON.Vector3.Distance(particle.position, closestPoint);
+
+
+                    let lightIntensity = 1 - BABYLON.Scalar.RangeToPercent(distance, 0, 2);
+
+                    particle.material.emissiveColor.set(lightIntensity, lightIntensity, lightIntensity);
+
+                });
+            });
+
+
+            return scene;
+        };
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>
