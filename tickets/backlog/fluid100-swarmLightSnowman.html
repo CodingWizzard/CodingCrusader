@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title></title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://preview.babylonjs.com/earcut.min.js"></script>
+
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+// 251224 CodingCrusader - 2025
+
+let createScene = async function () {
+    let scene = new BABYLON.Scene(engine);
+    scene.clearColor = new BABYLON.Color3(0., 0.1, 0.2);
+
+    let camera = new BABYLON.ArcRotateCamera("initialCamera",
+        BABYLON.Tools.ToRadians(-90),
+        BABYLON.Tools.ToRadians(90),
+        100, BABYLON.Vector3.Zero(), scene);
+    camera.attachControl(canvas, true);
+
+
+    let gl = new BABYLON.GlowLayer("glow", scene);
+    gl.intensity = 1;
+
+
+    const geometry = await BABYLON.NodeGeometry.ParseFromSnippetAsync("C01YXD#27");
+
+    let createSnowMan = () => {
+        geometry.build();
+        let snowMan = geometry.createMesh("snowMan");
+        snowMan.scaling.scaleInPlace(30);
+        snowMan.rotation.y = 0.5 * Math.PI;
+        snowMan.position.y = -19;
+        snowMan.material = new BABYLON.StandardMaterial("mat", scene);
+        snowMan.material.emissiveColor = new BABYLON.Color3(0.1, 0.1, 0.3);
+        return snowMan;
+    }
+
+    let snowman = createSnowMan();
+
+    // snowfall texture
+    var dynamicTexture = new BABYLON.DynamicTexture("dynamicTexture", { width: 128, height: 128 }, scene, false);
+    var ctx = dynamicTexture.getContext();
+    ctx.clearRect(0, 0, 128, 128);
+    ctx.fillStyle = "rgba(255, 255, 255, 1)";
+    ctx.beginPath();
+    ctx.arc(64, 64, 10, 0, Math.PI * 2);
+    ctx.fill();
+    dynamicTexture.update();
+
+    // snowfall
+    var snow = new BABYLON.ParticleSystem("snow", 10000, scene);
+    snow.particleTexture = dynamicTexture;
+    snow.emitter = new BABYLON.Vector3(0, 28, 0);
+    snow.minEmitBox = new BABYLON.Vector3(-20, 0, -10);
+    snow.maxEmitBox = new BABYLON.Vector3(20, 0, 10);
+    snow.color1 = new BABYLON.Color4(1, 1, 1, 1);
+    snow.color2 = new BABYLON.Color4(1, 1, 1);
+    snow.colorDead = new BABYLON.Color4(1, 1, 1, 0);
+    snow.minSize = 0.5;
+    snow.maxSize = 1;
+    snow.minLifeTime = 5;
+    snow.maxLifeTime = 18;
+    snow.emitRate = 2000;
+    snow.minEmitPower = .5;
+    snow.maxEmitPower = 1;
+    snow.updateSpeed = 0.02;
+    snow.direction1 = new BABYLON.Vector3(0, -1, 0);
+    snow.direction2 = new BABYLON.Vector3(0, -1, 0);
+    snow.gravity = new BABYLON.Vector3(0, -0.25, 0);
+    snow.minAngularSpeed = -1;
+    snow.maxAngularSpeed = 1;
+    snow.start();
+
+
+    let box = BABYLON.MeshBuilder.CreateBox("", { width: 50, height: 60, depth: 20 }, scene)
+    box.material = new BABYLON.StandardMaterial("", scene);
+    box.material.alpha = 0.25;
+
+    var ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 50, height: 20 }, scene);
+    var groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene);
+    groundMaterial.diffuseTexture = new BABYLON.Texture("https://playground.babylonjs.com/textures/floor.png", scene); // https://i.imgur.com/1AGAv1x.jpeg
+    ground.material = groundMaterial;
+    groundMaterial.emissiveColor = new BABYLON.Color3(0.4, 0.4, 0.5);
+    ground.position.y = -30;
+
+    let lightHemi = new BABYLON.HemisphericLight("", new BABYLON.Vector3(0, 1, 0), this.scene);
+    lightHemi.intensity = 0.8;
+
+    const light1 = new BABYLON.SpotLight(
+        "spotLight", // Name des Lichts
+        new BABYLON.Vector3(0, -30, 0), // Position des Lichts
+        new BABYLON.Vector3(0, 1, 0), // Richtung des Lichts
+        Math.PI / 3, // Winkel des Lichtkegels
+        2, // Lichtstreuung (Exponent)
+        scene
+    );
+    light1.intensity = 2; // Intensität des Lichts
+
+
+    var fontData = await (await fetch("https://assets.babylonjs.com/fonts/Droid Sans_Regular.json")).json();
+    var myText = BABYLON.MeshBuilder.CreateText("myText", "2025", fontData, {
+        size: 14,
+        resolution: 20,
+        depth: 10
+    });
+
+    myText.position.set(0, -30, 0);
+    myText.material = new BABYLON.StandardMaterial("mat", scene);
+    myText.material.emissiveColor = new BABYLON.Color3(0.1, 0.9, 0.9);
+
+    // Partikel-Array
+    const particleCount = 300;
+    const particles = [];
+    const lines = [];
+    const f = 20;
+    for (let i = 0; i < particleCount; i++) {
+        // Erstelle ein Partikel
+        const instance = new BABYLON.MeshBuilder.CreateSphere("particle", { diameter: 0.1 + 1.9 * Math.random(), segments: 9 }, scene);
+        instance.material = new BABYLON.StandardMaterial("mat", scene);
+        instance.material.emissiveColor = new BABYLON.Color3(1, 1, 1);
+
+        instance.position = new BABYLON.Vector3(
+            Math.random() * 2 * f - f,
+            Math.random() * 2 * f - f,
+            Math.random() * 2 * f - f
+        );
+        instance.velocity = new BABYLON.Vector3(0, 0, 0);
+        particles.push(instance); // { position: instance.position, velocity: new BABYLON.Vector3(0, 0, 0) });
+
+
+        // // Erstelle eine Linie für das Partikel
+        const line = BABYLON.MeshBuilder.CreateLines("line" + i, {
+            points: [
+                instance.position, // Startpunkt der Linie
+                instance.position.add(new BABYLON.Vector3(0, 0, 0)) // Endpunkt (initial ohne Richtung)
+            ],
+            updatable: true // Wichtig: Updatable aktivieren
+        }, scene);
+        lines.push(line);
+    }
+
+    // Einfaches Vektorfeld (z.B. fließender Fluss)
+    function vectorField(position) {
+        const flowDirection = new BABYLON.Vector3(0, -0.1, 0); // Grundflussrichtung
+        const turbulence = new BABYLON.Vector3(
+            Math.sin(position.z * 0.5 + performance.now() * 0.001) * 0.05,
+            Math.cos(position.z * 0.5 + performance.now() * 0.001) * 0.05,
+            Math.sin(position.x * 0.3 + position.y * 0.2 + performance.now() * 0.001) * 0.05
+        );
+        return flowDirection.add(turbulence);
+    }
+
+
+    let rnd = (f) => { return 0.5 * f - f * Math.random(); }
+    let spheresMax = 1;
+    let spheresBase = [];
+    let spheres = [];
+    for (let i = 0; i < spheresMax; i++) {
+        let x = 0; // rnd(f);
+        let y = 0; // rnd(f);
+        let z = 0; // rnd(f);
+
+        spheres.push(new BABYLON.Vector3(x, y, z));
+        spheresBase.push(new BABYLON.Vector3(x, y, z));
+    }
+
+    // Update-Schleife für die Partikel und Linien
+    scene.registerBeforeRender(() => {
+        particles.forEach((particle, index) => {
+            // Berechne die neue Geschwindigkeit basierend auf dem Vektorfeld
+            const force = vectorField(particle.position).scale(-0.1);
+            particle.velocity.addInPlace(force);
+            particle.velocity.scaleInPlace(0.9); // Dämpfung
+
+            // Aktualisiere die Position
+            particle.position.addInPlace(particle.velocity);
+            particle.rotation.addInPlace(particle.velocity);
+
+            // Begrenze die Partikelposition
+            const boundsX = 25;
+            const boundsY = 25;
+            const boundsZ = 10;
+
+            // Begrenzung überprüfen und korrigieren
+            if (particle.position.x < -boundsX) {
+                particle.position.x = boundsX;
+                particle.velocity.x *= -1 * 0;
+            }
+            if (particle.position.x > boundsX) {
+                particle.position.x = -boundsX;
+                particle.velocity.x *= -1 * 0;
+            }
+            if (particle.position.y < - boundsY) {
+                particle.position.y = boundsY;
+                particle.velocity.y *= -1 * 0;
+            }
+            if (particle.position.y > boundsY) {
+                particle.position.y = -boundsY;
+                particle.velocity.y *= -1 * 0;
+            }
+            if (particle.position.z < -boundsZ) {
+                particle.position.z = boundsZ;
+                particle.velocity.z *= -1 * 0;
+            }
+            if (particle.position.z > boundsZ) {
+                particle.position.z = -boundsZ;
+                particle.velocity.z *= -1 * 0;
+            }
+
+            // Linie aktualisieren
+            let line = lines[index];
+            const updatedPoints = [
+                particle.position, // Startpunkt
+                particle.position.add(particle.velocity.scale(-12)) // Richtungsspitze
+            ];
+            line = BABYLON.MeshBuilder.CreateLines(null, { points: updatedPoints, instance: line });
+
+            let radius = 14;
+            let lightIntensity = 0;
+            spheres.forEach((sphere) => {
+                let dist = sphere.subtract(particle.position);
+                let len = radius - dist.length();
+                let intensity = BABYLON.Scalar.RangeToPercent(len, 0, radius);
+
+                if (intensity > 0)
+                    lightIntensity += intensity / spheres.length;
+            })
+
+
+            particle.material.alpha = lightIntensity > 0 ? 1 : 0.1;
+        });
+    });
+
+
+    return scene;
+};
+
+
+        const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, disableWebGL2Support: false });
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(function () {
+                if (scene) {
+                    scene.render();
+                }
+            });
+        });
+
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>
