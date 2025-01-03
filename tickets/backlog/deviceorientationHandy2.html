@@ -283,8 +283,10 @@
             // Our built-in 'sphere' shape.
             var box = BABYLON.MeshBuilder.CreateBox("", { size: 1 }, scene);
 
-            if (e !== null)
-                box.rotation.set(event.acceleration.x, event.acceleration.y, event.acceleration.z);
+            setInterval(() => {
+                if (e !== null)
+                    box.rotation.set(event.acceleration.x, event.acceleration.y, event.acceleration.z);
+            }, 200);
 
             return scene;
         };
