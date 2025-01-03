@@ -285,7 +285,10 @@
 
             setInterval(() => {
                 if (e !== null)
-                    box.rotation.set(event.acceleration.x, event.acceleration.y, event.acceleration.z);
+                    box.rotation.set(
+                        e.accelerationIncludingGravity.x,
+                        e.accelerationIncludingGravity.y,
+                        e.accelerationIncludingGravity.z);
             }, 200);
 
             return scene;
