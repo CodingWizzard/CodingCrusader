@@ -285,9 +285,9 @@
 
             setInterval(() => {
                 if (e !== null) {
-                    box.position.x += e.accelerationIncludingGravity.x * 0.01;
-                    box.position.y += e.accelerationIncludingGravity.y * 0.01;
-                    box.position.z += e.accelerationIncludingGravity.z * 0.01;
+                    box.rotation.x = BABYLON.Tools.ToRadians(e.accelerationIncludingGravity.x * 10); // Skaliert die Werte
+                    box.rotation.y = BABYLON.Tools.ToRadians(e.accelerationIncludingGravity.y * 10);
+                    box.rotation.z = BABYLON.Tools.ToRadians(e.accelerationIncludingGravity.z * 10);
                 }
             }, 200);
 
