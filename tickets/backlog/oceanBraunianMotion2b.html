@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title></title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color3(0, 0, 0); // (0.2, 0.1, 0.4);
+
+            let camera = new BABYLON.ArcRotateCamera("camera1",
+                BABYLON.Tools.ToRadians(-90 - 40),
+                BABYLON.Tools.ToRadians(90 - 30),
+                20,
+                new BABYLON.Vector3(0, 0, 0), scene);
+            camera.attachControl(canvas, true);
+            camera.upperBetaLimit = null;
+            camera.lowerBetaLimit = null;
+
+
+
+
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+
+
+            // Erstelle ein Mesh für die Wasseroberfläche
+            // const waterMesh = BABYLON.MeshBuilder.CreateGround("waterMesh", { width: 50, height: 50, subdivisions: 400 }, scene);
+            // waterMesh.position.y = -4;
+
+
+
+            const waterMesh = BABYLON.MeshBuilder.CreateGround("waterMesh", { width: 50, height: 50, subdivisions: 400, updatable: true }, scene);
+            waterMesh.position.y = -4;
+
+            // Greife auf die Geometrie zu
+            const verticesData = waterMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+
+            // Überprüfe, ob die Geometrie geladen ist
+            if (verticesData) {
+                for (let i = 0; i < verticesData.length; i += 3) {
+                    const x = verticesData[i];
+                    const z = verticesData[i + 2];
+
+                    // const y = Math.sin(x * 0.1) * Math.sin(z * 0.2) * 4; // Sinus-basierte Wölbung
+                    // Alternativ: Parabel
+                    const y = -0.01 * (x * x + z * z); // Parabolische Wölbung
+
+                    verticesData[i + 1] = y;
+                }
+
+                waterMesh.updateVerticesData(BABYLON.VertexBuffer.PositionKind, verticesData);
+            }
+
+            BABYLON.VertexData.ComputeNormals(waterMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind), waterMesh.getIndices(), waterMesh);
+
+
+
+
+            const waterMaterial = new BABYLON.ShaderMaterial("waterMaterial", scene, {
+                vertex: "cloud",
+                fragment: "cloud"
+            }, {
+                attributes: ["position"],
+                uniforms: ["worldViewProjection", "time"]
+            });
+
+            waterMaterial.backFaceCulling = false;
+
+
+
+
+            // Vertex-Shader
+            BABYLON.Effect.ShadersStore["cloudVertexShader"] = `
+                precision highp float;
+attribute vec3 position;
+uniform mat4 worldViewProjection;
+uniform float time;
+
+varying vec2 vUV;
+varying float vHeight;
+
+float random(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+float valueNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+
+    float a = random(i);
+    float b = random(i + vec2(1.0, 0.0));
+    float c = random(i + vec2(0.0, 1.0));
+    float d = random(i + vec2(1.0, 1.0));
+
+    vec2 u = f * f * (3.0 - 2.0 * f);
+
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+float fbm(vec2 p) {
+    float value = 0.0;
+    float amplitude = 0.3;
+    float frequency = 2.0;
+    for (int i = 0; i < 4; i++) {
+        value += amplitude * valueNoise(p * frequency);
+        p *= (2.2);
+        amplitude *= .5;
+    }
+    return value;
+}
+
+void main() {
+    vUV = position.xz;
+    vec2 pos = position.xz * 0.1 + time * 0.05; // Langsamere Bewegung
+    vHeight = fbm(pos);
+
+    // Begrenze die Höhe auf einen engeren Bereich
+    // vHeight = clamp(vHeight, -0.9, 0.9);
+
+    vec3 newPosition = position;
+    newPosition.y += vHeight * 1.0; // *20.*sin(time*0.2);
+    gl_Position = worldViewProjection * vec4(newPosition, 1.0);
+}
+            `;
+
+
+            BABYLON.Effect.ShadersStore["cloudFragmentShader"] = `
+               precision highp float;
+varying float vHeight;
+uniform float time;
+
+void main() {
+    // Normalisiere vHeight auf den Bereich [0, 1]
+    float normalizedHeight = (vHeight + 0.2) / 0.4;
+
+    vec3 deepColor = vec3(0.8, 0.2, 0.2); 
+    vec3 midColor = vec3(0.1, 0.2, 0.5); 
+    vec3 peakColor = vec3(.8, .4, .4); 
+
+    vec3 color;
+    if (normalizedHeight < 0.7) { // Mehr Gewicht auf dunklere Farben
+        color = mix(deepColor, midColor, normalizedHeight / 0.7);
+    } else { // Nur die höchsten Bereiche werden weiß
+        color = mix(midColor, peakColor, (normalizedHeight - 0.7) / 0.3);
+    }
+
+    // Transparenz optional, wenn gewünscht
+    float alpha = 0.3 + 0.7 * normalizedHeight;
+    gl_FragColor = vec4(color, alpha);
+}
+
+            `;
+
+            // Material mit Zeit animieren
+            let time = 0;
+            scene.registerBeforeRender(() => {
+                time += engine.getDeltaTime() * 0.0005;
+                waterMaterial.setFloat("time", time);
+            });
+
+            // Material anwenden
+            waterMesh.material = waterMaterial;
+
+
+
+            // let gl = new BABYLON.GlowLayer("glow", scene);
+            // gl.intensity = 2;
+
+            // let meshMoon = BABYLON.MeshBuilder.CreateSphere("", { diameter: 5 }, scene);
+            // meshMoon.material = new BABYLON.StandardMaterial("mat", scene);
+            // meshMoon.material.emissiveColor = new BABYLON.Color3(0.9, 0.9, 0.9);
+            // // meshMoon.material = waterMaterial;
+            // meshMoon.position.z = 30;
+            // meshMoon.position.y = 5;
+
+
+            // let meshBox = BABYLON.MeshBuilder.CreateBox("", { size: 1 }, scene);
+            // meshBox.material = new BABYLON.StandardMaterial("mat", scene);
+            // meshBox.material.emissiveColor = new BABYLON.Color3(0.1, 0.1, 0.9);
+
+            let rnd = (r) => { return 0.5 * r - r * Math.random() }
+            let arnd = (r) => { return Math.abs(rnd(r)) }
+
+
+            const pbr = new BABYLON.PBRMetallicRoughnessMaterial("metallicMaterial", scene);
+
+            pbr.baseColor = new BABYLON.Color3(1.0, 0.766, 0.336); // Goldene Farbe
+            pbr.metallic = 1.0; // Vollständig metallisch
+            pbr.roughness = 0.4; // Glattheit des Materials
+
+
+
+            // let instanceId = 0;
+            // let meshBase = BABYLON.MeshBuilder.CreateBox("", { size: 0.25 }, scene);
+            // meshBase.material = pbr; // new BABYLON.StandardMaterial("mtl01", scene);
+
+            // meshBase.isVisible = false;
+
+            // let mesh0 = meshBase.createInstance(instanceId++);
+
+
+            // let max = 50;
+            // for (let i = 0; i < max; i++) {
+            //     let mesh1 = meshBase.createInstance(instanceId++);
+            //     mesh1.parent = mesh0;
+            //     mesh1.position.set(rnd(6), rnd(1), rnd(2));
+            //     mesh1.scaling.set(
+            //         arnd(5) + 0.5,
+            //         arnd(5) + 0.5,
+            //         arnd(5) + 0.5
+            //     )
+
+
+
+            //     let mesh2 = meshBase.createInstance(instanceId++);
+            //     mesh2.parent = mesh1;
+            //     mesh2.position.set(rnd(0.25), rnd(0), rnd(0.25));
+            //     mesh2.scaling.set(
+            //         0.25,
+            //         arnd(5) + 0.25,
+            //         0.25
+            //     )
+
+
+
+            //     let mesh3 = meshBase.createInstance(instanceId++);
+            //     mesh3.parent = mesh1;
+            //     mesh3.position.set(rnd(0.25), rnd(0), rnd(0.25));
+            //     mesh3.scaling.set(
+            //         0.25,
+            //         0.25,
+            //         arnd(10) + 0.25
+            //     )
+
+
+            //     let mesh4 = meshBase.createInstance(instanceId++);
+            //     mesh4.parent = mesh1;
+            //     mesh4.position.set(rnd(0.25), rnd(0), rnd(0.25));
+            //     mesh4.scaling.set(
+            //         arnd(10) + 0.25,
+            //         0.25,
+            //         0.25
+            //     )
+            // }
+
+
+            // scene.registerAfterRender(() => {
+            //     mesh0.rotation.x += 0.001;
+            // })
+
+
+
+            function createRandomBox(scene, x, y, z) {
+                const width = 0.5; // Math.random() * 0.5 + 0.5;
+                const height = 0.5; // Math.random() * 0.5 + 0.5;
+                const depth = 2.; // Math.random() * 0.5 + 0.5;
+                // const box = BABYLON.MeshBuilder.CreateBox("box", { width, height, depth }, scene);
+                const box = BABYLON.MeshBuilder.CreateSphere("box", { diameter: 0.5, diameterZ: 2 }, scene);
+                box.position = new BABYLON.Vector3(x, y, z);
+                return box;
+            }
+
+
+            function createSpaceship(scene) {
+                const shipParts = [];
+                const centerBox = createRandomBox(scene, 0, 0.25, 4);
+                centerBox.scaling.set(2, 3, 2);
+                shipParts.push(centerBox);
+
+
+                const leftBox = createRandomBox(scene, -1, -0.25, 0);
+                const rightBox = createRandomBox(scene, 1, -0.25, 0);
+
+                shipParts.push(leftBox, rightBox);
+
+                // for (let i = 0; i < 2; i++) {
+                //     const x = Math.random() * 1 - 0.5;
+                //     const y = 1 * (Math.random() * 1 - 0.5);
+                //     const z = 3 * (Math.random() * 1 - 0.5);
+
+                //     const leftBox = createRandomBox(scene, -x, y, z);
+                //     const rightBox = createRandomBox(scene, x, y, z);
+
+                //     shipParts.push(leftBox, rightBox);
+                // }
+
+
+                const box = BABYLON.MeshBuilder.CreateSphere("box", { diameter: 5, diameterY: 0.4 }, scene);
+                box.position.z = 2;
+                // box.position.y = 1;
+                // box.position.x = 4;
+                shipParts.push(box);
+
+
+                return BABYLON.Mesh.MergeMeshes(shipParts, true, true, undefined, false, true);
+            }
+
+            const spaceship = createSpaceship(scene);
+            spaceship.material = pbr;
+
+            // scene.registerAfterRender(() => {
+            //     spaceship.rotation.x += 0.01;
+            // })
+
+
+
+            // const forceGeometryBuffer = false;
+            // const useMSAA = true;
+
+            // // Create the SSR post-process!
+            // const ssr = new BABYLON.SSRRenderingPipeline("ssr", scene, [scene.activeCamera], forceGeometryBuffer, BABYLON.Constants.TEXTURETYPE_UNSIGNED_BYTE);
+
+            // // ssr.environmentTexture = envTexture;
+            // ssr.strength = 1;
+            // ssr.reflectionSpecularFalloffExponent = 1.;
+            // ssr.enableAutomaticThicknessComputation = true;
+            // ssr.thickness = 0; // 2.5
+            // ssr.step = 3;
+            // ssr.blurDispersionStrength = 0;
+            // ssr.roughnessFactor = 0;
+
+            // if (useMSAA) {
+            //     if (forceGeometryBuffer) {
+            //         ssr.samples = 4;
+            //     } else {
+            //         new BABYLON.FxaaPostProcess("fxaa", 1, camera);
+            //     }
+            // }
+
+            // window.ssr = ssr;
+
+            // let light1 = new BABYLON.SpotLight("spotLight",
+            //     new BABYLON.Vector3(0, 10, 0),
+            //     new BABYLON.Vector3(0, -0.2, -1), Math.PI / 3, 2, scene);
+            // light1.intensity = .7;
+
+
+
+            // const donut = BABYLON.MeshBuilder.CreateTorus("donut", {
+            //     diameter: 80,
+            //     thickness: 15,
+            //     tessellation: 64
+            // }, scene);
+
+            // donut.scaling.y = 0.1;
+            // donut.position.y = -10;
+            // donut.material = pbr; // new BABYLON.StandardMaterial("TextPlaneMaterial", scene);;
+
+
+
+            // let mesh = BABYLON.MeshBuilder.CreateSphere("", { diameter: 5 }, scene);
+
+            class ParticleStatistic {
+                constructor() {
+                    const points = [];
+                    const colors = [];
+
+                    const max = 1000;
+                    for (let i = 0; i < max; i++) {
+                        let x = 5 - 10 * Math.random();
+                        let y = 5 - 10 * Math.random();
+                        let z = 5 - 10 * Math.random();
+                        let p = new BABYLON.Vector3(x, y, z);
+                        p.addInPlace(meshMoon.position)
+                        points.push(p);
+                        colors.push(new BABYLON.Color3(1, 1, 1));
+                    }
+
+                    let pcs = new BABYLON.PointsCloudSystem("pcs", 1, scene);
+
+                    let initParticles = function (particle, i) {
+                        particle.position = points[i];
+                        particle.color = colors[i];
+                        particle.velocity = new BABYLON.Vector3.Zero();
+                    };
+                    pcs.addPoints(points.length, initParticles);
+
+                    pcs.buildMeshAsync().then(() => {
+                        // pcs.mesh.position.copyFrom(pos);
+                    });
+
+
+                    let dir = new BABYLON.Vector3.Zero();
+
+                    scene.registerAfterRender(() => {
+                        time += 0.1;
+                        // meshLight.position.x = 0; // size2 * Math.cos(0.5 * time); // size * Math.sin(time);
+                        // meshLight.position.y = size2 * Math.sin(time);
+                        // meshLight.position.z = 0; // size * Math.sin(time);
+
+                        // var particles = pcs.particles;
+                        // for (var i = 0; i < particles.length; i++) {
+                        //     var particle = particles[i];
+                        //     dir = particle.position.subtract(meshLight.position).normalize().scale(-0.001);
+                        //     particle.velocity.addInPlace(dir);
+                        //     particle.position.addInPlace(particle.velocity);
+                        // }
+
+
+                        pcs.setParticles();
+                    });
+                }
+            }
+
+            // new ParticleStatistic();
+
+            return scene;
+        }
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>
