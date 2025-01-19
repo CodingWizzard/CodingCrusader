@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title></title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+
+        let createScene = function () {
+            let scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color3(1, 1, 1);
+
+            let camera = new BABYLON.ArcRotateCamera("camera1",
+                BABYLON.Tools.ToRadians(90 + 90 + 20),
+                BABYLON.Tools.ToRadians(90 - 20),
+                40,
+                new BABYLON.Vector3(0, 0, 0), scene);
+            camera.attachControl(canvas, true);
+            camera.upperBetaLimit = null;
+            camera.lowerBetaLimit = null;
+
+            // camera.lowerRadiusLimit = 5;  // Minimaler Zoom (näher heran)
+            // camera.upperRadiusLimit = 12; // Maximaler Zoom (weiter weg)
+
+
+            // Alpha-Limits setzen (horizontal)
+            // camera.lowerAlphaLimit = Math.PI * 0.5;           // Min. horizontaler Winkel (0 = rechte Seite)
+            // camera.upperAlphaLimit = Math.PI;    // Max. horizontaler Winkel (π = linke Seite)
+
+            // // Beta-Limits setzen (vertikal)
+            // camera.lowerBetaLimit = 0.25 * Math.PI;          // Verhindert, dass die Kamera unter das Ziel schaut
+            // camera.upperBetaLimit = 0.75 * Math.PI;  // Verhindert, dass die Kamera genau über dem Ziel steht
+
+
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            // light.intensity = 0.5;
+
+
+            // Erstelle ein Mesh für die Wasseroberfläche
+            // const waterMesh = BABYLON.MeshBuilder.CreateGround("waterMesh", { width: 50, height: 50, subdivisions: 400 }, scene);
+            // waterMesh.position.y = -4;
+
+
+            let createMesh = (material, y) => {
+                const waterMesh = BABYLON.MeshBuilder.CreateGround("waterMesh", { width: 50, height: 50, subdivisions: 400, updatable: true }, scene);
+                waterMesh.material = material;
+                // waterMesh.position.y = -4;
+
+                // Greife auf die Geometrie zu
+                const verticesData = waterMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+
+                // Überprüfe, ob die Geometrie geladen ist
+                if (verticesData) {
+                    for (let i = 0; i < verticesData.length; i += 3) {
+                        let x = verticesData[i];
+                        let z = verticesData[i + 2];
+
+
+                        // const y = Math.sin(x * 0.1) * Math.sin(z * 0.2) * 4; // Sinus-basierte Wölbung
+                        // Alternativ: Parabel
+                        let yy = 0.01 * (x * x + z * z); // Parabolische Wölbung                        
+                        // if (x < 0) y *= -1;
+                        // y *= -1;
+
+
+                        verticesData[i + 1] = y * yy;
+                    }
+
+                    waterMesh.updateVerticesData(BABYLON.VertexBuffer.PositionKind, verticesData);
+                }
+
+                BABYLON.VertexData.ComputeNormals(waterMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind), waterMesh.getIndices(), waterMesh);
+                return waterMesh;
+            }
+
+
+
+
+
+
+            const terrainMaterial = new BABYLON.ShaderMaterial("skyMaterial", scene, {
+                vertex: "terrain",
+                fragment: "terrain"
+            }, {
+                attributes: ["position"],
+                uniforms: ["worldViewProjection", "time"]
+            });
+
+            terrainMaterial.backFaceCulling = false;
+
+
+
+            // Vertex-Shader
+            BABYLON.Effect.ShadersStore["terrainVertexShader"] = `
+precision highp float;
+attribute vec3 position;
+uniform mat4 worldViewProjection;
+uniform float time;
+uniform vec2 direction; // Neue Uniform für Bewegungsrichtung
+
+varying vec2 vUV;
+varying float vHeight;
+
+float random(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+float valueNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+
+    float a = random(i);
+    float b = random(i + vec2(1.0, 0.0));
+    float c = random(i + vec2(0.0, 1.0));
+    float d = random(i + vec2(1.0, 1.0));
+
+    vec2 u = f * f * (3.0 - 2.0 * f);
+
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+float fbm(vec2 p) {
+    float value = 0.0;
+    float amplitude = 0.2;
+    float frequency = 2.0;
+    for (int i = 0; i < 5; i++) {
+        value += amplitude * valueNoise(p * frequency);
+        p *= (2.7);
+        amplitude *= .5;
+    }
+    return value;
+}
+
+
+ void main() {
+        vUV = position.xz;
+        vec2 pos = position.xz * 0.1 + direction; // * time * .9;
+        // vec2 pos = position.xz * 0.05 + time * 0.1;
+        vHeight = fbm(pos);
+        vHeight = clamp(vHeight, -1.0, 1.0);
+
+        // // Apply additional transformations to make it more "blocky"
+        // float blockiness = 16.; // Adjust this value to control the blockiness
+        // vHeight = floor(vHeight * blockiness) / blockiness;
+
+         vec3 newPosition = position;
+        newPosition.y += vHeight * 10.0; // Height amplified
+        gl_Position = worldViewProjection * vec4(newPosition, 1.0);
+    }
+`;
+
+
+
+            BABYLON.Effect.ShadersStore["terrainFragmentShader"] = `
+precision highp float;
+varying float vHeight;
+varying vec2 vUV; // Zugriff auf die x- und y-Koordinaten
+uniform float time;
+
+
+void main() {
+    // Normalisiere vHeight auf den Bereich [0, 1]
+    float normalizedHeight = (vHeight + 0.2) / 0.4;
+
+    // x-basierte Steuerung: Farbverlauf von -1 bis 0 und von 0 bis 1
+    float xPosition = vUV.x * 2.0 - 1.0; // UV-Koordinaten von [0, 1] nach [-1, 1]
+
+    vec3 deepColorLeft = vec3(0.2, 0.2, 0.2); 
+    vec3 midColorLeft = vec3(0.4, 0.4, 0.4); 
+    vec3 peakColorLeft = vec3(0.7, 0.7, 0.7); 
+    
+
+    // vec3 deepColorRight = vec3(0.2, 0.2, 0.3); 
+    // vec3 midColorRight = vec3(0.5, 0.3, 0.7); 
+    // vec3 peakColorRight = vec3(0.8, 0.2, 0.2); 
+
+    vec3 color;
+
+    // if (xPosition < 0.0) 
+    {
+        // Linker Farbverlauf (von -1 bis 0)
+        float factor = abs(xPosition); // Normiere auf [0, 1]
+        if (normalizedHeight < 0.25) {
+            color = mix(deepColorLeft, midColorLeft, normalizedHeight / 0.7);
+        } else {
+            color = mix(midColorLeft, peakColorLeft, (normalizedHeight - 0.7) / 0.3);
+        }
+        // color *= (1.0 - 0.05* factor); // Dunkler, je näher an -1
+    } 
+    //     else 
+    //  {
+        // // Rechter Farbverlauf (von 0 bis 1)
+        // float factor = xPosition; // Normiere auf [0, 1]
+        // if (normalizedHeight < 0.5) {
+        //     color = mix(deepColorRight, midColorRight, normalizedHeight / 0.7);
+        // } else {
+        //     color = mix(midColorRight, peakColorRight, (normalizedHeight - 0.7) / 0.3);
+        // }
+        // color *=  0.04*factor; // Heller, je näher an 1
+    // }
+
+    // Transparenz optional, wenn gewünscht
+    float alpha = 1.0; //  0.2 + 0.9 * normalizedHeight;
+    gl_FragColor = vec4(color, alpha);
+}
+`;
+
+            const matPlane = new BABYLON.StandardMaterial("matplane", scene);
+            matPlane.diffuseColor = new BABYLON.Color3(0.2, 0, 0);
+
+            const terrainMesh1 = createMesh(terrainMaterial, -0.5);
+            terrainMesh1.position.y = -8;
+
+            // const terrainMesh2 = createMesh(terrainMaterial, 0.5);
+            // terrainMesh2.rotation.y = 0.5 * Math.PI;
+            // terrainMesh2.position.y = 8;
+
+
+            var skybox = BABYLON.MeshBuilder.CreateBox("skyBox", { size: 10000.0 }, scene);
+            var skyboxMaterial = new BABYLON.StandardMaterial("skyBox", scene);
+            skyboxMaterial.backFaceCulling = false;
+            var files = [
+                "https://playground.babylonjs.com/textures/Space/space_left.jpg",
+                "https://playground.babylonjs.com/textures/Space/space_up.jpg",
+                "https://playground.babylonjs.com/textures/Space/space_front.jpg",
+                "https://playground.babylonjs.com/textures/Space/space_right.jpg",
+                "https://playground.babylonjs.com/textures/Space/space_down.jpg",
+                "https://playground.babylonjs.com/textures/Space/space_back.jpg",
+            ];
+            skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture.CreateFromImages(files, scene);
+            skyboxMaterial.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
+            skyboxMaterial.disableLighting = true;
+            skybox.material = skyboxMaterial;
+
+            const earthMesh = BABYLON.MeshBuilder.CreateSphere("", { diameter: 5 }, scene);
+            earthMesh.position.x = 20;
+            earthMesh.position.y = 0;
+            earthMesh.position.z = 0;
+
+            const earthMaterial = new BABYLON.StandardMaterial("", scene);
+            earthMaterial.diffuseTexture = new BABYLON.Texture("https://playground.babylonjs.com/textures/earth.jpg", scene);
+            earthMaterial.diffuseTexture.vScale = -1;
+
+            earthMesh.material = earthMaterial;
+
+            // //Create Sun
+            // BABYLON.ParticleHelper.CreateAsync("sun", scene).then((set) => {
+            //     let pos = new BABYLON.Vector3(40, 10, 10)
+            //     set.emitterNode.translate(pos, 0.5)
+            //     set.start();
+            // });
+
+            // Flagge
+            BABYLON.Effect.ShadersStore["flaggeVertexShader"] = `
+    precision highp float;
+    attribute vec3 position;
+    attribute vec2 uv;
+    uniform mat4 worldViewProjection;
+    uniform float time;
+    varying vec2 vUV;
+
+    void main() {
+        vec3 pos = position;
+
+        // Fixiere die linke Seite der Flagge (X = -10 bei Breite 20)
+        float intensity = smoothstep(-10.0, 10.0, pos.x); // Von 0 links bis 1 rechts
+
+        // Mehrere überlagerte Wellenbewegungen
+        float wave1 = sin(pos.z * 2.0 + time * 2.0) * 0.4 * intensity; // Vertikale Wellen
+        float wave2 = sin(pos.x * 2.0 + time * 1.0) * 0.3 * intensity;  // Horizontale Wellen
+        float wave3 = sin((pos.x + pos.z) * 3.0 + time * 4.0) * 0.2 * intensity; // Chaotische Wellen
+
+        // Dämpfung und Zunahme der Bewegung von links nach rechts
+        pos.y += wave1 + wave2 + wave3;
+
+        gl_Position = worldViewProjection * vec4(pos, 1.0);
+        vUV = uv;
+    }
+`;
+
+
+            //             // Fragment Shader
+            //             BABYLON.Effect.ShadersStore["flaggeFragmentShader"] = `
+            //     precision highp float;
+            // varying vec2 vUV;
+
+            // void main() {
+            //     // Mittelpunkt des Kreises
+            //     vec2 center = vec2(0.5, 0.5);
+            //     // Radius des Kreises
+            //     float radius = 0.3;
+            //     // Berechnung des Abstands vom Mittelpunkt
+            //     float distance = length(vUV - center);
+            //     // Wenn innerhalb des Kreises, rot; ansonsten weiß
+            //     vec4 color = distance < radius ? vec4(1.0, 0.0, 0.0, 1.0) : vec4(1.0, 1.0, 1.0, 1.0);
+            //     gl_FragColor = color;
+            // }
+            // `;
+
+            // Fragment Shader
+            BABYLON.Effect.ShadersStore["flaggeFragmentShader"] = `
+    precision highp float;
+    varying vec2 vUV;
+
+    void main() {
+        // Anzahl der Streifen
+        float stripeCount = 10.0;
+        // Bestimme die aktuelle Streifen-ID basierend auf der Y-Koordinate
+        float stripeID = floor(vUV.y * stripeCount);
+        // Abwechselnde Farben basierend auf der Streifen-ID
+        vec4 color = mod(stripeID, 2.0) == 0.0 ? vec4(1.0, 0.7, 0.7, 1.0) : vec4(1.0, 1.0, 1.0, 1.0);
+        gl_FragColor = color;
+    }
+`;
+
+
+            // Shader-Material für die Flagge
+            const shaderMaterial = new BABYLON.ShaderMaterial("shader", scene, {
+                vertex: "flagge",
+                fragment: "flagge",
+            }, {
+                attributes: ["position", "normal", "uv"],
+                uniforms: ["world", "worldView", "worldViewProjection", "time"]
+            });
+
+            shaderMaterial.backFaceCulling = false;
+
+            // Zeituniform setzen
+            scene.registerBeforeRender(() => {
+                shaderMaterial.setFloat("time", performance.now() * 0.001);
+            });
+
+            let stange = BABYLON.MeshBuilder.CreateCylinder("cone", { diameterTop: 0.1, diameterBottom: 0.1, height: 15 });
+            stange.position.x = 20;
+            stange.position.y = -2;
+            stange.position.z = 20;
+
+            const flag = BABYLON.MeshBuilder.CreateGround("waterMesh", { width: 6, height: 4, subdivisions: 100 }, scene);
+            flag.rotation.x = -0.5 * Math.PI;
+            flag.material = shaderMaterial;
+            flag.parent = stange;
+            flag.position.x = 3;
+            flag.position.y = 5;
+
+            // Variablen für die Steuerung
+            let rotationSpeed = 0.05; // Geschwindigkeit der Rotation
+            let rotateLeft = false;
+            let rotateRight = false;
+
+            // Tastaturereignisse hinzufügen
+            window.addEventListener("keydown", (event) => {
+                if (event.key === "a") {
+                    rotateLeft = true;
+                } else if (event.key === "s") {
+                    rotateRight = true;
+                }
+            });
+
+            window.addEventListener("keyup", (event) => {
+                if (event.key === "a") {
+                    rotateLeft = false;
+                } else if (event.key === "s") {
+                    rotateRight = false;
+                }
+            });
+
+            // Animation in der Szene
+            let inverseDirection = null;
+            scene.registerBeforeRender(() => {
+                if (rotateLeft) {
+                    stange.rotation.y -= rotationSpeed; // Nach links drehen
+                }
+                if (rotateRight) {
+                    stange.rotation.y += rotationSpeed; // Nach rechts drehen
+                }
+
+                const rotationMatrix = BABYLON.Matrix.RotationYawPitchRoll(
+                    stange.rotation.y,
+                    stange.rotation.x,
+                    stange.rotation.z
+                );
+                let forward = BABYLON.Vector3.TransformNormal(BABYLON.Vector3.Forward(), rotationMatrix);
+
+                const correctionMatrix = BABYLON.Matrix.RotationY(Math.PI / 2);
+                forward = BABYLON.Vector3.TransformNormal(forward, correctionMatrix);
+
+                inverseDirection = forward.scale(-1);
+                inverseDirection.normalize().scaleInPlace(5);
+            });
+
+
+            let ship = null;
+
+            BABYLON.SceneLoader.ImportMesh("", "./media/", "star_trek_-_uss_discovery.glb", scene, (meshes) => {
+                // Das Haupt-Mesh auswählen
+                ship = meshes[0];
+
+                // Skalierung auf alle Submeshes anwenden
+                meshes.forEach((mesh) => {
+                    mesh.scaling.scaleInPlace(0.2);
+                });
+
+                // Überprüfen, ob `rotationQuaternion` gesetzt ist
+                if (!ship.rotationQuaternion) {
+                    ship.rotationQuaternion = BABYLON.Quaternion.Identity();
+                }
+
+                // Setze die Rotation mit Quaternion (Yaw, Pitch, Roll in Radiant)
+                const yaw = BABYLON.Tools.ToRadians(0);  // Rotation um die Y-Achse
+                const pitch = BABYLON.Tools.ToRadians(10); // Rotation um die X-Achse
+                const roll = BABYLON.Tools.ToRadians(0);  // Rotation um die Z-Achse
+
+                // Erstelle eine Quaternion aus Yaw, Pitch und Roll
+                ship.rotationQuaternion = BABYLON.Quaternion.RotationYawPitchRoll(yaw, pitch, roll);
+
+
+                const deltaYaw = BABYLON.Tools.ToRadians(1); // Schrittweite pro Frame
+                ship.rotationQuaternion = ship.rotationQuaternion.multiply(
+                    BABYLON.Quaternion.RotationYawPitchRoll(deltaYaw, 0, 0)
+                );
+
+                // Optional: Um eine kontinuierliche Rotation zu implementieren
+                // scene.onBeforeRenderObservable.add(() => {
+                //     const deltaYaw = BABYLON.Tools.ToRadians(1); // Schrittweite pro Frame
+                //     ship.rotationQuaternion = ship.rotationQuaternion.multiply(
+                //         BABYLON.Quaternion.RotationYawPitchRoll(deltaYaw, 0, 0)
+                //     );
+                // });
+            });
+
+
+            let time = 0;
+            scene.registerBeforeRender(() => {
+                earthMesh.rotation.y += 0.005;
+                // stange.rotation.y += 0.001;
+
+
+                // light.intensity = Math.abs(Math.sin(time * 100));
+                if (ship) {
+                    ship.position.y = -15 + 15 * Math.sin(time * 10);
+                    // ship.rotation.x = 0.15 * Math.PI; // Math.sin(time * 100);
+                    // ship.rotation.y = 0.15 * Math.PI; // Math.sin(time * 100);
+                    // ship.rotation.z = 0.15 * Math.PI; // Math.sin(time * 100);
+                }
+
+                time += 0.0001;
+                terrainMaterial.setFloat("time", time * 4);
+                if (inverseDirection)
+                    terrainMaterial.setVector2("direction", new BABYLON.Vector2(
+                        inverseDirection.x * time * 5,
+                        inverseDirection.z * time * 5
+                    ));
+            });
+
+
+
+            return scene;
+        }
+
+
+        let engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>
