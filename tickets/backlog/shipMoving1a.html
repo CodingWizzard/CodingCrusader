@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>spaceship</title>
+    <meta charset="UTF-8">
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+
+    <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        #fps {
+            position: absolute;
+            background-color: black;
+            /* border: 2px solid red; */
+            text-align: center;
+            font-size: 16px;
+            color: white;
+            top: 15px;
+            right: 10px;
+            width: 60px;
+            height: 20px;
+        }
+    </style>
+
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        let canvas = document.getElementById("renderCanvas");
+        let engine = new BABYLON.Engine(canvas, true);
+
+
+
+        const createScene = function (engine, canvas) {
+            const scene = new BABYLON.Scene(engine);
+            const camera = new BABYLON.ArcRotateCamera("camera",
+                BABYLON.Tools.ToRadians(90),
+                BABYLON.Tools.ToRadians(90),
+                30, BABYLON.Vector3.Zero(), scene);
+
+            camera.attachControl(canvas, true);
+
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.7;
+
+            // Punkte für die Flugbahn
+            const points = [];
+
+            let dir = new BABYLON.Vector3(0, 0, 1);
+            let last = new BABYLON.Vector3(0, 0, -25);
+
+            let max = 20;
+            for (let i = 0; i < max; i++) {
+                let p = new BABYLON.Vector3(
+                    -10 + i * 1,
+                    2.5 * Math.sin(i * 2 * Math.PI / max),
+                    -10 + 33 * Math.sin(i * 1 * Math.PI / max));
+                points.push(p);
+            }
+
+
+            last = points[points.length - 1];
+            dir = last.subtract(points[points.length - 2]);
+            for (let i = 1; i < 20; i++) {
+                let p = new BABYLON.Vector3.Zero();
+                p.copyFrom(last);
+                p.addInPlace(dir);
+                dir.scaleInPlace(1.9);
+                points.push(p);
+            }
+
+            // Erstellt eine sanfte Kurve aus den Punkten
+            const curve = BABYLON.Curve3.CreateCatmullRomSpline(points, 20, false);
+            const path = curve.getPoints();
+
+
+            var skybox = BABYLON.MeshBuilder.CreateBox("skyBox", { size: 10000.0 }, scene);
+            var skyboxMaterial = new BABYLON.StandardMaterial("skyBox", scene);
+            skyboxMaterial.backFaceCulling = false;
+            var files = [
+                "https://playground.babylonjs.com/textures/Space/space_left.jpg",
+                "https://playground.babylonjs.com/textures/Space/space_up.jpg",
+                "https://playground.babylonjs.com/textures/Space/space_front.jpg",
+                "https://playground.babylonjs.com/textures/Space/space_right.jpg",
+                "https://playground.babylonjs.com/textures/Space/space_down.jpg",
+                "https://playground.babylonjs.com/textures/Space/space_back.jpg",
+            ];
+            skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture.CreateFromImages(files, scene);
+            skyboxMaterial.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
+            skyboxMaterial.disableLighting = true;
+            skybox.material = skyboxMaterial;
+
+
+
+
+            let instanceId = 0;
+
+            var gl = new BABYLON.GlowLayer("glow", scene);
+            gl.intensity = 3;
+
+            const matLaser = new BABYLON.StandardMaterial("matplane", scene);
+            matLaser.emissiveColor = new BABYLON.Color3(1, 0, 0);
+
+            const matShipLight = new BABYLON.StandardMaterial("matplane", scene);
+            matShipLight.emissiveColor = new BABYLON.Color3(1, 1, 0);
+
+            const matPoint = new BABYLON.StandardMaterial("matplane", scene);
+            matPoint.emissiveColor = new BABYLON.Color3(0, 0, 1);
+
+            const matPortal = new BABYLON.StandardMaterial("matplane", scene);
+            matPortal.emissiveColor = new BABYLON.Color3(1, 1, 1);
+
+
+            let meshBase = BABYLON.MeshBuilder.CreateSphere("point", { diameter: 0.05 });
+            meshBase.isVisible = false;
+            meshBase.material = matPoint;
+
+
+            let spaceship = null;
+
+            // https://sketchfab.com/3d-models/star-trek-uss-discovery-af03b42eb0ac4213b634f7e951e1a5ad#download
+            BABYLON.SceneLoader.ImportMesh("", "./media/", "star_trek_-_uss_discovery.glb", scene, (meshes) => {
+                // Das Haupt-Mesh auswählen
+                spaceship = meshes[0];
+
+                // Skalierung auf alle Submeshes anwenden
+                meshes.forEach((mesh) => {
+                    mesh.scaling.set(0.1, 0.1, 0.1);
+                });
+
+
+                let laser = BABYLON.MeshBuilder.CreateCylinder("", { diameter: 0.3, height: 500 }, scene);
+                laser.rotation.x = 0.5 * Math.PI;
+                laser.position.y = 0;
+                laser.position.z = 250;
+                laser.parent = spaceship;
+                laser.material = matLaser;
+                laser.isVisible = false;
+
+                let meshPortal = BABYLON.MeshBuilder.CreateSphere("point", { diameter: 10 });
+                meshPortal.position.z = -10;
+                meshPortal.parent = spaceship;
+                meshPortal.material = matPortal;
+                meshPortal.isVisible = false;
+
+
+                scene.registerBeforeRender(() => {
+
+
+                    if (laser.isVisible) {
+                        if (Math.random() > 0.8) {
+                            matLaser.alpha = 0;
+                        }
+                        else {
+                            matLaser.alpha = 1;
+                        }
+
+                        matLaser.emissiveColor.r = 0.5 + 0.5 * Math.random();
+                    }
+
+                    matPoint.alpha *= 0.995;
+                });
+
+                // Animation entlang der Kurve
+                let index = 0;
+                scene.registerBeforeRender(() => {
+
+                    // return;
+
+                    if (index < path.length - 1) {
+                        spaceship.position = path[index];
+
+                        const forward = path[index + 1].subtract(path[index]).normalize();
+                        spaceship.lookAt(path[index + 1]);
+
+                        if (index > 100 && index < 200) {
+                            laser.isVisible = true;
+                            skyboxMaterial.reflectionTexture.level = 3 + Math.random();
+                        }
+                        else {
+                            laser.isVisible = false;
+
+                            skyboxMaterial.reflectionTexture.level *= 0.99;
+                            if (skyboxMaterial.reflectionTexture.level < 1)
+                                skyboxMaterial.reflectionTexture.level = 1;
+                        }
+
+                        if (index % 1 === 0) {
+                            let point = meshBase.createInstance(instanceId++);
+                            point.position.copyFrom(spaceship.position);
+                        }
+
+                        index++;
+                    }
+                    else {
+                        skyboxMaterial.reflectionTexture.level *= 0.99;
+                        if (skyboxMaterial.reflectionTexture.level < 1)
+                            skyboxMaterial.reflectionTexture.level = 1;
+                    }
+
+                    if (index > 0.6 * path.length) {
+                        meshPortal.isVisible = true;
+
+                        if (index < path.length - 1)
+                            skyboxMaterial.reflectionTexture.level = 3 + Math.random();
+                    }
+
+                });
+
+            });
+
+
+            return scene;
+        };
+
+
+        let scene = createScene();
+
+        engine.runRenderLoop(function () {
+            scene.render();
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
