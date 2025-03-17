@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Satelliten-Simulation mit Babylon.js</title>
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div class="overlay">
+        <h3>Satelliten-Simulation</h3>
+        <div id="info">Satelliten werden geladen...</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babylonjs/5.0.0/babylon.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babylonjs-loaders/5.0.0/babylonjs.loaders.min.js"></script>
+    <script>
+        // Hauptfunktion
+        const createScene = async function () {
+            // Engine und Szene erstellen
+            const canvas = document.getElementById("renderCanvas");
+            const engine = new BABYLON.Engine(canvas, true);
+            const scene = new BABYLON.Scene(engine);
+
+            // Kamera erstellen
+            const camera = new BABYLON.ArcRotateCamera("Camera", -Math.PI / 2, Math.PI / 2, 20, BABYLON.Vector3.Zero(), scene);
+            camera.attachControl(canvas, true);
+            camera.upperRadiusLimit = 50;
+            camera.lowerRadiusLimit = 5;
+
+            // Umgebungslicht hinzufügen
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.7;
+
+            // Sterne im Hintergrund erstellen
+            // const starDome = BABYLON.MeshBuilder.CreateSphere("starDome", { diameter: 1000, segments: 32 }, scene);
+            // const starMaterial = new BABYLON.StandardMaterial("starMaterial", scene);
+            // starMaterial.emissiveTexture = new BABYLON.Texture("https://www.babylonjs-playground.com/textures/star.jpg", scene);
+            // starMaterial.diffuseColor = new BABYLON.Color3(0, 0, 0);
+            // starMaterial.backFaceCulling = false;
+            // starMaterial.emissiveTexture.level = 0.4;
+            // starDome.material = starMaterial;
+
+
+            var skybox = BABYLON.MeshBuilder.CreateBox("skyBox", { size: 10000.0 }, scene);
+            var skyboxMaterial = new BABYLON.StandardMaterial("skyBox", scene);
+            skyboxMaterial.backFaceCulling = false;
+            var files = [
+                "https://playground.babylonjs.com/textures/Space/space_left.jpg",
+                "https://playground.babylonjs.com/textures/Space/space_up.jpg",
+                "https://playground.babylonjs.com/textures/Space/space_front.jpg",
+                "https://playground.babylonjs.com/textures/Space/space_right.jpg",
+                "https://playground.babylonjs.com/textures/Space/space_down.jpg",
+                "https://playground.babylonjs.com/textures/Space/space_back.jpg",
+            ];
+            skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture.CreateFromImages(files, scene);
+            skyboxMaterial.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
+            skyboxMaterial.disableLighting = true;
+            skybox.material = skyboxMaterial;
+
+
+
+
+            // Erde erstellen
+            const earth = BABYLON.MeshBuilder.CreateSphere("earth", { diameter: 5, segments: 32 }, scene);
+            // earth.rotation.z = Math.PI;
+            const earthMaterial = new BABYLON.StandardMaterial("earthMaterial", scene);
+            earthMaterial.diffuseTexture = new BABYLON.Texture("https://playground.babylonjs.com/textures/earth.jpg", scene);
+            // earthMaterial.diffuseColor = new BABYLON.Texture("https://upload.wikimedia.org/wikipedia/commons/0/04/Solarsystemscope_texture_8k_earth_daymap.jpg", scene);
+            earthMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+            // earthMaterial.emissiveTexture = new BABYLON.Texture("https://www.babylonjs-playground.com/textures/earthlights.jpg", scene);
+            earthMaterial.emissiveColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+            // earthMaterial.bumpTexture = new BABYLON.Texture("https://www.babylonjs-playground.com/textures/earthbump.jpg", scene);
+            // earthMaterial.bumpTexture.level = 0.5;
+            earth.material = earthMaterial;
+
+            // Erdrotation
+            earth.rotate(BABYLON.Axis.Y, Math.PI, BABYLON.Space.LOCAL);
+            // const earthRotationAnimation = new BABYLON.Animation("earthRotation", "rotation.y", 30, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+            // const earthRotationKeys = [];
+            // earthRotationKeys.push({ frame: 0, value: 0 });
+            // earthRotationKeys.push({ frame: 300, value: Math.PI * 2 });
+            // earthRotationAnimation.setKeys(earthRotationKeys);
+            // earth.animations = [earthRotationAnimation];
+            // scene.beginAnimation(earth, 0, 300, true);
+
+
+
+            earth.rotation.z = Math.PI - BABYLON.Tools.ToRadians(23.5);
+
+            // Insert parent node
+            const parentNode = new BABYLON.TransformNode("earth.parent", scene);
+            parentNode.parent = earth.parent;
+            earth.parent = parentNode;
+            parentNode.position.copyFrom(earth.position);
+            parentNode.rotationQuaternion = earth.rotationQuaternion;
+            earth.position.setAll(0);
+            earth.rotationQuaternion = null;
+
+            // self rotation
+            // ?
+            earth.reIntegrateRotationIntoRotationQuaternion = true;
+            const startRotation = earth.rotationQuaternion ?
+                earth.rotationQuaternion.toEulerAngles() : earth.rotation;
+            const rotationDelta = BABYLON.Vector3.Zero();
+            rotationDelta["y"] = 2 * Math.PI;
+            const endRotation = startRotation.add(rotationDelta);
+            // console.log("Will rotate from", startRotation, "to", endRotation);
+            const animEarth = new BABYLON.Animation(
+                "earthAnimation",
+                "rotation",
+                1,
+                BABYLON.Animation.ANIMATIONTYPE_VECTOR3,
+                BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
+            );
+            const earthKeys = [{ frame: 0, value: startRotation }, { frame: 120, value: endRotation }];
+            animEarth.setKeys(earthKeys);
+            earth.animations = [animEarth];
+            scene.beginAnimation(earth, 0, 120, true);
+
+
+            // // Wolken erstellen
+            // const clouds = BABYLON.MeshBuilder.CreateSphere("clouds", { diameter: 5.05, segments: 32 }, scene);
+            // const cloudsMaterial = new BABYLON.StandardMaterial("cloudsMaterial", scene);
+            // cloudsMaterial.diffuseTexture = new BABYLON.Texture("https://www.babylonjs-playground.com/textures/earthclouds.jpg", scene);
+            // cloudsMaterial.diffuseTexture.hasAlpha = true;
+            // cloudsMaterial.alpha = 0.6;
+            // cloudsMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+            // clouds.material = cloudsMaterial;
+
+            // Wolkenrotation (etwas schneller als die Erde)
+            // const cloudsRotationAnimation = new BABYLON.Animation("cloudsRotation", "rotation.y", 30, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+            // const cloudsRotationKeys = [];
+            // cloudsRotationKeys.push({ frame: 0, value: 0 });
+            // cloudsRotationKeys.push({ frame: 280, value: Math.PI * 2 });
+            // cloudsRotationAnimation.setKeys(cloudsRotationKeys);
+            // clouds.animations = [cloudsRotationAnimation];
+            // scene.beginAnimation(clouds, 0, 280, true);
+
+            // Satelliten erstellen
+            const satellites = [];
+            let satelliteCount = 0;
+
+            try {
+                // TLE-Daten von Celestrak API abrufen
+                const response = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json');
+                const satelliteData = await response.json();
+
+                // Anzeige aktualisieren
+                document.getElementById("info").textContent = `Geladene Satelliten: ${satelliteData.length}`;
+
+                // Begrenze die Anzahl der Satelliten für bessere Performance
+                const maxSatellites = 1000;
+                const satData = satelliteData.slice(0, maxSatellites);
+
+                // Satelliten erstellen
+                satData.forEach((sat, index) => {
+                    // Satellitenobjekt erstellen
+                    const satellite = BABYLON.MeshBuilder.CreateBox("satellite" + index, { size: 0.05 }, scene);
+                    const satMaterial = new BABYLON.StandardMaterial("satMaterial" + index, scene);
+
+                    // Verschiedene Farben für verschiedene Satellitentypen
+                    if (sat.OBJECT_TYPE && sat.OBJECT_TYPE.includes("PAYLOAD")) {
+                        satMaterial.emissiveColor = new BABYLON.Color3(0, 0.7, 1); // Blau für aktive Satelliten
+                    } else if (sat.OBJECT_TYPE && sat.OBJECT_TYPE.includes("ROCKET")) {
+                        satMaterial.emissiveColor = new BABYLON.Color3(1, 0.5, 0); // Orange für Raketenteile
+                    } else {
+                        satMaterial.emissiveColor = new BABYLON.Color3(0.7, 0.7, 0.7); // Grau für Weltraumschrott
+                    }
+
+                    satellite.material = satMaterial;
+
+                    // Berechne die Umlaufbahn basierend auf den TLE-Elementen
+                    // Hier wird eine vereinfachte Darstellung verwendet
+                    const a = 2.5 + Math.random() * 4; // Halbachse (Entfernung vom Zentrum)
+                    const e = Math.random() * 0.2; // Exzentrizität
+                    const i = Math.random() * Math.PI; // Inklination
+                    const lan = Math.random() * Math.PI * 2; // Rektaszension des aufsteigenden Knotens
+                    const w = Math.random() * Math.PI * 2; // Argument des Perigäums
+
+                    // Orbit-Geschwindigkeit berechnen (näher = schneller)
+                    const speed = 0.01 / Math.sqrt(a);
+
+                    // Satellitenposition aktualisieren
+                    satellite.position = new BABYLON.Vector3(a, 0, 0);
+
+                    // Orbitparameter dem Satelliten zuweisen
+                    satellite.orbit = {
+                        a: a,
+                        e: e,
+                        i: i,
+                        lan: lan,
+                        w: w,
+                        speed: speed,
+                        phase: Math.random() * Math.PI * 2
+                    };
+
+                    // Füge den Satelliten zur Liste hinzu
+                    satellites.push(satellite);
+                    satelliteCount++;
+                });
+
+                // Zeige die tatsächliche Anzahl der geladenen Satelliten an
+                document.getElementById("info").textContent = `Satellitenanzahl: ${satelliteCount}`;
+
+                // Orbit-Pfade erstellen
+                satellites.forEach((satellite, index) => {
+                    // Nur für die ersten 100 Satelliten Orbits anzeigen, um die Performance zu verbessern
+                    if (index < 100) {
+                        const orbitPoints = [];
+                        for (let i = 0; i <= 100; i++) {
+                            const angle = (i / 100) * Math.PI * 2;
+                            const xPos = satellite.orbit.a * Math.cos(angle);
+                            const zPos = satellite.orbit.a * Math.sin(angle);
+                            orbitPoints.push(new BABYLON.Vector3(xPos, 0, zPos));
+                        }
+
+                        // Orbit-Linie erstellen
+                        const orbitLine = BABYLON.MeshBuilder.CreateLines("orbitLine" + index, { points: orbitPoints }, scene);
+                        orbitLine.color = new BABYLON.Color3(0.5, 0.5, 0.5);
+                        orbitLine.alpha = 0.3;
+
+                        // Orbit-Rotation entsprechend der Inklination und Rektaszension
+                        const orbitRotation = new BABYLON.Matrix.RotationYawPitchRoll(
+                            satellite.orbit.lan,
+                            satellite.orbit.i,
+                            satellite.orbit.w
+                        );
+                        orbitLine.rotation = new BABYLON.Vector3(
+                            Math.atan2(orbitRotation.m[6], orbitRotation.m[10]),
+                            Math.atan2(-orbitRotation.m[2], Math.sqrt(orbitRotation.m[6] * orbitRotation.m[6] + orbitRotation.m[10] * orbitRotation.m[10])),
+                            Math.atan2(orbitRotation.m[1], orbitRotation.m[0])
+                        );
+                    }
+                });
+
+            } catch (error) {
+                console.error("Fehler beim Laden der Satellitendaten:", error);
+                document.getElementById("info").textContent = "Fehler beim Laden der Satellitendaten. Verwende Beispieldaten.";
+
+                // Beispiel-Satelliten erstellen, wenn die API nicht verfügbar ist
+                for (let i = 0; i < 500; i++) {
+                    const satellite = BABYLON.MeshBuilder.CreateBox("satellite" + i, { size: 0.05 }, scene);
+                    const satMaterial = new BABYLON.StandardMaterial("satMaterial" + i, scene);
+                    satMaterial.emissiveColor = new BABYLON.Color3(Math.random(), Math.random(), Math.random());
+                    satellite.material = satMaterial;
+
+                    const a = 2.5 + Math.random() * 4;
+                    const e = Math.random() * 0.2;
+                    const i = Math.random() * Math.PI;
+                    const lan = Math.random() * Math.PI * 2;
+                    const w = Math.random() * Math.PI * 2;
+                    const speed = 0.01 / Math.sqrt(a);
+
+                    satellite.position = new BABYLON.Vector3(a, 0, 0);
+                    satellite.orbit = {
+                        a: a,
+                        e: e,
+                        i: i,
+                        lan: lan,
+                        w: w,
+                        speed: speed,
+                        phase: Math.random() * Math.PI * 2
+                    };
+
+                    satellites.push(satellite);
+                    satelliteCount++;
+                }
+
+                document.getElementById("info").textContent = `Satellitenanzahl (Beispieldaten): ${satelliteCount}`;
+            }
+
+            // Animationsschleife für die Satellitenbewegung
+            scene.registerBeforeRender(() => {
+                satellites.forEach(satellite => {
+                    // Aktualisiere Phasenwinkel
+                    satellite.orbit.phase += satellite.orbit.speed;
+
+                    // Berechne neue Position auf der Umlaufbahn
+                    const radius = satellite.orbit.a * (1 - satellite.orbit.e * Math.cos(satellite.orbit.phase));
+                    const x = radius * Math.cos(satellite.orbit.phase);
+                    const z = radius * Math.sin(satellite.orbit.phase);
+
+                    // Erstelle eine neue Position
+                    const newPos = new BABYLON.Vector3(x, 0, z);
+
+                    // Rotiere die Position entsprechend der Inklination und Rektaszension
+                    const rotation = new BABYLON.Matrix.RotationYawPitchRoll(
+                        satellite.orbit.lan,
+                        satellite.orbit.i,
+                        satellite.orbit.w
+                    );
+
+                    // Wende Rotation auf die Position an
+                    const rotatedPos = BABYLON.Vector3.TransformCoordinates(newPos, rotation);
+
+                    // Setze die neue Position
+                    satellite.position = rotatedPos;
+                });
+            });
+
+            // Render-Schleife
+            engine.runRenderLoop(() => {
+                scene.render();
+            });
+
+            // Resize-Event
+            window.addEventListener("resize", () => {
+                engine.resize();
+            });
+
+            return scene;
+        };
+
+        // Szene erstellen
+        createScene().then(scene => {
+            // Szene wurde erstellt
+        });
+    </script>
+</body>
+
+</html>
