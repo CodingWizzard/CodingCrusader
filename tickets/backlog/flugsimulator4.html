@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Babylon.js Flugsimulator</title>
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+
+
+    <script>
+
+        function createTerrain(scene) {
+            let createWaterMesh = (material, y) => {
+                const w = 250;
+                const waterMesh = BABYLON.MeshBuilder.CreateGround("waterMesh", { width: w, height: w, subdivisions: 400, updatable: true }, scene);
+                waterMesh.material = waterMaterial;
+
+                // Greife auf die Geometrie zu
+                const verticesData = waterMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+
+                // Überprüfe, ob die Geometrie geladen ist
+                if (verticesData) {
+                    for (let i = 0; i < verticesData.length; i += 3) {
+                        let x = verticesData[i];
+                        let z = verticesData[i + 2];
+                        // let yy = 0.01 * (x * x + z * z); // Parabolische Wölbung                        
+                        let yy = x * x * 0.01;
+                        verticesData[i + 1] = y * yy;
+                    }
+
+                    waterMesh.updateVerticesData(BABYLON.VertexBuffer.PositionKind, verticesData);
+                }
+
+                BABYLON.VertexData.ComputeNormals(waterMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind), waterMesh.getIndices(), waterMesh);
+                return waterMesh;
+            }
+
+
+            const waterMaterial = new BABYLON.ShaderMaterial("waterMaterial", scene, {
+                vertex: "cloud",
+                fragment: "cloud"
+            }, {
+                attributes: ["position"],
+                uniforms: ["worldViewProjection", "time"]
+            });
+
+            waterMaterial.backFaceCulling = false;
+
+            // Vertex-Shader
+            BABYLON.Effect.ShadersStore["cloudVertexShader"] = `
+                precision highp float;
+attribute vec3 position;
+uniform mat4 worldViewProjection;
+uniform float time;
+
+varying vec2 vUV;
+varying float vHeight;
+
+float random(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+float valueNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+
+    float a = random(i);
+    float b = random(i + vec2(1.0, 0.0));
+    float c = random(i + vec2(0.0, 1.0));
+    float d = random(i + vec2(1.0, 1.0));
+
+    vec2 u = f * f * (3.0 - 2.0 * f);
+
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+float fbm(vec2 p) {
+    float value = 0.0;
+    float amplitude = 0.2;
+    float frequency = 2.0;
+    for (int i = 0; i < 5; i++) {
+        value += amplitude * valueNoise(p * frequency);
+        p *= (2.7);
+        amplitude *= .5;
+    }
+    return value;
+}
+
+void main() {
+    vUV = position.xz;
+    vec2 pos = position.xz * 0.1 + time * 1.8; // Langsamere Bewegung
+    vHeight = fbm(pos);
+
+    // Begrenze die Höhe auf einen engeren Bereich
+    vHeight = clamp(vHeight, -0.9, 0.9);
+
+    vec3 newPosition = position;
+    newPosition.y += vHeight * 44.0; // *20.*sin(time*0.2);
+    gl_Position = worldViewProjection * vec4(newPosition, 1.0);
+}
+            `;
+
+            BABYLON.Effect.ShadersStore["cloudFragmentShader"] = `
+precision highp float;
+varying float vHeight;
+varying vec2 vUV; // Zugriff auf die x- und y-Koordinaten
+uniform float time;
+
+
+void main() {
+    // Normalisiere vHeight auf den Bereich [0, 1]
+    float normalizedHeight = (vHeight + 0.2) / 0.4;
+
+    // x-basierte Steuerung: Farbverlauf von -1 bis 0 und von 0 bis 1
+    float xPosition = vUV.x * 2.0 - 1.0; // UV-Koordinaten von [0, 1] nach [-1, 1]
+    float yPosition = vUV.y * 2.0 - 1.0; // UV-Koordinaten von [0, 1] nach [-1, 1]
+
+    vec3 deepColorLeft = vec3(0.9, 0.2, 0.2); 
+    vec3 midColorLeft = vec3(0.6, 0.1, 0.1); 
+    vec3 peakColorLeft = vec3(0.6, 0.4, 0.6); 
+
+    vec3 deepColorRight = vec3(0.2, 0.2, 0.3); 
+    vec3 midColorRight = vec3(0.5, 0.3, 0.7); 
+    vec3 peakColorRight = vec3(0.8, 0.2, 0.2); 
+
+    vec3 color;
+
+    // if (xPosition < 0.0) {
+    //     // Linker Farbverlauf (von -1 bis 0)
+    //     float factor = abs(xPosition); // Normiere auf [0, 1]
+    //     if (normalizedHeight < 0.7) {
+    //         color = mix(deepColorLeft, midColorLeft, normalizedHeight / 0.7);
+    //     } else {
+    //         color = mix(midColorLeft, peakColorLeft, (normalizedHeight - 0.7) / 0.3);
+    //     }
+    //     // color *= (1.0 - 0.03* factor); // Dunkler, je näher an -1
+    // } else 
+     {
+        // Rechter Farbverlauf (von 0 bis 1)
+        float factor = yPosition*2.5; // Normiere auf [0, 1]
+        /*
+        if (normalizedHeight < 0.5) {
+            color = mix(deepColorRight, midColorRight, normalizedHeight / 0.7);
+        } else {
+            color = mix(midColorRight, peakColorRight, (normalizedHeight - 0.7) / 0.3);
+        }
+        */
+
+        color = mix(midColorRight, peakColorRight, (normalizedHeight - 0.7) / 0.3);
+        color *=  0.02*factor; // Heller, je näher an 1
+
+        // color *= (xPosition)*0.02
+    }
+
+    // Transparenz optional, wenn gewünscht
+    float alpha = 0.2 + 0.9 * normalizedHeight;
+    gl_FragColor = vec4(color, alpha);
+}
+`;
+
+
+            const waterMesh1 = createWaterMesh(waterMaterial, 1);
+            const waterMesh2 = createWaterMesh(waterMaterial, -1);
+            waterMesh1.position.y = -30;
+            waterMesh2.position.y = -waterMesh1.position.y;
+
+            const s = 4; // 2 * 2 * 10;
+            waterMesh1.scaling.set(s, s, 10 * s);
+            waterMesh2.scaling.set(s, s, 10 * s);
+
+            // Material mit Zeit animieren
+            // let time = 0;
+            // scene.registerBeforeRender(() => {
+            //     time += engine.getDeltaTime() * 0.000001;
+            //     waterMaterial.setFloat("time", time);
+            // });
+        }
+
+        function createFog(scene) {
+
+            BABYLON.GaussianSplattingMesh.prototype.createBuffer = function (splats) {
+                const vertexSize = 32; // 3 * 4 + 3 * 4 + 4 + 4 = 32 bytes per vertex
+                const vertexCount = splats.length;
+                const buffer = new ArrayBuffer(vertexCount * vertexSize);
+                const fBuffer = new Float32Array(buffer);
+                const uBuffer = new Uint8Array(buffer);
+
+                for (let i = 0; i < vertexCount; i++) {
+                    const splat = splats[i];
+                    const offset = i * 8;
+                    const byteOffset = i * 32;
+
+                    // Position
+                    fBuffer[offset + 0] = splat.position[0];
+                    fBuffer[offset + 1] = splat.position[1];
+                    fBuffer[offset + 2] = splat.position[2];
+
+                    // Scale
+                    fBuffer[offset + 3] = splat.scale[0];
+                    fBuffer[offset + 4] = splat.scale[1];
+                    fBuffer[offset + 5] = splat.scale[2];
+
+                    // Color
+                    uBuffer[byteOffset + 24] = Math.floor(splat.color[0] * 255);
+                    uBuffer[byteOffset + 25] = Math.floor(splat.color[1] * 255);
+                    uBuffer[byteOffset + 26] = Math.floor(splat.color[2] * 255);
+                    uBuffer[byteOffset + 27] = Math.floor(splat.color[3] * 255);
+
+                    // Quaternion
+                    uBuffer[byteOffset + 28] = Math.floor(splat.quaternion[3] * 128 + 128); // W component
+                    uBuffer[byteOffset + 29] = Math.floor(splat.quaternion[0] * 128 + 128);
+                    uBuffer[byteOffset + 30] = Math.floor(splat.quaternion[1] * 128 + 128);
+                    uBuffer[byteOffset + 31] = Math.floor(splat.quaternion[2] * 128 + 128);
+                }
+
+                return buffer;
+            }
+
+
+
+            // claude: Fraktale Brownsche Bewegung (fBm) in JavaScript
+
+
+            // Vereinfachte Perlin-Rauschen-Funktion
+            function noise(x, y) {
+                const X = Math.floor(x) & 255;
+                const Y = Math.floor(y) & 255;
+                x -= Math.floor(x);
+                y -= Math.floor(y);
+                const u = fade(x);
+                const v = fade(y);
+                const A = p[X] + Y, B = p[X + 1] + Y;
+                return lerp(v, lerp(u, grad(p[A], x, y), grad(p[B], x - 1, y)),
+                    lerp(u, grad(p[A + 1], x, y - 1), grad(p[B + 1], x - 1, y - 1)));
+            }
+
+            function fade(t) {
+                return t * t * t * (t * (t * 6 - 15) + 10);
+            }
+
+            function lerp(t, a, b) {
+                return a + t * (b - a);
+            }
+
+            function grad(hash, x, y) {
+                const h = hash & 15;
+                const grad = 1 + (h & 7);
+                return ((h & 8) ? -grad : grad) * x + ((h & 4) ? -grad : grad) * y;
+            }
+
+            // Permutationstabelle
+            const p = new Array(512);
+            for (let i = 0; i < 256; i++) {
+                p[i] = p[i + 256] = Math.floor(Math.random() * 256);
+            }
+
+            // fBm-Funktion
+            function fBm(x, y, octaves = 6, lacunarity = 2.0, gain = 0.5) {
+                let amplitude = 1.0;
+                let frequency = 1.0;
+                let total = 0;
+                let maxValue = 0;
+
+                for (let i = 0; i < octaves; i++) {
+                    total += amplitude * noise(x * frequency, y * frequency);
+                    maxValue += amplitude;
+                    amplitude *= gain;
+                    frequency *= lacunarity;
+                }
+
+                return total / maxValue;
+            }
+
+            const width = 32;
+            const depth = 32; // 64;
+            const scale = 0.1;
+
+            const splats = [];
+
+            let s = 1;
+            let c = 3;
+            for (let z = 0; z < depth; z++) {
+                for (let x = 0; x < width; x++) {
+                    let value = fBm(x * scale, z * scale, 2, 0.1); // , 1, 10, 0.1);
+
+                    if (value > 0.28) continue;
+                    if (Math.random() > 0.8) continue;
+
+                    // c = 1 - value * 0.1;
+                    // s = value + .5 * Math.random();
+                    // s = 1 + 2 * Math.random();
+                    // value += value + (3 - 6 * Math.random());
+
+                    splats.push(
+                        {
+                            position: [-0.5 * width + x, value, -0.5 * depth + z],
+                            scale: [s, s, s],
+                            color: [1, 1, 1, 0.3],
+                            quaternion: [0, 0, 0, 0]
+                        });
+                }
+            }
+
+
+            const gaussianMesh = new BABYLON.GaussianSplattingMesh(
+                'splat',
+                null,
+                scene,
+            );
+
+            const buffer = gaussianMesh.createBuffer(splats);
+
+            gaussianMesh.loadDataAsync(buffer);
+
+        }
+
+        window.addEventListener('DOMContentLoaded', function () {
+            // Engine und Scene Setup
+            const canvas = document.getElementById('renderCanvas');
+            const engine = new BABYLON.Engine(canvas, true);
+            const scene = new BABYLON.Scene(engine);
+            scene.clearColor = BABYLON.Color3.White();
+
+            // Kamera und Licht
+            const camera = new BABYLON.ArcRotateCamera("Camera", 0, 0, -10, BABYLON.Vector3.Zero(), scene);
+            camera.setPosition(new BABYLON.Vector3(0, 5, -10));
+            camera.attachControl(canvas, true);
+
+
+            // pointLight.diffuse = BABYLON.Color3.FromHexString('#ff9944');
+
+
+
+
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.7;
+
+            // Flugzeug erstellen
+            let airplane = null;
+            const createAirplane = () => {
+
+                // https://sketchfab.com/3d-models/star-trek-uss-discovery-af03b42eb0ac4213b634f7e951e1a5ad#download
+                BABYLON.SceneLoader.ImportMesh("", "./media/", "star_trek_-_uss_discovery.glb", scene, (meshes) => {
+                    // Das Haupt-Mesh auswählen
+                    // airplane = meshes[0];
+                    // Skalierung auf alle Submeshes anwenden
+
+                    airplane = new BABYLON.Mesh("airplane", scene);
+                    airplane.rotation.z = Math.PI;
+
+                    let s = 0.025;
+                    meshes.forEach((mesh) => {
+                        mesh.scaling.set(s, s, s);
+                        // mesh.rotation.y = Math.PI;
+                        mesh.rotationQuaternion = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Y, Math.PI);
+                        mesh.parent = airplane;
+                        // meshes[0].parent = airplane;
+                    });
+
+
+                    // meshes[0].rotation.y = Math.PI;
+                    // meshes[0].rotationQuaternion = BABYLON.Quaternion.RotationAxis(BABYLON.Axis.Y, Math.PI * 0.2);
+
+
+                    const trailMaterial = new BABYLON.StandardMaterial("trailMat", scene);
+                    trailMaterial.emissiveColor = new BABYLON.Color3(1, 1, 1); // Rote Spur
+                    trailMaterial.alpha = 0.5;
+                    const trail1 = new BABYLON.TrailMesh("wingTrail", airplane, scene, 0.5, 30, true);
+                    trail1.material = trailMaterial;
+
+
+
+                    // Dritte-Person-Kamera für das Flugzeug
+                    const followCamera = new BABYLON.FollowCamera("followCam",
+                        new BABYLON.Vector3(0, 5, -10), scene);
+                    followCamera.radius = 40;
+                    followCamera.heightOffset = 5;
+                    followCamera.rotationOffset = 180;
+                    followCamera.lockedTarget = airplane;
+
+                    // Kamera wechseln
+                    scene.activeCamera = followCamera;
+                    scene.activeCamera.attachControl(canvas, true);
+
+
+                });
+
+
+
+                // // Rumpf
+                // const body = BABYLON.MeshBuilder.CreateCylinder("body", {
+                //     height: 7,
+                //     diameter: 1,
+                //     tessellation: 12
+                // }, scene);
+                // body.rotation.x = Math.PI / 2;
+                // body.material = new BABYLON.StandardMaterial("bodyMat", scene);
+                // body.material.diffuseColor = new BABYLON.Color3(0.25, 0.25, 0.25);
+
+                // // Flügel
+                // const wing = BABYLON.MeshBuilder.CreateBox("wing", {
+                //     width: 3,
+                //     height: 0.1,
+                //     depth: 1
+                // }, scene);
+                // wing.position.z = -1;
+                // wing.material = new BABYLON.StandardMaterial("wingMat", scene);
+                // wing.material.diffuseColor = new BABYLON.Color3(0.25, 0.25, 0.25);
+                // // wing.material.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.8);
+
+                // // // Heckflügel
+                // // const tailWing = BABYLON.MeshBuilder.CreateBox("tailWing", {
+                // //     width: 1.5,
+                // //     height: 0.05,
+                // //     depth: 0.5
+                // // }, scene);
+                // // tailWing.position.x = -2;
+                // // tailWing.material = wing.material;
+
+                // // // Vertikales Heck
+                // // const verticalTail = BABYLON.MeshBuilder.CreateBox("verticalTail", {
+                // //     width: 0.05,
+                // //     height: 0.8,
+                // //     depth: 0.5
+                // // }, scene);
+                // // verticalTail.position.x = -2;
+                // // verticalTail.position.y = 0.4;
+                // // verticalTail.material = wing.material;
+
+                // // Cockpit
+                // const cockpit = BABYLON.MeshBuilder.CreateSphere("cockpit", {
+                //     diameter: 0.9,
+                //     segments: 24
+                // }, scene);
+                // cockpit.position.z = 3.5;
+                // cockpit.position.y = 0.;
+                // // cockpit.scaling = new BABYLON.Vector3(0.7, 0.5, 0.5);
+                // cockpit.material = new BABYLON.StandardMaterial("cockpitMat", scene);
+                // cockpit.material.emissiveColor = new BABYLON.Color3(0.1, 0.1, 0.6);
+                // cockpit.material.alpha = 0.7;
+
+                // // Zusammenführen in ein Parent-Objekt
+                // const airplane = new BABYLON.Mesh("airplane", scene);
+                // body.parent = airplane;
+                // wing.parent = airplane;
+                // // tailWing.parent = airplane;
+                // // verticalTail.parent = airplane;
+                // cockpit.parent = airplane;
+
+                // const trailMaterial = new BABYLON.StandardMaterial("trailMat", scene);
+                // trailMaterial.emissiveColor = new BABYLON.Color3(1, 1, 1); // Rote Spur
+                // trailMaterial.alpha = 0.5;
+                // const trail1 = new BABYLON.TrailMesh("wingTrail", wing, scene, 0.5, 30, true);
+                // trail1.material = trailMaterial;
+
+                // Position leicht anpassen, falls notwendig
+
+                // let pointLight = new BABYLON.PointLight("light1", new BABYLON.Vector3(0, 1, 0), scene);
+                // pointLight.intensity = 0.9;
+                // //pointLight.position.z = 10;
+
+                // pointLight.parent = cockpit;
+                // // pointLight.position.set(0, 2, 0);
+
+                // let dirLight = new BABYLON.DirectionalLight("dir", new BABYLON.Vector3(0, 0, -1), scene);
+                // // dirLight.intensity = 0.7;
+                // dirLight.parent = cockpit;
+
+
+                // const light = new BABYLON.DirectionalLight("dirLight", new BABYLON.Vector3(1, -1, 0), scene);
+                // light.position = new BABYLON.Vector3(0, 0, 5);
+                // light.intensity = 1;
+                // light.parent = cockpit;
+
+                // tempAngle = 0;
+                // scene.onBeforeRenderObservable.add(() => {
+                //     tempAngle += 0.02;
+                //     light.direction = new BABYLON.Vector3(Math.sin(tempAngle), -1, Math.cos(tempAngle));
+                // });
+
+
+                var gl = new BABYLON.GlowLayer("glow", scene);
+                gl.intensity = 0.8;
+                // const spotLightMesh = BABYLON.MeshBuilder.CreateSphere("", { diameter: 1 }, scene);
+                // spotLightMesh.material = new BABYLON.StandardMaterial("", scene);
+                // spotLightMesh.material.emissiveColor = new BABYLON.Color3(1, 1, 1);
+                // spotLightMesh.material.alpha = 0.7;
+                // spotLightMesh.position.z = -7;
+
+                // const spotLight = new BABYLON.SpotLight("spotLight",
+                //     new BABYLON.Vector3(0, 0, 0.5),
+                //     new BABYLON.Vector3(0, 0, 1),
+                //     Math.PI / 3, 2,
+                //     scene);
+                // // spotLight.position.z = -7;
+                // // spotLight.position = new BABYLON.Vector3(0, 0, 0);
+                // spotLight.parent = cockpit;
+                // // spotLightMesh.parent = cockpit;
+
+                // // const axes = new BABYLON.AxesViewer(scene, 2);
+                // // axes.xAxis.parent = spotLight;
+                // // axes.yAxis.parent = spotLight;
+                // // axes.zAxis.parent = spotLight;
+
+                // const lightSphere = BABYLON.MeshBuilder.CreateSphere("lightSphere", { diameter: 0.3 }, scene);
+                // lightSphere.material = new BABYLON.StandardMaterial("lightMat", scene);
+                // lightSphere.material.emissiveColor = BABYLON.Color3.Yellow();
+                // lightSphere.parent = spotLight;
+                // lightSphere.position.z += 0.2; // Etwas nach vorne versetzt
+
+
+                // const points = [
+                //     spotLight.position,
+                //     spotLight.position.add(spotLight.direction.scale(25)) // 5 ist die Länge der Linie
+                // ];
+                // const directionLine = BABYLON.MeshBuilder.CreateLines("lightDirection", { points }, scene);
+                // directionLine.color = BABYLON.Color3.Red(); // Rote Linie für Sichtbarkeit
+                // directionLine.parent = spotLight;
+
+                // return airplane;
+            };
+
+            // Landschaft erstellen
+            // const createGround = () => {
+            //     // Grundfläche
+            //     const ground = BABYLON.MeshBuilder.CreateGroundFromHeightMap("ground",
+            //         "https://playground.babylonjs.com/textures/heightMap.png",
+            //         { width: 1000, height: 1000, subdivisions: 100, maxHeight: 60 }, scene);
+
+            //     const groundMaterial = new BABYLON.StandardMaterial("groundMat", scene);
+            //     // groundMaterial.diffuseColor = new BABYLON.Color3(0.1, 0.5, 0.1);
+            //     ground.material = groundMaterial;
+            //     // ground.material.wireframe = true;
+            //     ground.position.y = -100;
+
+            //     return ground;
+            // };
+
+            // Himmel erstellen
+            // const createSkybox = () => {
+            //     const skybox = BABYLON.MeshBuilder.CreateBox("skyBox", { size: 1000 }, scene);
+            //     const skyboxMaterial = new BABYLON.StandardMaterial("skyBoxMat", scene);
+            //     skyboxMaterial.backFaceCulling = false;
+            //     skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture("https://assets.babylonjs.com/textures/skybox", scene);
+            //     skyboxMaterial.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
+            //     skyboxMaterial.diffuseColor = new BABYLON.Color3(0, 0, 0);
+            //     skyboxMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+            //     skybox.material = skyboxMaterial;
+
+            //     return skybox;
+            // };
+
+            // Flugzeug und Umgebung erstellen
+            createAirplane();
+            const ground = createTerrain(scene); // createGround();            
+            // const fog = createFog(scene);
+            // const skybox = createSkybox();
+
+            // Flugsteuerung initialisieren
+            let speed = 0.2;
+            let pitch = 0;
+            let roll = 0;
+            let yaw = 0;
+
+            const keys = {
+                w: false,
+                s: false,
+                a: false,
+                d: false,
+                q: false,
+                e: false,
+                r: false,
+                f: false
+            };
+
+
+
+
+            // let pointLight = new BABYLON.PointLight("light1", BABYLON.Vector3.Zero(), scene);
+            // pointLight.intensity = 0.7;
+            // pointLight.diffuse = BABYLON.Color3.FromHexString('#ff9944');
+
+
+            // let shadowGenerator = new BABYLON.ShadowGenerator(1024, pointLight);
+            // shadowGenerator.setDarkness(0.2);
+            // shadowGenerator.usePoissonSampling = true;
+            // shadowGenerator.useBlurVarianceShadowMap = true;
+            // shadowGenerator.blurBoxOffset = 1.0;
+            // shadowGenerator.blurScale = 150.0;
+
+            // ground.receiveShadows = true;
+
+
+
+            // Tastatur-Event-Listener
+            window.addEventListener("keydown", function (e) {
+                if (keys.hasOwnProperty(e.key)) {
+                    keys[e.key] = true;
+                }
+            });
+
+            window.addEventListener("keyup", function (e) {
+                if (keys.hasOwnProperty(e.key)) {
+                    keys[e.key] = false;
+                }
+            });
+
+            // // Dritte-Person-Kamera für das Flugzeug
+            // const followCamera = new BABYLON.FollowCamera("followCam",
+            //     new BABYLON.Vector3(0, 5, -10), scene);
+            // followCamera.radius = 40;
+            // followCamera.heightOffset = 10;
+            // followCamera.rotationOffset = 180;
+            // followCamera.lockedTarget = airplane;
+
+            // // Kamera wechseln
+            // scene.activeCamera = followCamera;
+            // scene.activeCamera.attachControl(canvas, true);
+
+
+            // const ground2 = BABYLON.MeshBuilder.CreateGroundFromHeightMap("gdhm", "https://playground.babylonjs.com/textures/heightMap.png", { width: 10, height: 10, subdivisions: 500, maxHeight: 1 });
+            // ground2.position.y = -10;
+
+
+            // Render-Loop
+            const delta = 0.005;
+            engine.runRenderLoop(function () {
+
+                // Flugzeugsteuerung aktualisieren
+                if (keys.w) { pitch -= delta; }
+                if (keys.s) { pitch += delta; }
+                if (keys.a) { roll += delta; }
+                if (keys.d) { roll -= delta; }
+                if (keys.q) { yaw -= delta; }
+                if (keys.e) { yaw += delta; }
+                if (keys.r) { speed += delta; }
+                if (keys.f) { speed = Math.max(0, speed - delta); }
+
+                // Flugzeugbewegung anwenden
+                const localDirection = new BABYLON.Vector3(0, 0, 1);
+                const rotationQuaternion = BABYLON.Quaternion.RotationYawPitchRoll(yaw, pitch, roll);
+                const rotatedDirection = localDirection.rotateByQuaternionToRef(rotationQuaternion, new BABYLON.Vector3());
+
+                if (!airplane) return;
+                airplane.position.addInPlace(rotatedDirection.scale(speed));
+                airplane.rotation.x = pitch;
+                airplane.rotation.y = yaw;
+                airplane.rotation.z = roll;
+
+                // Rendern
+                scene.render();
+            });
+
+            // Fenstergröße anpassen
+            window.addEventListener("resize", function () {
+                engine.resize();
+            });
+        });
+    </script>
+</body>
+
+</html>
