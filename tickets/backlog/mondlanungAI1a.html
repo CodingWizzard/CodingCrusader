@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Mondlandung mit Babylon.js und neuronalem Netz</title>
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        #infoPanel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: Arial, sans-serif;
+        }
+
+        button {
+            margin: 5px;
+            padding: 8px 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babylonjs/5.0.0/babylon.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tensorflow/3.18.0/tf.min.js"></script>
+</head>
+
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="infoPanel">
+        <h3>Mondlandungs-Simulation</h3>
+        <div id="stats">
+            Höhe: <span id="height">1000</span>m<br>
+            Geschwindigkeit: <span id="velocity">0</span>m/s<br>
+            Treibstoff: <span id="fuel">100</span>%<br>
+            Status: <span id="status">Bereit</span>
+        </div>
+        <button id="startButton">Simulation starten</button>
+        <button id="trainButton">KI trainieren</button>
+        <button id="aiLandButton">KI-Landung starten</button>
+    </div>
+
+    <script>
+        // Globale Variablen
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+        let scene, camera, rocket, moonSurface, light;
+        let heightText, velocityText, fuelText, statusText;
+
+        // Simulation Parameter
+        let simulationRunning = false;
+        let altitude = 1000;         // Höhe in Metern
+        let velocity = 0;            // Geschwindigkeit in m/s
+        let acceleration = 0;        // Beschleunigung in m/s²
+        let fuel = 100;              // Treibstoff in Prozent
+        let thrustPower = 0;         // Triebwerksleistung (0-1)
+        const moonGravity = 1.62;    // Mondschwerkraft in m/s²
+        const maxThrust = 5;         // Maximale Schubkraft in m/s²
+        const fuelConsumption = 0.5; // Treibstoffverbrauch pro Sekunde bei voller Leistung
+
+        // Neurales Netz
+        let model;
+        let trainingData = [];
+        let trained = false;
+
+        // Szene initialisieren
+        function createScene() {
+            // Szene erstellen
+            scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color3(0, 0, 0);
+
+            // Kamera einrichten
+            camera = new BABYLON.ArcRotateCamera("Camera", 0 * -Math.PI / 2, Math.PI / 2.5, 250, new BABYLON.Vector3(0, 0, 0), scene);
+            camera.attachControl(canvas, true);
+            camera.lowerRadiusLimit = 20;
+            camera.upperRadiusLimit = 500;
+
+            // Beleuchtung
+            light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.7;
+
+            // Mondlandschaft erstellen
+            createMoonSurface();
+
+            // Rakete erstellen
+            createRocket();
+
+            // Sterne im Hintergrund
+            createStars();
+
+            return scene;
+        }
+
+        // Mondlandschaft erstellen
+        function createMoonSurface() {
+            // Grundfläche erstellen
+            const moonGroundMat = new BABYLON.StandardMaterial("moonMat", scene);
+            moonGroundMat.diffuseColor = new BABYLON.Color3(0.7, 0.7, 0.7);
+            moonGroundMat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+
+            // Heightmap für Mondoberfläche erstellen
+            const moonGround = BABYLON.MeshBuilder.CreateGroundFromHeightMap(
+                "moonGround",
+                "https://playground.babylonjs.com/textures/heightMap.png",
+                {
+                    width: 1000,
+                    height: 1000,
+                    subdivisions: 100,
+                    minHeight: 0,
+                    maxHeight: 50,
+                    onReady: function (mesh) {
+                        mesh.material = moonGroundMat;
+                    }
+                },
+                scene
+            );
+            moonGround.position.y = -30;
+
+            // Landefläche erstellen
+            const landingPad = BABYLON.MeshBuilder.CreateCylinder("landingPad", {
+                height: 0.5,
+                diameter: 20
+            }, scene);
+            landingPad.position.y = 0.25;
+            landingPad.material = new BABYLON.StandardMaterial("padMat", scene);
+            landingPad.material.diffuseColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+            landingPad.material.emissiveColor = new BABYLON.Color3(0.1, 0.1, 0.1);
+
+            moonSurface = landingPad;
+        }
+
+        // Rakete erstellen
+        function createRocket() {
+            // Hauptkörper der Rakete
+            const rocketBody = BABYLON.MeshBuilder.CreateCylinder("rocketBody", {
+                height: 5,
+                diameterTop: 0.5,
+                diameterBottom: 1
+            }, scene);
+            rocketBody.position.y = 2.5;
+
+            // Material für Rakete
+            const rocketMat = new BABYLON.StandardMaterial("rocketMat", scene);
+            rocketMat.diffuseColor = new BABYLON.Color3(0.9, 0.9, 0.9);
+            rocketBody.material = rocketMat;
+
+            // Triebwerk
+            const engine = BABYLON.MeshBuilder.CreateCylinder("engine", {
+                height: 0.7,
+                diameterTop: 1,
+                diameterBottom: 0.7
+            }, scene);
+            engine.position.y = 0;
+            engine.material = new BABYLON.StandardMaterial("engineMat", scene);
+            engine.material.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+
+            // Landefüße
+            const legMat = new BABYLON.StandardMaterial("legMat", scene);
+            legMat.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+
+            for (let i = 0; i < 3; i++) {
+                const angle = (i * Math.PI * 2) / 3;
+
+                const leg = BABYLON.MeshBuilder.CreateBox("leg" + i, {
+                    height: 0.2,
+                    width: 0.2,
+                    depth: 3
+                }, scene);
+                leg.position.x = Math.sin(angle) * 1.2;
+                leg.position.z = Math.cos(angle) * 1.2;
+                leg.position.y = -1;
+                leg.rotation.x = Math.PI / 4;
+                leg.rotation.y = angle;
+                leg.material = legMat;
+
+                const foot = BABYLON.MeshBuilder.CreateBox("foot" + i, {
+                    height: 0.2,
+                    width: 0.2,
+                    depth: 1
+                }, scene);
+                foot.position.x = Math.sin(angle) * 2;
+                foot.position.z = Math.cos(angle) * 2;
+                foot.position.y = -2.2;
+                foot.material = legMat;
+            }
+
+            // Raketenspitze
+            const tip = BABYLON.MeshBuilder.CreateCylinder("tip", {
+                height: 1,
+                diameterTop: 0,
+                diameterBottom: 0.5
+            }, scene);
+            tip.position.y = 5.5;
+            tip.material = rocketMat;
+
+            // Triebwerkseffekt
+            const engineGlow = BABYLON.MeshBuilder.CreateCylinder("glow", {
+                height: 0.1,
+                diameterTop: 0.7,
+                diameterBottom: 0
+            }, scene);
+            engineGlow.position.y = -0.4;
+            const glowMat = new BABYLON.StandardMaterial("glowMat", scene);
+            glowMat.emissiveColor = new BABYLON.Color3(1, 0.5, 0);
+            glowMat.disableLighting = true;
+            engineGlow.material = glowMat;
+            engineGlow.visibility = 0;
+
+            // Partikelsystem für Triebwerksfeuer
+            const particleSystem = new BABYLON.ParticleSystem("particles", 2000, scene);
+            particleSystem.particleTexture = new BABYLON.Texture(null, scene);
+            particleSystem.emitter = new BABYLON.Vector3(0, -0.5, 0);
+            particleSystem.minEmitBox = new BABYLON.Vector3(-0.2, 0, -0.2);
+            particleSystem.maxEmitBox = new BABYLON.Vector3(0.2, 0, 0.2);
+            particleSystem.color1 = new BABYLON.Color4(1.0, 0.5, 0.0, 1.0);
+            particleSystem.color2 = new BABYLON.Color4(1.0, 0.5, 0.0, 1.0);
+            particleSystem.colorDead = new BABYLON.Color4(0.2, 0.2, 0.2, 0.0);
+            particleSystem.minSize = 0.1;
+            particleSystem.maxSize = 0.5;
+            particleSystem.minLifeTime = 0.1;
+            particleSystem.maxLifeTime = 0.5;
+            particleSystem.emitRate = 500;
+            particleSystem.blendMode = BABYLON.ParticleSystem.BLENDMODE_ONEONE;
+            particleSystem.gravity = new BABYLON.Vector3(0, 0, 0);
+            particleSystem.direction1 = new BABYLON.Vector3(0, -1, 0);
+            particleSystem.direction2 = new BABYLON.Vector3(0, -1, 0);
+            particleSystem.minEmitPower = 1;
+            particleSystem.maxEmitPower = 3;
+            particleSystem.updateSpeed = 0.01;
+            particleSystem.stop();
+
+            // Raketenobjekt zusammenfügen
+            rocket = new BABYLON.Mesh("rocket", scene);
+            rocketBody.parent = rocket;
+            engine.parent = rocket;
+            tip.parent = rocket;
+            engineGlow.parent = rocket;
+
+            for (let i = 0; i < scene.meshes.length; i++) {
+                const mesh = scene.meshes[i];
+                if (mesh.name.startsWith("leg") || mesh.name.startsWith("foot")) {
+                    mesh.parent = rocket;
+                }
+            }
+
+            // Startposition der Rakete
+            rocket.position.y = altitude / 10; // Skalieren der Höhe für die Szene
+
+            // Partikel-System an Rakete anhängen
+            rocket.particleSystem = particleSystem;
+            rocket.engineGlow = engineGlow;
+        }
+
+        // Sterne im Hintergrund erstellen
+        function createStars() {
+            const starCount = 2000;
+            const starsRadius = 5000;
+
+            const particles = new BABYLON.ParticleSystem("stars", starCount, scene);
+            particles.particleTexture = new BABYLON.Texture(null, scene);
+
+            particles.color1 = new BABYLON.Color4(1, 1, 1, 1);
+            particles.color2 = new BABYLON.Color4(0.8, 0.8, 1, 1);
+            particles.colorDead = new BABYLON.Color4(0.8, 0.8, 1, 0.0);
+
+            particles.minSize = 1;
+            particles.maxSize = 3;
+
+            particles.minLifeTime = Number.MAX_SAFE_INTEGER;
+            particles.maxLifeTime = Number.MAX_SAFE_INTEGER;
+            particles.emitRate = starCount;
+
+            particles.blendMode = BABYLON.ParticleSystem.BLENDMODE_ONEONE;
+            particles.gravity = new BABYLON.Vector3(0, 0, 0);
+
+            particles.createSphereEmitter(starsRadius, 0);
+            particles.start();
+        }
+
+
+        // Steuerung der Rakete
+        let keysPressed = {};
+
+        document.addEventListener("keydown", function (e) {
+            keysPressed[e.key] = true;
+
+            if (e.key === " " && simulationRunning) {
+                thrustPower = 1.0;
+                activateEngines(true);
+            }
+        });
+
+        document.addEventListener("keyup", function (e) {
+            keysPressed[e.key] = false;
+
+            if (e.key === " " && simulationRunning) {
+                thrustPower = 0;
+                activateEngines(false);
+            }
+        });
+
+        // Triebwerke aktivieren/deaktivieren
+        function activateEngines(active) {
+            if (active && fuel > 0) {
+                rocket.engineGlow.visibility = 1;
+                rocket.particleSystem.start();
+            } else {
+                rocket.engineGlow.visibility = 0;
+                rocket.particleSystem.stop();
+            }
+        }
+
+        // Verbessertes neuronales Netzwerk
+        function createNeuralNetwork() {
+            model = tf.sequential();
+
+            // Input: Höhe, Geschwindigkeit und Treibstoff
+            model.add(tf.layers.dense({
+                inputShape: [3], // 3 Eingabeparameter
+                units: 16,       // Mehr Neuronen in der ersten Schicht
+                activation: 'relu',
+                kernelInitializer: 'heNormal' // Bessere Initialisierung für ReLU
+            }));
+
+            // Hinzufügen einer Dropout-Schicht zur Vermeidung von Überanpassung
+            model.add(tf.layers.dropout({
+                rate: 0.2
+            }));
+
+            // Tieferes Netzwerk mit mehr Neuronen
+            model.add(tf.layers.dense({
+                units: 12,
+                activation: 'relu'
+            }));
+
+            // Zusätzliche Schicht für bessere Repräsentation
+            model.add(tf.layers.dense({
+                units: 8,
+                activation: 'relu'
+            }));
+
+            // Output: Triebwerksleistung (0-1)
+            model.add(tf.layers.dense({
+                units: 1,
+                activation: 'sigmoid'
+            }));
+
+            // Verbesserte Kompilierung des Modells
+            model.compile({
+                optimizer: tf.train.adam(0.005), // Angepasste Lernrate
+                loss: 'meanSquaredError',
+                metrics: ['mae'] // Mean Absolute Error als zusätzliche Metrik
+            });
+
+            console.log("Optimiertes neuronales Netz erstellt!");
+        }
+
+        // Verbesserte Trainingsdaten-Generierung
+        function generateTrainingData() {
+            const data = [];
+
+            // Feiner abgestufte und realistischere Szenarien
+            for (let h = 5; h <= 1000; h += h < 100 ? 5 : 20) { // Detailliertere Abstufung nahe des Bodens
+                for (let v = -30; v <= 5; v += (Math.abs(v) < 10) ? 0.25 : 1) { // Feinere Abstufung bei niedrigen Geschwindigkeiten
+                    for (let f = 10; f <= 100; f += 30) { // Verschiedene Treibstofflevels
+                        // Höhe, Geschwindigkeit und Treibstoff als Inputs
+                        const inputs = [h / 1000, v / 30, f / 100]; // Normalisiert
+
+                        // Idealere Schubkraft-Strategien
+                        let idealThrust;
+
+                        // Nah am Boden (wichtigster Bereich)
+                        if (h < 50) {
+                            if (v < -5) {
+                                // Starke Bremsung bei zu hoher Landegeschwindigkeit
+                                idealThrust = Math.min(1.0, 0.8 + Math.abs(v) / 20);
+                            } else if (v < -2) {
+                                // Moderate Bremsung für sanfte Landung
+                                idealThrust = 0.6 + (Math.abs(v) - 2) / 6;
+                            } else if (v < -0.5) {
+                                // Feinabstimmung für Landung
+                                idealThrust = 0.26;
+                            } else {
+                                // Perfektes Gleichgewicht für sanfte Landung
+                                // Minimaler Schub zum Ausgleich der Geschwindigkeit
+                                idealThrust = 0.32 - (velocity + 0.5) * 0.1;
+                            }
+                        }
+                        // Mittlere Höhe (50-200m)
+                        else if (h < 200) {
+                            if (v < -15) {
+                                // Notfall-Abbremsung bei zu hoher Geschwindigkeit
+                                idealThrust = 1.0;
+                            } else if (v < -8) {
+                                // Starke Bremsung
+                                idealThrust = 0.8;
+                            } else if (v < -4) {
+                                // Moderate Kontrolle
+                                idealThrust = 0.6;
+                            } else if (v < -2) {
+                                // Leichte Bremsung
+                                idealThrust = 0.4;
+                            } else {
+                                // Minimaler Schub zur Kontrolle
+                                idealThrust = 0.3;
+                            }
+                        }
+                        // Höhere Bereiche (Treibstoffoptimierung wichtiger)
+                        else {
+                            if (v < -20) {
+                                // Kritische Geschwindigkeit
+                                idealThrust = 0.9;
+                            } else if (v < -15) {
+                                // Hohe Geschwindigkeit
+                                idealThrust = 0.7;
+                            } else if (v < -10) {
+                                // Moderate Geschwindigkeit
+                                idealThrust = 0.4;
+                            } else if (v < -5) {
+                                // Geringe Geschwindigkeit
+                                idealThrust = 0.2;
+                            } else {
+                                // Treibstoff sparen bei angemessener Fallgeschwindigkeit
+                                idealThrust = 0.05;
+                            }
+                        }
+
+                        // Treibstofflevel berücksichtigen
+                        if (f < 30 && h > 100) {
+                            // Bei wenig Treibstoff in großer Höhe sparsamer sein
+                            idealThrust = Math.max(0, idealThrust - 0.2);
+                        }
+
+                        data.push({
+                            inputs: inputs,
+                            outputs: [idealThrust]
+                        });
+                    }
+                }
+            }
+
+            return data;
+        }
+
+        // Verbesserte Training-Funktion
+        async function trainNeuralNetwork() {
+            if (!model) {
+                createNeuralNetwork();
+            }
+
+            statusText.innerText = "Training läuft...";
+
+            // Trainingsdaten generieren oder verwenden
+            if (trainingData.length === 0) {
+                trainingData = generateTrainingData();
+            }
+
+            console.log(`Trainingsdaten generiert: ${trainingData.length} Datenpunkte`);
+
+            // Daten aufbereiten
+            const inputs = tf.tensor2d(trainingData.map(d => d.inputs));
+            const outputs = tf.tensor2d(trainingData.map(d => d.outputs));
+
+            // Daten aufteilen in Training und Validierung
+            const splitIndex = Math.floor(trainingData.length * 0.8);
+            const trainInputs = inputs.slice([0, 0], [splitIndex, inputs.shape[1]]);
+            const trainOutputs = outputs.slice([0, 0], [splitIndex, outputs.shape[1]]);
+            const valInputs = inputs.slice([splitIndex, 0], [inputs.shape[0] - splitIndex, inputs.shape[1]]);
+            const valOutputs = outputs.slice([splitIndex, 0], [outputs.shape[0] - splitIndex, outputs.shape[1]]);
+
+            // Early Stopping konfigurieren
+            const earlyStopCallback = tf.callbacks.earlyStopping({
+                monitor: 'val_loss',
+                patience: 5
+            });
+
+            // Training starten mit verbesserter Konfiguration
+            await model.fit(trainInputs, trainOutputs, {
+                epochs: 100,
+                batchSize: 64,
+                validationData: [valInputs, valOutputs],
+                callbacks: {
+                    onEpochEnd: (epoch, logs) => {
+                        console.log(`Epoch ${epoch + 1}, Loss: ${logs.loss.toFixed(5)}, Val Loss: ${logs.val_loss.toFixed(5)}`);
+                    },
+                    earlyStopping: earlyStopCallback
+                },
+                shuffle: true
+            });
+
+            statusText.innerText = "Training abgeschlossen!";
+            trained = true;
+
+            // Validieren des Modells auf speziellen Szenarien
+            console.log("Validierung für kritische Landeszenarien:");
+            const criticalScenarios = [
+                { h: 50, v: -10, f: 50, desc: "Schnelle Annäherung nahe am Boden" },
+                { h: 10, v: -5, f: 30, desc: "Landephase mit mittlerer Geschwindigkeit" },
+                { h: 5, v: -1, f: 20, desc: "Finale Landung" },
+                { h: 500, v: -20, f: 40, desc: "Hohe Geschwindigkeit in großer Höhe" },
+                { h: 200, v: -15, f: 20, desc: "Kritischer Treibstoffstand in mittlerer Höhe" }
+            ];
+
+            criticalScenarios.forEach(scenario => {
+                const input = tf.tensor2d([[scenario.h / 1000, scenario.v / 30, scenario.f / 100]]);
+                const prediction = model.predict(input);
+                const thrustValue = prediction.dataSync()[0];
+                console.log(`${scenario.desc}: Höhe=${scenario.h}m, V=${scenario.v}m/s, Treibstoff=${scenario.f}% → Schub=${thrustValue.toFixed(3)}`);
+                prediction.dispose();
+                input.dispose();
+            });
+
+            // Aufräumen
+            inputs.dispose();
+            outputs.dispose();
+            trainInputs.dispose();
+            trainOutputs.dispose();
+            valInputs.dispose();
+            valOutputs.dispose();
+        }
+
+        // Verbesserte KI-Steuerung
+        function aiThrust() {
+            if (!model || !trained) return 0;
+
+            // Aktuelle Zustandsdaten normalisieren
+            const normalizedHeight = altitude / 1000;
+            const normalizedVelocity = velocity / 30;
+            const normalizedFuel = fuel / 100;
+
+            // Vorhersage machen
+            const prediction = model.predict(tf.tensor2d([[normalizedHeight, normalizedVelocity, normalizedFuel]]));
+            const thrustValue = prediction.dataSync()[0];
+
+            // // PID-ähnliche Kontrolle für stabilere Landung
+            // const targetVelocity = Math.max(-5, Math.min(-1, -altitude / 100));
+            // const velocityError = velocity - targetVelocity;
+
+            // // Anpassung des KI-Outputs basierend auf aktueller Situation
+            // let adjustedThrust = thrustValue;
+
+            // // Sicherheitsüberprüfungen und Anpassungen
+            // if (altitude < 20 && velocity < -3) {
+            //     // Nahe am Boden mit zu hoher Geschwindigkeit: maximaler Schub
+            //     adjustedThrust = Math.max(thrustValue, 0.8);
+            // } else if (altitude < 5) {
+            //     // Letzte Landephase: präziser Schub für sanfte Landung
+            //     adjustedThrust = 0.55;  // Leicht höher als Mondgravitation für sanftes Abbremsen
+            // }
+
+            // In der Funktion aiThrust():
+
+            // PID-ähnliche Kontrolle mit korrigierter Fehlerberechnung
+            const targetVelocity = Math.max(-5, Math.min(-0.1, -altitude / 50)); // Zielgeschwindigkeit nähert sich 0
+            const velocityError = targetVelocity - velocity; // Fehler korrigiert (Ziel - aktuell)
+
+            // Anpassung des Schubs basierend auf dem Fehler
+            adjustedThrust = thrustValue + (velocityError * 0.1);
+
+            // Sicherheitsüberprüfungen und Anpassungen
+            if (altitude < 20 && velocity < -3) {
+                adjustedThrust = Math.min(1.0, Math.max(thrustValue, 0.8));
+            } else if (altitude < 5) {
+                // Leichter Schub für sanften Abstieg (ca. 80% der Schwebe-Kraft)
+                adjustedThrust = 0.26; // ~1.3 m/s² Schub (1.3 - 1.62 = -0.32 m/s² Netto)
+            }
+
+            // Begrenze den Schub auf physikalisch mögliche Werte
+            adjustedThrust = Math.min(1.0, Math.max(0.0, adjustedThrust));
+
+
+            // Speicher freigeben
+            prediction.dispose();
+
+            return adjustedThrust;
+        }
+
+        // Simulation starten
+        function startSimulation() {
+            altitude = 1000;
+            velocity = 0;
+            fuel = 100;
+            thrustPower = 0;
+            simulationRunning = true;
+
+            rocket.position.y = altitude / 10;
+            rocket.rotation.x = 0;
+            rocket.rotation.z = 0;
+
+            updateDisplay();
+            statusText.innerText = "Simulation läuft";
+
+            document.getElementById("startButton").innerText = "Simulation neu starten";
+        }
+
+        // KI-Landung starten
+        function startAILanding() {
+            if (!trained) {
+                statusText.innerText = "KI muss zuerst trainiert werden!";
+                return;
+            }
+
+            startSimulation();
+            aiControlActive = true;
+            statusText.innerText = "KI-Landung aktiv";
+        }
+
+        // Anzeige aktualisieren
+        function updateDisplay() {
+            heightText.innerText = Math.round(altitude);
+            velocityText.innerText = velocity.toFixed(2);
+            fuelText.innerText = Math.round(fuel);
+        }
+
+        // Simulation aktualisieren
+        let aiControlActive = false;
+
+
+        // Verbesserte Simulation und Aktualisierungsfunktion
+        function updateSimulation() {
+            if (!simulationRunning) return;
+
+            // Zeit seit dem letzten Frame
+            const deltaTime = engine.getDeltaTime() / 1000;
+
+            // KI-Steuerung mit verbesserter Logik
+            if (aiControlActive && trained) {
+                thrustPower = aiThrust();
+
+                // Kleine Schwankungen für realistischere Simulation verhindern
+                if (Math.abs(thrustPower - 0.5) < 0.05 && altitude > 50) {
+                    thrustPower = 0.5;  // Stabilisierung
+                }
+
+                activateEngines(thrustPower > 0.1);
+            }
+
+            // Treibstoffverbrauch mit realistischerer Berechnung
+            if (thrustPower > 0 && fuel > 0) {
+                // Exponentieller Verbrauch bei hoher Leistung
+                const actualConsumption = fuelConsumption * Math.pow(thrustPower, 1.2) * deltaTime;
+                fuel -= actualConsumption;
+                if (fuel < 0) fuel = 0;
+            }
+
+            // Wenn kein Treibstoff mehr vorhanden ist, Triebwerke ausschalten
+            if (fuel <= 0 && thrustPower > 0) {
+                thrustPower = 0;
+                activateEngines(false);
+            }
+
+            // Beschleunigung berechnen mit realistischerer Physik
+            acceleration = -moonGravity;
+            if (thrustPower > 0 && fuel > 0) {
+                // Berücksichtigen des abnehmenden Gewichts durch Treibstoffverbrauch
+                const fuelFactor = 0.9 + (fuel / 100) * 0.1;  // Maximale Gewichtsabnahme von 10%
+                acceleration += thrustPower * maxThrust * fuelFactor;
+            }
+
+            // Geschwindigkeit und Position aktualisieren
+            velocity += acceleration * deltaTime;
+            altitude += velocity * deltaTime;
+
+            // Realistischere Bewegung der Rakete (leichte Schwankungen)
+            if (simulationRunning && altitude > 5) {
+                const stabilityFactor = Math.min(1.0, altitude / 100);  // Stabiler in größerer Höhe
+                if (Math.random() < 0.1 * stabilityFactor) {
+                    // Gelegentliche kleine Schwankungen
+                    rocket.rotation.x = (Math.random() - 0.5) * 0.05 * stabilityFactor;
+                    rocket.rotation.z = (Math.random() - 0.5) * 0.05 * stabilityFactor;
+                }
+            } else {
+                // Nahe am Boden stabilisieren
+                rocket.rotation.x *= 0.9;
+                rocket.rotation.z *= 0.9;
+            }
+
+            // Position der Rakete aktualisieren
+            rocket.position.y = Math.max(0, altitude / 10);
+
+            // Kollision mit dem Boden prüfen
+            if (altitude <= 0) {
+                altitude = 0;
+                simulationRunning = false;
+
+                // Landeergebnis mit detaillierteren Kriterien prüfen
+                if (velocity > -1) {
+                    statusText.innerText = "Perfekte Landung!";
+                } else if (velocity > -3) {
+                    statusText.innerText = `Erfolgreiche Landung! Geschwindigkeit: ${Math.abs(velocity).toFixed(2)} m/s`;
+                } else if (velocity > -5) {
+                    statusText.innerText = `Harte Landung! Geschwindigkeit: ${Math.abs(velocity).toFixed(2)} m/s`;
+                } else {
+                    statusText.innerText = `Absturz! Aufprallgeschwindigkeit: ${Math.abs(velocity).toFixed(2)} m/s`;
+                }
+
+                // Aufnahme der Landedaten für zukünftiges Training
+                if (aiControlActive) {
+                    const landingData = {
+                        finalVelocity: velocity,
+                        remainingFuel: fuel,
+                        success: velocity > -3
+                    };
+                    console.log("Landeergebnis:", landingData);
+                }
+
+                // Triebwerke ausschalten
+                thrustPower = 0;
+                activateEngines(false);
+            }
+
+            // Anzeige aktualisieren
+            updateDisplay();
+        }
+        // Hauptroutine
+        function main() {
+            const scene = createScene();
+
+            // UI-Elemente abrufen
+            heightText = document.getElementById("height");
+            velocityText = document.getElementById("velocity");
+            fuelText = document.getElementById("fuel");
+            statusText = document.getElementById("status");
+
+            // Event-Handler für Buttons
+            document.getElementById("startButton").addEventListener("click", function () {
+                aiControlActive = false;
+                startSimulation();
+            });
+
+            document.getElementById("trainButton").addEventListener("click", function () {
+                trainNeuralNetwork();
+            });
+
+            document.getElementById("aiLandButton").addEventListener("click", function () {
+                startAILanding();
+            });
+
+            // Neuronales Netz erstellen
+            createNeuralNetwork();
+
+            // Rendering-Schleife
+            engine.runRenderLoop(function () {
+                updateSimulation();
+                scene.render();
+            });
+
+            // Größenänderung des Fensters behandeln
+            window.addEventListener("resize", function () {
+                engine.resize();
+            });
+        }
+
+        // Starten
+        main();
+    </script>
+</body>
+
+</html>
