@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Babylon.js Drag & Drop Szene</title>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <!-- Optional für Modell-Ladung -->
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script> <!-- Optional für GUI -->
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #333;
+            color: #eee;
+            display: flex;
+            /* Use flexbox for layout */
+        }
+
+        #renderCanvas {
+            width: 80%;
+            /* Canvas takes most of the space */
+            height: 100%;
+            touch-action: none;
+        }
+
+        #sidebar {
+            width: 20%;
+            /* Sidebar for controls */
+            height: 100%;
+            background-color: #444;
+            padding: 15px;
+            box-sizing: border-box;
+            /* Include padding in width */
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        #sidebar h2,
+        #sidebar h3 {
+            color: #00aaff;
+            margin-top: 0;
+            border-bottom: 1px solid #555;
+            padding-bottom: 5px;
+        }
+
+        #objectPalette {
+            margin-bottom: 20px;
+        }
+
+        .paletteItem {
+            background-color: #555;
+            border: 1px solid #666;
+            padding: 10px;
+            margin-bottom: 10px;
+            cursor: grab;
+            text-align: center;
+            border-radius: 5px;
+            transition: background-color 0.2s ease;
+        }
+
+        .paletteItem:hover {
+            background-color: #666;
+        }
+
+        .paletteItem:active {
+            cursor: grabbing;
+            background-color: #777;
+        }
+
+        #controls button {
+            background-color: #0077cc;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin-top: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            width: 100%;
+            transition: background-color 0.2s ease;
+        }
+
+        #controls button:hover {
+            background-color: #005fa3;
+        }
+
+        #controls button:disabled {
+            background-color: #5a5a5a;
+            cursor: not-allowed;
+        }
+
+        #modificationPanel {
+            border: 1px solid #555;
+            padding: 10px;
+            margin-top: 15px;
+            background-color: #4a4a4a;
+            border-radius: 5px;
+        }
+
+        #modificationPanel label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        #modificationPanel input[type="color"] {
+            width: 100%;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+            height: 30px;
+            border: 1px solid #666;
+            padding: 2px;
+        }
+
+        #modificationPanel input[type="range"] {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="sidebar">
+        <h2>Werkzeugkasten</h2>
+
+        <h3>Objekte (Ziehen & Ablegen)</h3>
+        <div id="objectPalette">
+            <div class="paletteItem" draggable="true" data-type="box">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                    class="bi bi-box-seam" viewBox="0 0 16 16" style="vertical-align: middle; margin-right: 5px;">
+                    <path
+                        d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2l-2.218-.887zm3.564 1.426L5.596 5 8 5.961 14.154 3.5l-2.404-.961zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z" />
+                </svg>
+                Würfel
+            </div>
+            <div class="paletteItem" draggable="true" data-type="sphere">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-globe"
+                    viewBox="0 0 16 16" style="vertical-align: middle; margin-right: 5px;">
+                    <path
+                        d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-6.923c-.67.204-1.335.82-1.887 1.855A7.97 7.97 0 0 0 5.145 4H7.5V1.077zM4.09 4a9.267 9.267 0 0 1 .64-1.539 6.7 6.7 0 0 1 .597-.933A7.025 7.025 0 0 0 2.255 4H4.09zm-.582 3.5c.03-.877.138-1.718.312-2.5H1.674a6.958 6.958 0 0 0-.656 2.5h2.49zM4.847 5a12.5 12.5 0 0 0-.338 2.5H7.5V5H4.847zM8.5 5v2.5h2.99a12.495 12.495 0 0 0-.337-2.5H8.5zM4.51 8.5a12.5 12.5 0 0 0 .337 2.5H7.5V8.5H4.51zm3.99 0V11h2.653c.187-.765.306-1.608.338-2.5H8.5zM8.5 11V8.5H11.153a12.495 12.495 0 0 1-.337 2.5H8.5zM1.674 11.5c.174.782.282 1.623.312 2.5h2.49c-.03-.877-.138-1.718-.312-2.5H1.674zM11.91 11.5a9.266 9.266 0 0 1-.64 1.539 6.685 6.685 0 0 1-.597.933A7.026 7.026 0 0 0 13.745 12H11.91zm-.582-3.5c.03.877.138 1.718.312 2.5h2.49a6.959 6.959 0 0 0 .656-2.5h-2.49zM8.5 14.923c.67-.204 1.335-.82 1.887-1.855A7.97 7.97 0 0 0 10.855 12H8.5v2.923zm-.999-.635a6.7 6.7 0 0 1-.597-.933A9.266 9.266 0 0 1 6.36 12H8.5v2.288zM11.355 12a7.97 7.97 0 0 0-.46-2.5H8.5V12h2.855z" />
+                </svg>
+                Kugel
+            </div>
+            <div class="paletteItem" draggable="true" data-type="cylinder">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                    class="bi bi-database" viewBox="0 0 16 16" style="vertical-align: middle; margin-right: 5px;">
+                    <path
+                        d="M4.318 2.687C5.234 2.271 6.536 2 8 2s2.766.271 3.682.687C12.646 3.125 13 3.627 13 4c0 .373-.354.875-1.318 1.313C10.766 5.729 9.464 6 8 6s-2.766-.271-3.682-.687C3.354 4.875 3 4.373 3 4c0-.373.354-.875 1.318-1.313zM13 5.698V7c0 .373-.354.875-1.318 1.313C10.766 8.729 9.464 9 8 9s-2.766-.271-3.682-.687C3.354 7.875 3 7.373 3 7V5.698c.271.202.58.378.904.525C4.978 6.711 6.427 7 8 7s3.022-.289 4.096-.777c.324-.147.633-.323.904-.525zM13 9.698V11c0 .373-.354.875-1.318 1.313C10.766 12.729 9.464 13 8 13s-2.766-.271-3.682-.687C3.354 11.875 3 11.373 3 11V9.698c.271.202.58.378.904.525C4.978 10.711 6.427 11 8 11s3.022-.289 4.096-.777c.324-.147.633-.323.904-.525zM13 12v1c0 .373-.354.875-1.318 1.313C10.766 14.729 9.464 15 8 15s-2.766-.271-3.682-.687C3.354 13.875 3 13.373 3 13v-1c.271.202.58.378.904.525C4.978 13.711 6.427 14 8 14s3.022-.289 4.096-.777c.324-.147.633-.323.904-.525z" />
+                </svg>
+                Zylinder
+            </div>
+            <div class="paletteItem" draggable="true" data-type="cone">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                    class="bi bi-triangle-fill" viewBox="0 0 16 16" style="vertical-align: middle; margin-right: 5px;"
+                    transform="rotate(180)">
+                    <path fill-rule="evenodd"
+                        d="M7.022 1.566a1.13 1.13 0 0 1 1.96 0l6.857 11.667c.457.778-.092 1.767-.98 1.767H1.144c-.889 0-1.437-.99-.98-1.767L7.022 1.566z" />
+                </svg>
+                Kegel
+            </div>
+        </div>
+
+        <h3>Steuerung</h3>
+        <div id="controls">
+            <button id="deleteBtn" disabled>Auswahl löschen</button>
+            <button id="cloneBtn" disabled>Auswahl klonen</button>
+        </div>
+
+        <h3>Modifizieren</h3>
+        <div id="modificationPanel" style="display: none;">
+            <label for="colorPicker">Farbe:</label>
+            <input type="color" id="colorPicker" value="#ffffff">
+            <label for="scaleSlider">Größe:</label>
+            <input type="range" id="scaleSlider" min="0.1" max="3" step="0.1" value="1">
+        </div>
+
+    </div>
+
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('renderCanvas');
+        const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+        let scene;
+        let ground;
+        let shadowGenerator;
+        let currentMesh = null; // Das aktuell per Maus gezogene Objekt
+        let selectedMesh = null; // Das aktuell ausgewählte Objekt
+        let startingPoint = null; // Startpunkt des Maus-Drags auf der Ebene
+        const sceneObjects = []; // Array zum Speichern aller platzierbaren Objekte
+        const gridSize = 1; // Rastergröße für das Snapping
+
+        // --- UI Elements ---
+        const deleteBtn = document.getElementById('deleteBtn');
+        const cloneBtn = document.getElementById('cloneBtn');
+        const modificationPanel = document.getElementById('modificationPanel');
+        const colorPicker = document.getElementById('colorPicker');
+        const scaleSlider = document.getElementById('scaleSlider');
+
+
+        function createScene() {
+            scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color3(0.2, 0.2, 0.25); // Dunkelblauer Hintergrund
+
+            // Kamera
+            const camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2.5, Math.PI / 3, 25, new BABYLON.Vector3(0, 1, 0), scene);
+            camera.attachControl(canvas, true);
+            camera.lowerRadiusLimit = 5;
+            camera.upperRadiusLimit = 50;
+            camera.wheelPrecision = 50; // Feineres Zoomen
+
+            // Licht
+            const light = new BABYLON.DirectionalLight("dirLight", new BABYLON.Vector3(-0.5, -1, -0.5), scene);
+            light.position = new BABYLON.Vector3(10, 20, 10);
+            light.intensity = 1.0;
+
+            const hemiLight = new BABYLON.HemisphericLight("hemiLight", new BABYLON.Vector3(0, 1, 0), scene);
+            hemiLight.intensity = 0.6;
+            hemiLight.diffuse = new BABYLON.Color3(0.8, 0.85, 0.9); // Leicht bläuliches Umgebungslicht
+            hemiLight.groundColor = new BABYLON.Color3(0.4, 0.35, 0.3);
+
+
+            // Boden-Ebene
+            ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 20, height: 20 }, scene);
+            const groundMaterial = new BABYLON.StandardMaterial("groundMat", scene);
+            // groundMaterial.diffuseColor = new BABYLON.Color3(0.5, 0.7, 0.5); // Grünlich
+            const groundTexture = new BABYLON.Texture("https://www.babylonjs-playground.com/textures/floor.png", scene); // Grid Textur
+            groundTexture.uScale = 10;
+            groundTexture.vScale = 10;
+            groundMaterial.diffuseTexture = groundTexture;
+            groundMaterial.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1); // Weniger Glanz
+            ground.material = groundMaterial;
+            ground.receiveShadows = true; // Ebene empfängt Schatten
+
+            // Schatten
+            shadowGenerator = new BABYLON.ShadowGenerator(1024, light);
+            shadowGenerator.useBlurExponentialShadowMap = true; // Weichere Schatten
+            shadowGenerator.blurKernel = 32;
+            shadowGenerator.darkness = 0.5; // Schattenintensität
+
+            // Skybox (Optional, für bessere Reflektionen/Atmosphäre)
+            const skybox = BABYLON.MeshBuilder.CreateBox("skyBox", { size: 100.0 }, scene);
+            const skyboxMaterial = new BABYLON.StandardMaterial("skyBox", scene);
+            skyboxMaterial.backFaceCulling = false;
+            skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture("https://www.babylonjs-playground.com/textures/skybox", scene); // Beispiel Skybox
+            skyboxMaterial.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
+            skyboxMaterial.diffuseColor = new BABYLON.Color3(0, 0, 0);
+            skyboxMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+            skybox.material = skyboxMaterial;
+
+
+            setupDragAndDrop();
+            setupObjectInteraction();
+            setupUIListeners();
+
+            return scene;
+        }
+
+
+
+
+        // ... (vorheriger Code: engine, scene, ground, etc. bleiben gleich) ...
+
+        function getGroundPosition(x, y) {
+            // Nutze übergebene Koordinaten, wenn vorhanden, ansonsten die von der Szene
+            const sourceX = x !== undefined ? x : scene.pointerX;
+            const sourceY = y !== undefined ? y : scene.pointerY;
+
+            // Stelle sicher, dass die Koordinaten innerhalb des Canvas liegen (wichtig bei resize/scroll)
+            if (sourceX === undefined || sourceY === undefined || isNaN(sourceX) || isNaN(sourceY)) {
+                console.warn("Ungültige Koordinaten für getGroundPosition:", sourceX, sourceY);
+                return null;
+            }
+
+
+            const pickinfo = scene.pick(sourceX, sourceY, function (mesh) { return mesh === ground; }); // Explizit ground prüfen
+            if (pickinfo && pickinfo.hit && pickinfo.pickedPoint) {
+                // Snapping Logik
+                const snappedX = Math.round(pickinfo.pickedPoint.x / gridSize) * gridSize;
+                const snappedZ = Math.round(pickinfo.pickedPoint.z / gridSize) * gridSize;
+                // console.log("Picked Ground at:", pickinfo.pickedPoint, "Snapped to:", snappedX, snappedZ); // Debugging Log
+                return new BABYLON.Vector3(snappedX, 0, snappedZ); // Y ist 0 für die Bodenebene
+            }
+            // console.log("Ground pick failed at:", sourceX, sourceY); // Debugging Log
+            return null;
+        }
+
+        function createObject(type, position) {
+            // ... (Inhalt von createObject bleibt gleich) ...
+            let newMesh;
+            const mat = new BABYLON.StandardMaterial(type + "Mat" + sceneObjects.length, scene);
+            mat.diffuseColor = BABYLON.Color3.Random(); // Zufällige Startfarbe
+            mat.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+
+            switch (type) {
+                case 'box':
+                    newMesh = BABYLON.MeshBuilder.CreateBox("box" + sceneObjects.length, { size: 1 }, scene);
+                    newMesh.position.y = 0.5; // Auf dem Boden platzieren
+                    break;
+                case 'sphere':
+                    newMesh = BABYLON.MeshBuilder.CreateSphere("sphere" + sceneObjects.length, { diameter: 1.2 }, scene);
+                    newMesh.position.y = 0.6; // Auf dem Boden platzieren
+                    break;
+                case 'cylinder':
+                    newMesh = BABYLON.MeshBuilder.CreateCylinder("cylinder" + sceneObjects.length, { height: 1.5, diameter: 1 }, scene);
+                    newMesh.position.y = 0.75; // Auf dem Boden platzieren
+                    break;
+                case 'cone':
+                    newMesh = BABYLON.MeshBuilder.CreateCylinder("cone" + sceneObjects.length, { height: 1.5, diameterTop: 0, diameterBottom: 1.2 }, scene);
+                    newMesh.position.y = 0.75; // Auf dem Boden platzieren
+                    break;
+                default:
+                    console.error("Unbekannter Objekttyp:", type);
+                    return null;
+            }
+
+            if (!position) {
+                console.error("Keine gültige Position für Objekt:", type);
+                return null; // Nicht erstellen, wenn die Position ungültig ist
+            }
+
+            newMesh.material = mat;
+            newMesh.position.x = position.x;
+            newMesh.position.z = position.z;
+            // Die Y-Position wird bereits oben gesetzt, je nach Objekttyp
+            shadowGenerator.addShadowCaster(newMesh); // Objekt wirft Schatten
+            newMesh.isPickable = true; // Sicherstellen, dass es klickbar ist
+            newMesh.metadata = { type: type }; // Typ speichern für spätere Verwendung (z.B. Klonen)
+
+            // Standard Outline, wenn ausgewählt
+            newMesh.outlineColor = new BABYLON.Color3(1, 1, 0); // Gelb
+            newMesh.outlineWidth = 0.05;
+
+            sceneObjects.push(newMesh);
+            console.log("Objekt erstellt:", type, "ID:", newMesh.name, "Position:", newMesh.position); // Bestätigung
+            return newMesh;
+        }
+
+
+        function setupDragAndDrop() {
+            const paletteItems = document.querySelectorAll('.paletteItem');
+
+            paletteItems.forEach(item => {
+                item.addEventListener('dragstart', (event) => {
+                    const objectType = item.getAttribute('data-type');
+                    console.log("Drag Start:", objectType); // Loggen, was gezogen wird
+                    event.dataTransfer.setData('text/plain', objectType);
+                    event.dataTransfer.effectAllowed = 'copy';
+                });
+                // Optional: Verhindern, dass Text im Item selbst ausgewählt wird beim Ziehen
+                item.addEventListener('drag', (event) => {
+                    event.preventDefault();
+                });
+            });
+
+            canvas.addEventListener('dragover', (event) => {
+                event.preventDefault(); // Notwendig, um 'drop' zu ermöglichen
+                event.dataTransfer.dropEffect = 'copy';
+                // console.log("Drag Over Canvas"); // Kann sehr gesprächig sein
+            });
+
+            canvas.addEventListener('drop', (event) => {
+                event.preventDefault();
+                const objectType = event.dataTransfer.getData('text/plain');
+                console.log("Drop Event Fired. Type:", objectType); // Loggen, was gedropped wird
+
+                if (!objectType) {
+                    console.warn("Kein Objekttyp im dataTransfer gefunden.");
+                    return;
+                }
+
+                // --- KORREKTUR HIER ---
+                // Koordinaten aus dem Drop-Event relativ zum Canvas holen
+                const rect = canvas.getBoundingClientRect();
+                const canvasX = event.clientX - rect.left;
+                const canvasY = event.clientY - rect.top;
+
+                // Position mit den korrekten Koordinaten ermitteln
+                const dropPosition = getGroundPosition(canvasX, canvasY);
+                console.log("Drop Coordinates (Canvas):", canvasX, canvasY); // Loggen der Klickpos
+                console.log("Calculated Drop Position (3D):", dropPosition); // Loggen der 3D-Position
+
+
+                if (dropPosition) {
+                    createObject(objectType, dropPosition);
+                } else {
+                    console.warn("Konnte keine gültige Position auf dem Boden finden für Drop at:", canvasX, canvasY);
+                }
+            });
+        }
+
+        function setupObjectInteraction() {
+            // ... (Pointer Down/Up/Move Logik bleibt gleich, sie nutzt getGroundPosition ohne Argumente) ...
+            let outlineMesh = null; // Für die Hervorhebung
+
+            scene.onPointerObservable.add((pointerInfo) => {
+                switch (pointerInfo.type) {
+                    case BABYLON.PointerEventTypes.POINTERDOWN:
+                        const pickResult = scene.pick(scene.pointerX, scene.pointerY, (mesh) => sceneObjects.includes(mesh));
+
+                        if (pickResult.hit && sceneObjects.includes(pickResult.pickedMesh)) { // Sicherstellen, dass es eins unserer Objekte ist
+                            // Nur mit Dragging beginnen, wenn WIRKLICH auf ein platzierbares Objekt geklickt wurde
+                            currentMesh = pickResult.pickedMesh;
+                            // WICHTIG: getGroundPosition() HIER OHNE Argumente, nutzt scene.pointerX/Y
+                            startingPoint = getGroundPosition();
+                            if (startingPoint) {
+                                setTimeout(() => {
+                                    scene.activeCamera.detachControl(canvas);
+                                }, 0);
+                                selectObject(currentMesh);
+                                console.log("Start Dragging:", currentMesh.name); // Log
+                            } else {
+                                // Klick auf Objekt, aber nicht auf gültigem Bodenpunkt? (Sollte nicht passieren)
+                                currentMesh = null;
+                            }
+                        } else {
+                            // Klick ins Leere oder auf den Boden/Skybox
+                            if (selectedMesh) { // Nur deselektieren, wenn etwas ausgewählt WAR
+                                console.log("Deselecting object by clicking empty space");
+                                selectObject(null);
+                            }
+                            currentMesh = null;
+                        }
+                        break;
+
+                    case BABYLON.PointerEventTypes.POINTERUP:
+                        if (currentMesh) {
+                            console.log("Stop Dragging:", currentMesh.name); // Log
+                            scene.activeCamera.attachControl(canvas, true);
+                            currentMesh = null;
+                            startingPoint = null;
+                        }
+                        break;
+
+                    case BABYLON.PointerEventTypes.POINTERMOVE:
+                        if (!currentMesh || !startingPoint) {
+                            return;
+                        }
+                        // WICHTIG: getGroundPosition() HIER OHNE Argumente, nutzt scene.pointerX/Y
+                        const currentGroundPos = getGroundPosition();
+                        if (currentGroundPos) {
+                            const deltaY = currentMesh.position.y; // Ursprüngliche Y-Höhe beibehalten
+                            currentMesh.position.x = currentGroundPos.x;
+                            currentMesh.position.z = currentGroundPos.z;
+                            currentMesh.position.y = deltaY;
+                        }
+                        break;
+                    case BABYLON.PointerEventTypes.POINTERDOUBLETAP:
+                        const doubleClickResult = scene.pick(scene.pointerX, scene.pointerY, (mesh) => sceneObjects.includes(mesh));
+                        if (doubleClickResult.hit && sceneObjects.includes(doubleClickResult.pickedMesh)) {
+                            console.log("Double Click Select:", doubleClickResult.pickedMesh.name);
+                            selectObject(doubleClickResult.pickedMesh);
+                        } else {
+                            if (selectedMesh) { // Nur deselektieren, wenn etwas ausgewählt WAR
+                                console.log("Deselecting object by double clicking empty space");
+                                selectObject(null);
+                            }
+                        }
+                        break;
+                }
+            });
+        }
+
+        // ... (Restlicher Code: selectObject, setupUIListeners, createScene Aufruf, Render Loop etc. bleiben gleich) ...
+        function selectObject(mesh) {
+            // Alte Auswahl zurücksetzen
+            if (selectedMesh && selectedMesh !== mesh) { // Nur zurücksetzen, wenn es ein anderes Mesh ist
+                selectedMesh.renderOutline = false;
+            }
+
+            selectedMesh = mesh;
+
+            if (selectedMesh) {
+                console.log("Selected:", selectedMesh.name); // Log
+                selectedMesh.renderOutline = true;
+                deleteBtn.disabled = false;
+                cloneBtn.disabled = false;
+                modificationPanel.style.display = 'block';
+                if (selectedMesh.material instanceof BABYLON.StandardMaterial) {
+                    colorPicker.value = selectedMesh.material.diffuseColor.toHexString();
+                }
+                scaleSlider.value = selectedMesh.scaling.x;
+            } else {
+                // console.log("Selection cleared"); // Log
+                deleteBtn.disabled = true;
+                cloneBtn.disabled = true;
+                modificationPanel.style.display = 'none';
+            }
+        }
+
+        function setupUIListeners() {
+            deleteBtn.addEventListener('click', () => {
+                if (selectedMesh) {
+                    console.log("Deleting:", selectedMesh.name); // Log
+                    const index = sceneObjects.indexOf(selectedMesh);
+                    if (index > -1) {
+                        sceneObjects.splice(index, 1);
+                    }
+                    shadowGenerator.removeShadowCaster(selectedMesh);
+                    selectedMesh.dispose(); // Wichtig: Mesh aus Szene entfernen
+                    selectObject(null);
+                }
+            });
+
+            cloneBtn.addEventListener('click', () => {
+                if (selectedMesh && selectedMesh.metadata?.type) {
+                    console.log("Cloning:", selectedMesh.name); // Log
+                    const currentPos = selectedMesh.position;
+                    const newPos = currentPos.clone(); // Klonen, um das Original nicht zu ändern
+
+                    // Versatz hinzufügen und sicherstellen, dass es auf dem Grid landet
+                    let offsetX = gridSize;
+                    let offsetZ = gridSize;
+                    // Prüfen, ob an der Standard-Versatzposition schon was ist
+                    let targetX = Math.round((currentPos.x + offsetX) / gridSize) * gridSize;
+                    let targetZ = Math.round((currentPos.z + offsetZ) / gridSize) * gridSize;
+
+                    // Einfache Kollisionsprüfung (nur Position, nicht Größe)
+                    let attempts = 0;
+                    const maxAttempts = 10;
+                    while (attempts < maxAttempts && sceneObjects.some(obj => obj.position.x === targetX && obj.position.z === targetZ)) {
+                        // Wenn besetzt, andere Richtung versuchen oder weiter weg
+                        offsetX = gridSize * (Math.random() > 0.5 ? 1 : -1) * (attempts + 1);
+                        offsetZ = gridSize * (Math.random() > 0.5 ? 1 : -1) * (attempts + 1);
+                        targetX = Math.round((currentPos.x + offsetX) / gridSize) * gridSize;
+                        targetZ = Math.round((currentPos.z + offsetZ) / gridSize) * gridSize;
+                        attempts++;
+                    }
+
+
+                    newPos.x = targetX;
+                    newPos.z = targetZ;
+                    // Y-Position bleibt wie beim Original (wird in createObject gesetzt, aber hier zur Sicherheit)
+                    newPos.y = selectedMesh.position.y;
+
+
+                    const clonedMesh = createObject(selectedMesh.metadata.type, newPos); // Position direkt übergeben
+                    if (clonedMesh) {
+                        // Eigenschaften kopieren
+                        // Material: Klonen ist wichtig, damit Farbänderungen nicht beide betreffen
+                        if (selectedMesh.material) {
+                            clonedMesh.material = selectedMesh.material.clone(clonedMesh.name + "_mat");
+                        }
+                        clonedMesh.scaling = selectedMesh.scaling.clone();
+                        clonedMesh.rotationQuaternion = selectedMesh.rotationQuaternion ? selectedMesh.rotationQuaternion.clone() : null;
+                        if (!clonedMesh.rotationQuaternion) { // Falls keine Quaternions genutzt werden
+                            clonedMesh.rotation = selectedMesh.rotation.clone();
+                        }
+
+
+                        console.log("Cloned object created:", clonedMesh.name, "at", clonedMesh.position);
+                        selectObject(clonedMesh);
+                    } else {
+                        console.error("Cloning failed for:", selectedMesh.name);
+                    }
+                }
+            });
+
+            // Listener für das Modifikationspanel
+            colorPicker.addEventListener('input', (event) => {
+                if (selectedMesh && selectedMesh.material instanceof BABYLON.StandardMaterial) {
+                    selectedMesh.material.diffuseColor = BABYLON.Color3.FromHexString(event.target.value);
+                }
+            });
+
+            scaleSlider.addEventListener('input', (event) => {
+                if (selectedMesh) {
+                    const scaleValue = parseFloat(event.target.value);
+                    selectedMesh.scaling.setAll(scaleValue); // Gleichmäßig skalieren
+
+                    // Y-Position anpassen, basierend auf der Bounding Box Höhe und Skalierung
+                    const bounds = selectedMesh.getBoundingInfo();
+                    const extentY = bounds.boundingBox.extendSize.y; // Halbe Höhe der Bounding Box
+                    const scaledExtentY = extentY * scaleValue;
+
+                    // Positioniere die Unterseite des Objekts auf y=0
+                    selectedMesh.position.y = scaledExtentY;
+
+                }
+            });
+        }
+
+        // --- Hauptlogik ---
+        scene = createScene(); // createScene ruft intern die setup-Funktionen auf
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        window.addEventListener('resize', function () {
+            engine.resize();
+        });
+
+
+
+    </script>
+
+</body>
+
+</html>
