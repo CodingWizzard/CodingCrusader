@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Babylon.js WFC Overlapping Model Demo</title>
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+            /* Verhindert Standard-Touch-Aktionen */
+        }
+
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: sans-serif;
+            z-index: 10;
+        }
+
+        #controls button,
+        #controls label,
+        #controls input {
+            display: block;
+            margin-bottom: 5px;
+        }
+    </style>
+    <!-- Babylon.js Core -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <!-- Optional: Lädt zusätzliche Babylon.js Module, falls benötigt -->
+    <!-- <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script> -->
+    <!-- <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script> -->
+</head>
+
+<body>
+    <div id="controls">
+        <label for="outputSize">Output Grid Size:</label>
+        <input type="number" id="outputSize" value="20" min="5" max="50">
+        <button id="startButton">Generate</button>
+        <p id="status">Status: Ready</p>
+    </div>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+        let scene;
+        let wfcRunner = null; // Variable, um die WFC-Instanz zu halten
+
+        // --- Konfiguration ---
+        const N = 3; // Mustergröße (NxN)
+        const TILE_SIZE = 1; // Größe der Würfel in Babylon.js
+        const TILE_SPACING = 0.1; // Abstand zwischen den Würfeln
+        const VISUALIZE_STEPS = true; // Prozess visualisieren?
+        const STEP_DELAY_MS = 20; // Verzögerung zwischen den Schritten (wenn VISUALIZE_STEPS true ist) - Etwas erhöht zum Debuggen
+
+        // --- Einfaches Eingabemuster (0=Leer, 1=Straße, 2=Gebäude, 3=Grün) ---
+        /*
+        const inputPattern = [
+            [2, 2, 1, 2, 2],
+            [2, 2, 1, 2, 2],
+            [1, 1, 1, 1, 1],
+            [3, 3, 1, 3, 3],
+            [3, 3, 1, 3, 3],
+        ];
+        */
+        // Alternatives, komplexeres Muster zum Testen:
+        /** /
+        const inputPattern = [
+            [3, 3, 3, 1, 1, 1, 3, 3],
+            [3, 0, 3, 1, 2, 1, 3, 0],
+            [3, 3, 3, 1, 1, 1, 3, 3],
+            [1, 1, 1, 1, 2, 1, 1, 1],
+            [1, 2, 1, 1, 2, 1, 2, 1],
+            [1, 1, 1, 1, 2, 1, 1, 1],
+            [3, 3, 3, 1, 1, 1, 3, 3],
+            [3, 0, 3, 1, 2, 1, 3, 0],
+        ];
+        /**/
+        /**/
+        const inputPattern = [
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0, 0, 0, 0],
+            [0, 1, 0, 1, 0, 0, 3, 3],
+            [0, 1, 1, 1, 0, 0, 3, 0],
+            [0, 0, 0, 0, 0, 0, 3, 0],
+            [0, 2, 2, 2, 0, 0, 3, 0],
+            [0, 0, 0, 0, 0, 3, 3, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+        ];
+        /**/
+
+        const tileColors = {
+            0: new BABYLON.Color3(0.9, 0.9, 0.9), // Leer (Hellgrau)
+            1: new BABYLON.Color3(0.3, 0.3, 0.3), // Straße (Dunkelgrau)
+            2: new BABYLON.Color3(0.8, 0.4, 0.2), // Gebäude (Orange/Braun)
+            3: new BABYLON.Color3(0.2, 0.7, 0.2), // Grün (Grün)
+            DEFAULT: new BABYLON.Color3(0.5, 0.5, 1.0), // Unkollabiert (Blau)
+            CONTRADICTION: new BABYLON.Color3(1, 0, 0), // Fehler (Rot)
+        };
+
+        // --- Hilfsfunktionen ---
+        function getTileColor(tileValue) {
+            // Gibt die Farbe zurück oder die Widerspruchsfarbe, falls der Wert -2 ist
+            if (tileValue === -2) return tileColors.CONTRADICTION;
+            return tileColors[tileValue] || tileColors.DEFAULT;
+        }
+
+        // Konvertiert ein 2D-Muster in einen eindeutigen String-Schlüssel
+        function patternToKey(pattern) {
+            return pattern.flat().join(',');
+        }
+
+        // Erstellt ein leeres Material für eine Farbe (Cache, um nicht zu viele Materialien zu erstellen)
+        let materialCache = {};
+        function getColorMaterial(color, scene) {
+            const colorKey = color.toHexString();
+            if (!materialCache[colorKey]) {
+                const mat = new BABYLON.StandardMaterial("mat_" + colorKey, scene);
+                mat.diffuseColor = color;
+                mat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1); // Weniger Glanz
+                materialCache[colorKey] = mat;
+            }
+            return materialCache[colorKey];
+        }
+
+        // --- WFC Overlapping Model Klasse ---
+        class WFCOverlappingModel {
+            constructor(inputPattern, N, outputWidth, outputHeight, periodicInput = true, periodicOutput = false) {
+                this.inputPattern = inputPattern;
+                this.inputHeight = inputPattern.length;
+                this.inputWidth = this.inputHeight > 0 ? inputPattern[0].length : 0;
+                this.N = N;
+                this.outputWidth = outputWidth;
+                this.outputHeight = outputHeight;
+                this.periodicInput = periodicInput;
+                this.periodicOutput = periodicOutput;
+
+                this.patterns = [];
+                this.patternWeights = {};
+                this.patternIndices = {};
+                this.weights = []; // Wird jetzt in _extractPatterns gefüllt
+                this.adjacencyRules = {}; // rules[patternIndex][dx][dy] = Set von kompatiblen patternIndices
+
+                this.wave = [];
+                this.changes = [];
+                this.entropy = []; // Wird jetzt in _initializeWave / _findLowestEntropyCell berechnet/aktualisiert
+                this.sumOfWeights = 0;
+                this.sumOfWeightLogWeights = 0;
+
+                this.numPatterns = 0; // Wird in _extractPatterns gesetzt
+
+                this.isCollapsed = false;
+                this.hasContradiction = false;
+
+                // Überprüfe Input Pattern
+                if (this.inputHeight === 0 || this.inputWidth === 0) {
+                    throw new Error("Input pattern cannot be empty.");
+                }
+                if (this.N > this.inputWidth || this.N > this.inputHeight) {
+                    console.warn(`Pattern size N (${this.N}) is larger than input dimensions (${this.inputWidth}x${this.inputHeight}). This might lead to unexpected results or errors if not periodic.`);
+                    // Optional: Fehler werfen, wenn nicht periodisch
+                    // if (!this.periodicInput) throw new Error("N cannot be larger than input dimensions for non-periodic input.");
+                }
+
+
+                this._extractPatterns();
+                if (this.numPatterns === 0) {
+                    throw new Error("No patterns could be extracted from the input. Check input pattern and N.");
+                }
+                this._buildAdjacencyRules();
+                this._initializeWave();
+            }
+
+            // Extrahiert alle NxN Muster aus dem Input
+            _extractPatterns() {
+                console.log("Extracting patterns...");
+                let patternCount = 0;
+                this.patternWeights = {}; // Reset
+                this.patternIndices = {}; // Reset
+                this.patterns = [];       // Reset
+
+                const limitY = this.periodicInput ? this.inputHeight : this.inputHeight - this.N + 1;
+                const limitX = this.periodicInput ? this.inputWidth : this.inputWidth - this.N + 1;
+
+                for (let y = 0; y < limitY; y++) {
+                    for (let x = 0; x < limitX; x++) {
+                        const pattern = [];
+                        for (let dy = 0; dy < this.N; dy++) {
+                            const row = [];
+                            for (let dx = 0; dx < this.N; dx++) {
+                                // Modulo für periodischen Input
+                                const currentX = this.periodicInput ? (x + dx + this.inputWidth) % this.inputWidth : x + dx;
+                                const currentY = this.periodicInput ? (y + dy + this.inputHeight) % this.inputHeight : y + dy;
+                                row.push(this.inputPattern[currentY][currentX]);
+                            }
+                            pattern.push(row);
+                        }
+
+                        const key = patternToKey(pattern);
+                        if (!(key in this.patternIndices)) {
+                            this.patternIndices[key] = patternCount;
+                            this.patterns.push(pattern);
+                            this.patternWeights[key] = 0;
+                            patternCount++;
+                        }
+                        this.patternWeights[key]++;
+                    }
+                }
+
+                this.numPatterns = this.patterns.length;
+                if (this.numPatterns === 0) {
+                    console.error("No patterns extracted!");
+                    return;
+                }
+                console.log(`Extracted ${this.numPatterns} unique patterns.`);
+
+                // Berechne Gewichte und Entropie-Konstanten
+                this.weights = Array(this.numPatterns).fill(0);
+                this.sumOfWeights = 0;
+                this.sumOfWeightLogWeights = 0;
+                for (const key in this.patternIndices) {
+                    const index = this.patternIndices[key];
+                    const weight = this.patternWeights[key];
+                    if (weight <= 0) {
+                        console.warn(`Pattern ${index} ('${key}') has non-positive weight ${weight}. Setting to 1.`);
+                        this.weights[index] = 1; // Fallback
+                    } else {
+                        this.weights[index] = weight;
+                    }
+                    this.sumOfWeights += this.weights[index];
+                    this.sumOfWeightLogWeights += this.weights[index] * Math.log(this.weights[index]);
+                }
+                console.log(`Total weight sum: ${this.sumOfWeights}`);
+            }
+
+            // *** KORRIGIERTE Version von _buildAdjacencyRules ***
+            _buildAdjacencyRules() {
+                console.log("Building adjacency rules...");
+                this.adjacencyRules = {}; // Reset
+
+                // Initialisiere leere Sets für jede Richtung für jedes Muster
+                for (let i = 0; i < this.numPatterns; i++) {
+                    this.adjacencyRules[i] = {};
+                    for (let dx = -1; dx <= 1; dx++) {
+                        this.adjacencyRules[i][dx] = {};
+                        for (let dy = -1; dy <= 1; dy++) {
+                            if (dx === 0 && dy === 0) continue;
+                            this.adjacencyRules[i][dx][dy] = new Set();
+                        }
+                    }
+                }
+
+                // Hilfsfunktion zum Prüfen der Übereinstimmung zweier Muster im Überlappungsbereich
+                const patternsAgree = (p1, p2, dx, dy) => {
+                    // p1 ist das Muster an (0,0), p2 ist das Muster an (dx, dy) relativ dazu
+                    if (dx === 0 && dy === 0) return true;
+
+                    // Bestimme den Überlappungsbereich in den Koordinaten von p1
+                    const xmin1 = Math.max(0, dx);
+                    const xmax1 = Math.min(this.N, this.N + dx);
+                    const ymin1 = Math.max(0, dy);
+                    const ymax1 = Math.min(this.N, this.N + dy);
+
+                    for (let y1 = ymin1; y1 < ymax1; y1++) {
+                        for (let x1 = xmin1; x1 < xmax1; x1++) {
+                            // Entsprechende Koordinate in p2 finden
+                            const y2 = y1 - dy;
+                            const x2 = x1 - dx;
+
+                            // Prüfe, ob die Werte übereinstimmen
+                            if (p1[y1][x1] !== p2[y2][x2]) {
+                                return false;
+                            }
+                        }
+                    }
+                    return true; // Alle überlappenden Zellen stimmen überein
+                };
+
+                // Vergleiche jedes eindeutige Musterpaar
+                for (let i = 0; i < this.numPatterns; i++) {
+                    const pattern1 = this.patterns[i];
+                    for (let j = 0; j < this.numPatterns; j++) {
+                        const pattern2 = this.patterns[j];
+
+                        // Prüfe alle 4 Hauptrichtungen (Diagonale ggf. später)
+                        const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+                        for (const [dx, dy] of directions) {
+                            // Prüft: Stimmen die Zellen überein, wo pattern1 und pattern2 (verschoben um dx,dy) überlappen?
+                            if (patternsAgree(pattern1, pattern2, dx, dy)) {
+                                // Wenn sie übereinstimmen, dann kann pattern2 an Position (dx, dy) relativ zu pattern1 platziert werden.
+                                // Regel: pattern2 ist ein gültiger Nachbar für pattern1 in Richtung (dx, dy)
+                                this.adjacencyRules[i][dx][dy].add(j);
+                                // Regel: pattern1 ist ein gültiger Nachbar für pattern2 in Richtung (-dx, -dy)
+                                this.adjacencyRules[j][-dx][-dy].add(i);
+                            }
+                        }
+                        // Optional: Diagonale Richtungen prüfen (wenn N > 1)
+                        if (this.N > 1) {
+                            const diagDirections = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+                            for (const [dx, dy] of diagDirections) {
+                                if (patternsAgree(pattern1, pattern2, dx, dy)) {
+                                    this.adjacencyRules[i][dx][dy].add(j);
+                                    this.adjacencyRules[j][-dx][-dy].add(i);
+                                }
+                            }
+                        }
+                    }
+                }
+                console.log("Adjacency rules built.");
+
+                // Debug-Ausgabe: Prüfe, ob Regeln generiert wurden
+                let rulesGenerated = false;
+                for (let i = 0; i < this.numPatterns; i++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        for (let dy = -1; dy <= 1; dy++) {
+                            if (dx === 0 && dy === 0) continue;
+                            if (this.adjacencyRules[i][dx][dy].size > 0) {
+                                rulesGenerated = true;
+                                break;
+                            }
+                        }
+                        if (rulesGenerated) break;
+                    }
+                    if (rulesGenerated) break;
+                }
+                if (!rulesGenerated) {
+                    console.warn("Warning: No adjacency rules were generated. The algorithm might fail or produce trivial results. Check input pattern and N.");
+                } else {
+                    // Logge eine Beispielregel
+                    // const patternIdxToLog = 0;
+                    // console.log(`Adjacency rules for pattern ${patternIdxToLog}:`);
+                    // for (let dx = -1; dx <= 1; dx++) {
+                    //     for (let dy = -1; dy <= 1; dy++) {
+                    //         if (dx === 0 && dy === 0) continue;
+                    //          if(this.adjacencyRules[patternIdxToLog][dx][dy].size > 0){
+                    //               console.log(`  (${dx}, ${dy}): {${[...this.adjacencyRules[patternIdxToLog][dx][dy]].join(', ')}}`);
+                    //          }
+                    //     }
+                    // }
+                }
+            }
+
+
+            // Initialisiert das Ausgabegitter (Wave)
+            _initializeWave() {
+                console.log("Initializing wave...");
+                this.wave = [];
+                this.entropy = [];
+                this.isCollapsed = false;
+                this.hasContradiction = false;
+
+                // Nur berechnen, wenn Gewichte vorhanden sind
+                const initialEntropy = (this.sumOfWeights > 0)
+                    ? (Math.log(this.sumOfWeights) - this.sumOfWeightLogWeights / this.sumOfWeights)
+                    : 0; // Wenn keine Gewichte, Entropie 0
+
+                for (let y = 0; y < this.outputHeight; y++) {
+                    this.wave[y] = [];
+                    this.entropy[y] = [];
+                    for (let x = 0; x < this.outputWidth; x++) {
+                        this.wave[y][x] = {
+                            possible: Array(this.numPatterns).fill(true),
+                            collapsed: false,
+                            finalPatternIndex: -1
+                        };
+                        // Kleines Rauschen hinzufügen, um Symmetrien zu brechen
+                        this.entropy[y][x] = initialEntropy + (Math.random() * 1e-5);
+                    }
+                }
+                // Initialisiere changes Array (für Propagierung)
+                this.changes = Array(this.outputWidth * this.outputHeight).fill(false);
+                console.log(`Wave initialized with initial entropy approx ${initialEntropy.toFixed(3)}.`);
+            }
+
+            // *** ERWEITERTE Version von _findLowestEntropyCell ***
+            _findLowestEntropyCell() {
+                let minEntropy = Infinity;
+                let minX = -1, minY = -1;
+                let potentialContradictionCells = [];
+                let candidatesWithZeroEntropy = []; // Zellen mit nur 1 Möglichkeit
+
+                for (let y = 0; y < this.outputHeight; y++) {
+                    for (let x = 0; x < this.outputWidth; x++) {
+                        const cell = this.wave[y][x];
+                        if (!cell.collapsed) {
+                            let currentSumOfWeights = 0;
+                            let currentSumOfWeightLogWeights = 0;
+                            let possibleCount = 0;
+
+                            for (let i = 0; i < this.numPatterns; ++i) {
+                                if (cell.possible[i]) {
+                                    const w = this.weights[i];
+                                    if (w <= 0) { /* Gewicht wurde bereits in _extractPatterns behandelt */ }
+                                    else {
+                                        currentSumOfWeights += w;
+                                        currentSumOfWeightLogWeights += w * Math.log(w);
+                                        possibleCount++;
+                                    }
+                                }
+                            }
+
+                            if (possibleCount === 0) {
+                                if (!this.hasContradiction) { // Nur die erste Meldung ausgeben
+                                    console.error(`Contradiction (0 possible) found at cell (${x}, ${y}) during entropy calculation`);
+                                }
+                                this.hasContradiction = true;
+                                potentialContradictionCells.push({ x, y });
+                                // Nicht sofort returnen, alle Fehler sammeln
+                                continue;
+                            }
+
+                            let currentEntropy;
+                            if (possibleCount === 1) {
+                                currentEntropy = 0; // Genau eine Möglichkeit
+                                candidatesWithZeroEntropy.push({ x, y, entropy: 0 });
+                            } else if (currentSumOfWeights <= 0) {
+                                console.error(`Error: Sum of weights is ${currentSumOfWeights} but possibleCount is ${possibleCount} at (${x}, ${y}). Assuming contradiction.`);
+                                this.hasContradiction = true;
+                                potentialContradictionCells.push({ x, y });
+                                continue;
+                            } else {
+                                // Shannon-Entropie + kleines Rauschen
+                                currentEntropy = Math.log(currentSumOfWeights) - currentSumOfWeightLogWeights / currentSumOfWeights;
+                                currentEntropy += (Math.random() * 1e-6); // Sehr kleines Rauschen
+                            }
+                            this.entropy[y][x] = currentEntropy; // Update gespeicherte Entropie
+
+                            // Suche nach *minimaler positiver* Entropie
+                            if (currentEntropy > 1e-9 && currentEntropy < minEntropy) {
+                                minEntropy = currentEntropy;
+                                minX = x;
+                                minY = y;
+                            }
+                        } // end if not collapsed
+                    } // end loop x
+                } // end loop y
+
+                // Wenn Widersprüche gefunden wurden, melde sie und beende
+                if (this.hasContradiction) {
+                    console.error("Contradiction detected in cells:", potentialContradictionCells);
+                    return null;
+                }
+
+                // Wenn kein Kandidat mit >0 Entropie gefunden wurde, aber Zellen mit 0 Entropie existieren
+                if (minX === -1 && candidatesWithZeroEntropy.length > 0) {
+                    // Wähle zufällig eine der Zellen mit Entropie 0 (nur 1 Möglichkeit)
+                    const chosenZeroEntropy = candidatesWithZeroEntropy[Math.floor(Math.random() * candidatesWithZeroEntropy.length)];
+                    console.log(`No cell with >0 entropy found. Choosing cell (${chosenZeroEntropy.x}, ${chosenZeroEntropy.y}) with entropy 0.`);
+                    return { x: chosenZeroEntropy.x, y: chosenZeroEntropy.y };
+                }
+
+                // Wenn immer noch kein Kandidat, prüfe ob alles kollabiert ist
+                if (minX === -1) {
+                    let allCollapsed = true;
+                    for (let y = 0; y < this.outputHeight; y++) {
+                        for (let x = 0; x < this.outputWidth; x++) {
+                            if (!this.wave[y][x].collapsed) {
+                                // Prüfe, ob die Zelle wirklich mehr als eine Möglichkeit hat (sollte nicht passieren, wenn candidatesWithZeroEntropy leer ist)
+                                const possibleCountCheck = this.wave[y][x].possible.filter(p => p).length;
+                                if (possibleCountCheck > 1) {
+                                    allCollapsed = false;
+                                    console.warn(`Cell (${x}, ${y}) is not collapsed (${possibleCountCheck} possible) but no cell with minimal entropy was found. MinEntropy was ${minEntropy}. This might indicate a problem.`);
+                                    break;
+                                } else if (possibleCountCheck <= 1 && !this.hasContradiction) {
+                                    // Zustand mit 1 oder 0 Möglichkeiten, aber nicht als Kandidat gewählt -> seltsam
+                                    console.warn(`Cell (${x}, ${y}) has ${possibleCountCheck} possibilities but wasn't chosen.`);
+                                    // Versuch, diese Zelle trotzdem zu wählen, wenn sie 1 hat
+                                    if (possibleCountCheck === 1 && minX === -1) {
+                                        minX = x; minY = y;
+                                        console.log(`Found cell (${x}, ${y}) with 1 possibility belatedly. Choosing it.`);
+                                        break; // Nimm die erste gefundene
+                                    }
+                                }
+                            }
+                        }
+                        if (!allCollapsed || minX !== -1) break;
+                    }
+
+                    if (minX === -1 && !allCollapsed) {
+                        console.error("WFC Stuck: No cell to collapse found, but grid not fully collapsed and no contradictions.");
+                        this._logWaveState(); // Zustand loggen
+                        return null; // Signalisiert ein Problem
+                    } else if (minX === -1 && allCollapsed) {
+                        this.isCollapsed = true;
+                        console.log("All cells appear collapsed.");
+                        return null; // Fertig
+                    }
+                }
+
+                // console.log(`Selected cell (${minX}, ${minY}) with entropy ${minEntropy.toFixed(5)}`);
+                return { x: minX, y: minY };
+            }
+
+            // Wählt ein Muster für eine Zelle aus und kollabiert sie
+            _collapseCell(x, y) {
+                const cell = this.wave[y][x];
+                const possibleIndices = [];
+                let currentSumOfWeights = 0;
+
+                for (let i = 0; i < this.numPatterns; i++) {
+                    if (cell.possible[i]) {
+                        possibleIndices.push(i);
+                        currentSumOfWeights += this.weights[i];
+                    }
+                }
+
+                if (possibleIndices.length === 0) {
+                    // Sollte durch _findLowestEntropyCell abgefangen werden, aber als Sicherheitsnetz
+                    if (!this.hasContradiction) {
+                        console.error(`Contradiction: No possible patterns left to collapse cell (${x}, ${y})`);
+                        this.hasContradiction = true;
+                        this.wave[y][x].possible.fill(false); // Markiere als 0 Möglichkeiten
+                    }
+                    return false;
+                }
+
+                // Gewichtete Zufallsauswahl
+                let chosenIndex = -1;
+                if (possibleIndices.length === 1) {
+                    chosenIndex = possibleIndices[0];
+                } else if (currentSumOfWeights > 0) {
+                    let randomChoice = Math.random() * currentSumOfWeights;
+                    let accumulatedWeight = 0;
+                    for (const index of possibleIndices) {
+                        accumulatedWeight += this.weights[index];
+                        if (randomChoice <= accumulatedWeight) {
+                            chosenIndex = index;
+                            break;
+                        }
+                    }
+                    // Fallback, falls etwas schiefgeht (z.B. durch Floating Point Fehler bei Summenbildung)
+                    if (chosenIndex === -1) {
+                        console.warn(`Weighted random choice failed for cell (${x}, ${y}). Sum=${currentSumOfWeights}, Choices=${possibleIndices.length}. Using uniform random.`);
+                        chosenIndex = possibleIndices[Math.floor(Math.random() * possibleIndices.length)];
+                    }
+                } else {
+                    // Keine Gewichte, aber mehrere Möglichkeiten -> Uniforme Auswahl
+                    console.warn(`Collapsing cell (${x}, ${y}) with zero total weight. Using uniform random.`);
+                    chosenIndex = possibleIndices[Math.floor(Math.random() * possibleIndices.length)];
+                }
+
+
+                // Setze alle anderen Muster auf 'false'
+                for (let i = 0; i < this.numPatterns; i++) {
+                    cell.possible[i] = (i === chosenIndex);
+                }
+
+                cell.collapsed = true;
+                cell.finalPatternIndex = chosenIndex;
+                this.entropy[y][x] = 0;
+                this.changes[y * this.outputWidth + x] = true; // Markiere Zelle als geändert für Propagierung
+
+                return true; // Erfolg
+            }
+
+            // *** ERWEITERTE Version von _propagate ***
+            _propagate() {
+                const stack = [];
+
+                // Initialisiere Stack mit allen geänderten Zellen (markiert in _collapseCell)
+                for (let y = 0; y < this.outputHeight; y++) {
+                    for (let x = 0; x < this.outputWidth; x++) {
+                        const index = y * this.outputWidth + x;
+                        if (this.changes[index]) {
+                            stack.push({ x, y });
+                            // this.changes[index] = false; // Reset hier oder später? Besser später, nachdem es verarbeitet wurde.
+                        }
+                    }
+                }
+
+                let processedInLoop = 0;
+                const maxProcessing = this.outputWidth * this.outputHeight * this.numPatterns * 8; // Sicherheitslimit erhöht
+
+                while (stack.length > 0) {
+                    processedInLoop++;
+                    if (processedInLoop > maxProcessing) {
+                        console.error(`Propagation loop exceeded safety limit (${maxProcessing})! Aborting. Potential infinite loop.`);
+                        this.hasContradiction = true;
+                        this._logWaveState();
+                        return false;
+                    }
+
+                    const current = stack.pop();
+                    const currentX = current.x;
+                    const currentY = current.y;
+                    const currentIndex = currentY * this.outputWidth + currentX;
+
+                    // Reset change flag for the cell we just popped from the stack
+                    // It might be added again if its possibilities change further down the line.
+                    this.changes[currentIndex] = false;
+
+                    // Hole die aktuell möglichen Muster der Zelle, von der wir propagieren
+                    const possibleCurrentPatternIndices = [];
+                    for (let pIdx = 0; pIdx < this.numPatterns; pIdx++) {
+                        if (this.wave[currentY][currentX].possible[pIdx]) {
+                            possibleCurrentPatternIndices.push(pIdx);
+                        }
+                    }
+                    // Wenn die aktuelle Zelle selbst keine Möglichkeiten mehr hat (sollte nicht passieren, aber sicher ist sicher)
+                    if (possibleCurrentPatternIndices.length === 0 && !this.wave[currentY][currentX].collapsed) {
+                        if (!this.hasContradiction) console.error(`Propagation source cell (${currentX}, ${currentY}) has no possible patterns!`);
+                        this.hasContradiction = true;
+                        return false; // Widerspruch in der Quelle
+                    }
+
+
+                    // Gehe durch alle Nachbarn (dx, dy)
+                    for (let dx = -1; dx <= 1; dx++) {
+                        for (let dy = -1; dy <= 1; dy++) {
+                            if (dx === 0 && dy === 0) continue;
+
+                            let neighborX = currentX + dx;
+                            let neighborY = currentY + dy;
+
+                            // Behandlung von Rändern
+                            if (this.periodicOutput) {
+                                neighborX = (neighborX + this.outputWidth) % this.outputWidth;
+                                neighborY = (neighborY + this.outputHeight) % this.outputHeight;
+                            } else {
+                                if (neighborX < 0 || neighborX >= this.outputWidth || neighborY < 0 || neighborY >= this.outputHeight) {
+                                    continue; // Außerhalb der Grenzen
+                                }
+                            }
+
+                            const neighborCell = this.wave[neighborY][neighborX];
+                            if (neighborCell.collapsed) continue; // Bereits kollabierte Nachbarn ignorieren
+
+                            const neighborIndex = neighborY * this.outputWidth + neighborX;
+                            let changedNeighbor = false;
+                            const originalPossibleCount = neighborCell.possible.filter(p => p).length;
+
+                            // Iteriere durch die Muster des *Nachbarn*
+                            for (let neighborPatternIndex = 0; neighborPatternIndex < this.numPatterns; neighborPatternIndex++) {
+                                // Überspringe, wenn das Muster im Nachbarn eh nicht (mehr) möglich ist
+                                if (!neighborCell.possible[neighborPatternIndex]) continue;
+
+                                // Prüfe, ob dieses Nachbar-Muster (neighborPatternIndex) von *mindestens einem*
+                                // der möglichen Muster in der *aktuellen* Zelle (currentPatternIndex) unterstützt wird.
+                                // Die benötigte Regel ist: adjacencyRules[neighborPatternIndex][dx][dy] muss currentPatternIndex enthalten.
+                                let isSupported = false;
+                                for (const currentPatternIndex of possibleCurrentPatternIndices) {
+                                    if (this.adjacencyRules[neighborPatternIndex][dx] &&
+                                        this.adjacencyRules[neighborPatternIndex][dx][dy] &&
+                                        this.adjacencyRules[neighborPatternIndex][dx][dy].has(currentPatternIndex)) {
+                                        isSupported = true;
+                                        break; // Ein unterstützendes Muster reicht
+                                    }
+                                }
+
+                                // Wenn neighborPatternIndex von *keinem* der aktuellen Muster in 'current' unterstützt wird -> entfernen
+                                if (!isSupported) {
+                                    neighborCell.possible[neighborPatternIndex] = false;
+                                    changedNeighbor = true;
+                                    // console.log(`      Prop (${currentX},${currentY})->(${neighborX},${neighborY}): Removed pattern ${neighborPatternIndex} (rule check)`);
+                                }
+                            } // Ende Schleife durch Nachbar-Muster
+
+                            // Wenn sich die Möglichkeiten des Nachbarn geändert haben
+                            if (changedNeighbor) {
+                                const remainingCount = neighborCell.possible.filter(p => p).length;
+                                // console.log(`   -> Neighbor (${neighborX}, ${neighborY}) possibilities changed from ${originalPossibleCount} to ${remainingCount}`);
+
+                                if (remainingCount === 0) {
+                                    if (!this.hasContradiction) { // Nur erste Meldung
+                                        console.error(`Contradiction detected propagating from (${currentX}, ${currentY}) to neighbor (${neighborX}, ${neighborY})`);
+                                        this._logWaveState(); // Zustand bei Fehler
+                                    }
+                                    this.hasContradiction = true;
+                                    return false; // Sofort abbrechen
+                                }
+
+                                // Füge Nachbarn zum Stack hinzu, wenn er nicht schon drin ist und nicht bereits als "changed" für diese Runde markiert ist
+                                // Das 'changes' flag verhindert, dass derselbe Nachbar mehrmals für dieselbe Ursprungsänderung in den Stack kommt.
+                                if (!this.changes[neighborIndex]) {
+                                    stack.push({ x: neighborX, y: neighborY });
+                                    this.changes[neighborIndex] = true; // Markieren: Dieser Nachbar muss geprüft werden
+                                    // console.log(`   -> Added neighbor (${neighborX}, ${neighborY}) to propagation stack.`);
+                                }
+                            }
+                        } // Ende Nachbar-Schleife dy
+                    } // Ende Nachbar-Schleife dx
+                } // Ende while(stack)
+
+                // console.log(`Propagation loop finished after processing ${processedInLoop} items.`);
+                return true; // Erfolgreiche Propagierung ohne Widerspruch
+            }
+
+
+            // Führt einen einzelnen Schritt des WFC-Algorithmus aus
+            step() {
+                if (this.isCollapsed || this.hasContradiction) {
+                    // console.log(`Step called but already ${this.isCollapsed ? 'collapsed' : 'in contradiction'}.`);
+                    return false;
+                }
+
+                // 1. Finde Zelle mit niedrigster Entropie
+                // console.log("Step: Finding lowest entropy cell..."); // Sehr gesprächig
+                const cellToCollapse = this._findLowestEntropyCell();
+
+                // Prüfe auf Widerspruch oder Ende nach der Suche
+                if (this.hasContradiction) {
+                    console.error("WFC resulted in a contradiction (detected in findLowestEntropyCell).");
+                    setStatus("Status: Contradiction!");
+                    this._logWaveState(); // Zustand loggen
+                    return false;
+                }
+                if (!cellToCollapse) {
+                    if (this.isCollapsed) {
+                        // console.log("WFC successfully collapsed (detected in step after findLowestEntropyCell).");
+                        setStatus("Status: Success!");
+                    } else {
+                        // Sollte durch die verbesserte findLowestEntropyCell-Logik abgedeckt sein
+                        console.error("WFC Stuck: No cell to collapse returned, but not collapsed and no contradiction.");
+                        setStatus("Status: Stuck!");
+                        this._logWaveState(); // Zustand loggen
+                    }
+                    return false; // Fertig oder Fehler
+                }
+                // console.log(`Step: Found cell (${cellToCollapse.x}, ${cellToCollapse.y}) to collapse.`);
+
+
+                // 2. Kollabiere die ausgewählte Zelle
+                // console.log(`Step: Collapsing cell (${cellToCollapse.x}, ${cellToCollapse.y})...`);
+                if (!this._collapseCell(cellToCollapse.x, cellToCollapse.y)) {
+                    // _collapseCell sollte hasContradiction setzen
+                    if (!this.hasContradiction) { // Nur zur Sicherheit
+                        console.error("Collapse failed unexpectedly without setting contradiction flag.");
+                        this.hasContradiction = true; // Setzen
+                    }
+                    console.error(`WFC resulted in a contradiction during collapse of (${cellToCollapse.x}, ${cellToCollapse.y}).`);
+                    setStatus("Status: Contradiction!");
+                    this._logWaveState(); // Zustand bei Fehler loggen
+                    return false;
+                }
+                // console.log(`Step: Cell (${cellToCollapse.x}, ${cellToCollapse.y}) collapsed to pattern index: ${this.wave[cellToCollapse.y][cellToCollapse.x].finalPatternIndex}`);
+
+
+                // 3. Propagiere die Einschränkungen
+                // console.log("Step: Propagating constraints...");
+                if (!this._propagate()) {
+                    // _propagate sollte hasContradiction setzen
+                    if (!this.hasContradiction) { // Nur zur Sicherheit
+                        console.error("Propagation failed unexpectedly without setting contradiction flag.");
+                        this.hasContradiction = true; // Setzen
+                    }
+                    console.error("WFC resulted in a contradiction during propagation.");
+                    setStatus("Status: Contradiction!");
+                    // Zustand wurde wahrscheinlich schon in _propagate geloggt
+                    return false;
+                }
+                // console.log("Step: Propagation finished successfully.");
+
+                return true; // Ein Schritt wurde erfolgreich ausgeführt
+            }
+
+            // Führt den WFC-Algorithmus bis zum Ende aus (synchron)
+            run() {
+                console.log("Running WFC synchronously...");
+                setStatus("Status: Running...");
+                let iterations = 0;
+                const maxIterations = this.outputWidth * this.outputHeight * 2; // Sicherheitslimit
+
+                while (iterations < maxIterations) {
+                    // console.log(`--- Iteration ${iterations + 1} ---`);
+                    if (!this.step()) {
+                        break; // Beendet, wenn step() false zurückgibt (kollabiert oder Widerspruch)
+                    }
+                    iterations++;
+                }
+
+                if (this.hasContradiction) {
+                    console.error(`WFC finished with contradiction after ${iterations} iterations.`);
+                    setStatus("Status: Contradiction!");
+                } else if (this.isCollapsed) {
+                    console.log(`WFC finished successfully after ${iterations} iterations.`);
+                    setStatus("Status: Success!");
+                } else if (iterations >= maxIterations) {
+                    console.error(`WFC stopped due to maximum iteration limit (${maxIterations}).`);
+                    setStatus("Status: Stopped (Max Iterations)");
+                    this._logWaveState();
+                } else {
+                    console.warn("WFC stopped for an unknown reason.");
+                    setStatus("Status: Stopped (Unknown)");
+                    this._logWaveState();
+                }
+                return !this.hasContradiction && this.isCollapsed;
+            }
+
+            // Führt WFC asynchron aus, um Visualisierung zu ermöglichen
+            async runAsync(stepCallback) {
+                console.log("Running WFC asynchronously...");
+                setStatus("Status: Running...");
+                let steps = 0;
+                const maxSteps = this.outputWidth * this.outputHeight * 2; // Sicherheitslimit
+
+                while (!this.isCollapsed && !this.hasContradiction && steps < maxSteps) {
+                    // Führe einen Schritt aus
+                    const success = this.step();
+
+                    // Callback für Visualisierung aufrufen
+                    if (stepCallback) {
+                        // Rufe den Callback auf, um den aktuellen Zustand zu zeichnen
+                        stepCallback(this.wave, this.hasContradiction);
+                    }
+
+                    // Wenn der Schritt fehlschlug (Widerspruch oder fertig) oder erfolgreich war und wir visualisieren
+                    if (!success || (VISUALIZE_STEPS && STEP_DELAY_MS > 0)) {
+                        await BABYLON.Tools.DelayAsync(STEP_DELAY_MS); // Kurze Pause
+                    } else if (VISUALIZE_STEPS) {
+                        // Erlaube dem Browser kurzes Rendern auch ohne Delay
+                        await new Promise(resolve => requestAnimationFrame(resolve));
+                    }
+
+                    // Wenn step() false zurückgab, beende die Schleife
+                    if (!success) {
+                        break;
+                    }
+
+                    steps++;
+                }
+
+                // Endgültigen Status setzen und loggen
+                if (this.hasContradiction) {
+                    console.error(`WFC finished with contradiction after ${steps} steps.`);
+                    setStatus("Status: Contradiction!");
+                    if (stepCallback) stepCallback(this.wave, true); // Letztes Update mit Fehlerflag
+                } else if (this.isCollapsed) {
+                    console.log(`WFC finished successfully after ${steps} steps.`);
+                    setStatus("Status: Success!");
+                    if (stepCallback) stepCallback(this.wave, false); // Letztes Update ohne Fehlerflag
+                } else if (steps >= maxSteps) {
+                    console.error(`WFC stopped due to maximum step limit (${maxSteps}).`);
+                    setStatus("Status: Stopped (Max Steps)");
+                    if (stepCallback) stepCallback(this.wave, true);
+                    this._logWaveState();
+                } else {
+                    // Sollte nicht passieren, wenn step() korrekt funktioniert
+                    console.warn(`WFC async loop ended unexpectedly after ${steps} steps.`);
+                    setStatus("Status: Stopped (Unknown)");
+                    if (stepCallback) stepCallback(this.wave, this.hasContradiction);
+                    this._logWaveState();
+                }
+
+                return !this.hasContradiction && this.isCollapsed;
+            }
+
+            // Gibt den Farbwert für eine Zelle zurück
+            getCellColorValue(x, y) {
+                const cell = this.wave[y][x];
+
+                if (cell.collapsed && cell.finalPatternIndex !== -1) {
+                    const pattern = this.patterns[cell.finalPatternIndex];
+                    const centerY = Math.floor(this.N / 2);
+                    const centerX = Math.floor(this.N / 2);
+                    // Stelle sicher, dass die Indizes gültig sind (besonders wenn N=1)
+                    if (centerY >= 0 && centerY < pattern.length && centerX >= 0 && centerX < pattern[0].length) {
+                        return pattern[centerY][centerX];
+                    } else {
+                        console.warn(`Invalid center index [${centerY},${centerX}] for pattern ${cell.finalPatternIndex} with N=${this.N}`);
+                        return pattern[0][0]; // Fallback auf erstes Element
+                    }
+                }
+
+                // Wenn nicht kollabiert, prüfe ob es eine Widerspruchszelle ist
+                if (this.hasContradiction) {
+                    const possibleCount = cell.possible.filter(p => p).length;
+                    if (possibleCount === 0) {
+                        return -2; // Spezieller Wert für Widerspruchszelle
+                    }
+                }
+
+                return -1; // Unkollabiert
+            }
+
+            // *** NEUE HILFSFUNKTION zum Loggen des Zustands ***
+            _logWaveState() {
+                console.log(`--- Current Wave State (${this.outputWidth}x${this.outputHeight}) ---`);
+                console.log(`Collapsed: ${this.isCollapsed}, Contradiction: ${this.hasContradiction}`);
+                let output = "";
+                for (let y = 0; y < this.outputHeight; y++) {
+                    let rowStr = "";
+                    for (let x = 0; x < this.outputWidth; x++) {
+                        const cell = this.wave[y][x];
+                        if (cell.collapsed) {
+                            rowStr += `[C:${cell.finalPatternIndex}]`.padEnd(6);
+                        } else {
+                            const possibleCount = cell.possible.filter(p => p).length;
+                            rowStr += `[${possibleCount}]`.padEnd(6);
+                            if (possibleCount === 0 && !this.hasContradiction) {
+                                console.warn(`Cell (${x}, ${y}) has 0 possibilities but hasContradiction is false!`);
+                            }
+                        }
+                    }
+                    output += rowStr + "\n";
+                }
+                console.log(output + "--- End Wave State ---");
+            }
+        }
+
+        // --- Babylon.js Szene ---
+        let gridMeshes = [];
+        let gridParent;
+
+        function createScene(outputSize) {
+            // Dispose old scene safely
+            if (scene) {
+                console.log("Disposing previous scene...");
+                // Dispose meshes explicitly first
+                if (gridParent) {
+                    gridParent.dispose(false, true); // Dispose node and children recursively
+                    gridParent = null;
+                }
+                gridMeshes = [];
+                scene.dispose();
+                scene = null;
+                // Leere Material-Cache, wenn Szene entsorgt wird
+                for (const key in materialCache) {
+                    if (materialCache.hasOwnProperty(key)) {
+                        materialCache[key].dispose();
+                    }
+                }
+                materialCache = {};
+                console.log("Previous scene disposed.");
+            }
+
+            console.log(`Creating new scene with size ${outputSize}x${outputSize}`);
+            scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color4(0.1, 0.1, 0.15, 1);
+
+            // Kamera
+            const cameraTarget = new BABYLON.Vector3(
+                (outputSize - 1) * (TILE_SIZE + TILE_SPACING) / 2,
+                0,
+                (outputSize - 1) * (TILE_SIZE + TILE_SPACING) / 2
+            );
+            const camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 3.5, outputSize * TILE_SIZE * 1.5, cameraTarget, scene);
+            camera.attachControl(canvas, true);
+            camera.wheelPrecision = 50;
+            camera.lowerRadiusLimit = TILE_SIZE * 2;
+            camera.upperRadiusLimit = outputSize * TILE_SIZE * 5;
+            camera.minZ = 0.1; // Nahbereich der Kamera
+
+
+            // Licht
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0.5, 1, 0.5), scene);
+            light.intensity = 0.8;
+            const light2 = new BABYLON.PointLight("pointLight", new BABYLON.Vector3(cameraTarget.x, outputSize * TILE_SIZE * 1.5, cameraTarget.z), scene);
+            light2.intensity = 0.5;
+
+            // Eltern-TransformNode für das Gitter
+            gridParent = new BABYLON.TransformNode("WFCGrid", scene);
+            // Zentrierung nicht mehr nötig, da Kamera auf Zentrum zielt
+            // gridParent.position.x = -(outputSize - 1) * (TILE_SIZE + TILE_SPACING) / 2;
+            // gridParent.position.z = -(outputSize - 1) * (TILE_SIZE + TILE_SPACING) / 2;
+
+            // Initiales Gitter erstellen (leere Würfel)
+            gridMeshes = [];
+            for (let y = 0; y < outputSize; y++) {
+                gridMeshes[y] = [];
+                for (let x = 0; x < outputSize; x++) {
+                    const box = BABYLON.MeshBuilder.CreateBox(`cell_${x}_${y}`, { size: TILE_SIZE }, scene);
+                    // Positioniere relativ zum Parent (der jetzt bei 0,0,0 ist)
+                    box.position.x = x * (TILE_SIZE + TILE_SPACING);
+                    box.position.z = y * (TILE_SIZE + TILE_SPACING);
+                    box.position.y = TILE_SIZE / 2; // Setze Basis auf y=0
+                    box.material = getColorMaterial(tileColors.DEFAULT, scene);
+                    box.parent = gridParent;
+                    gridMeshes[y][x] = box;
+                }
+            }
+            console.log(`Created ${outputSize * outputSize} grid meshes.`);
+            return scene;
+        }
+
+        // Aktualisiert die Visualisierung basierend auf dem WFC-Zustand
+        function updateVisualization(waveData, isContradiction = false) {
+            if (!wfcRunner || !gridMeshes.length || !scene) {
+                console.warn("UpdateVisualization called but runner, meshes or scene not ready.");
+                return;
+            }
+
+            const outputHeight = wfcRunner.outputHeight;
+            const outputWidth = wfcRunner.outputWidth;
+
+            // Stelle sicher, dass gridMeshes die richtige Größe hat
+            if (gridMeshes.length !== outputHeight || (outputHeight > 0 && gridMeshes[0].length !== outputWidth)) {
+                console.error("Mismatch between WFC output size and gridMeshes size!");
+                return;
+            }
+
+
+            for (let y = 0; y < outputHeight; y++) {
+                for (let x = 0; x < outputWidth; x++) {
+                    if (!gridMeshes[y] || !gridMeshes[y][x]) {
+                        console.warn(`Mesh missing at gridMeshes[${y}][${x}]`);
+                        continue;
+                    };
+
+                    const mesh = gridMeshes[y][x];
+                    const colorValue = wfcRunner.getCellColorValue(x, y); // Nutze die Hilfsfunktion
+                    const targetColor = getTileColor(colorValue); // Nutze die Farb-Hilfsfunktion
+
+                    // Material nur aktualisieren, wenn es sich geändert hat oder noch nicht gesetzt ist
+                    const requiredMaterial = getColorMaterial(targetColor, scene);
+                    if (mesh.material !== requiredMaterial) {
+                        mesh.material = requiredMaterial;
+                    }
+                }
+            }
+        }
+
+        function setStatus(message) {
+            const statusElement = document.getElementById('status');
+            if (statusElement) {
+                statusElement.innerText = message;
+            }
+        }
+
+        // --- Startlogik ---
+        document.getElementById("startButton").addEventListener("click", async () => {
+            const outputSizeInput = document.getElementById("outputSize");
+            const outputSize = parseInt(outputSizeInput.value, 10);
+            if (isNaN(outputSize) || outputSize < N) { // Größe muss mind. N sein
+                alert(`Please enter a valid output size (>= ${N}).`);
+                return;
+            }
+            // Begrenze die Maximalgröße, um Leistungsprobleme zu vermeiden
+            const maxSize = 50;
+            if (outputSize > maxSize) {
+                alert(`Output size too large (max ${maxSize}). Setting to ${maxSize}.`);
+                outputSizeInput.value = maxSize;
+                // Nutze die korrigierte Größe weiter
+                // outputSize = maxSize; // oder breche ab: return;
+                // --> Besser dem User die Chance geben zu korrigieren:
+                return;
+            }
+
+
+            const startButton = document.getElementById("startButton");
+            startButton.disabled = true;
+            setStatus("Status: Initializing...");
+            console.log("--- Starting New Generation ---");
+
+            // Asynchron ausführen, um UI nicht zu blockieren
+            await new Promise(resolve => setTimeout(resolve, 10)); // Kurze Pause, damit UI "Initializing..." anzeigt
+
+            try {
+                // Szene neu erstellen (löscht alte Würfel und Materialien)
+                scene = createScene(outputSize);
+                if (!scene) {
+                    throw new Error("Failed to create scene.");
+                }
+
+                // Kurze Pause nach Szenenerstellung
+                await new Promise(resolve => setTimeout(resolve, 10));
+
+                // WFC-Instanz erstellen
+                console.log("Creating WFC Runner...");
+                wfcRunner = new WFCOverlappingModel(inputPattern, N, outputSize, outputSize, true, false); // periodicInput=true, periodicOutput=false
+
+                // Initialvisualisierung (alle blau)
+                updateVisualization(wfcRunner.wave, false);
+                await new Promise(resolve => setTimeout(resolve, 10)); // Kurze Pause für erste Anzeige
+
+                console.log("Starting WFC run...");
+                if (VISUALIZE_STEPS) {
+                    await wfcRunner.runAsync(updateVisualization);
+                } else {
+                    wfcRunner.run();
+                    updateVisualization(wfcRunner.wave, wfcRunner.hasContradiction); // Endgültiges Update
+                }
+            } catch (error) {
+                console.error("Error during WFC setup or execution:", error);
+                setStatus(`Status: Error! ${error.message}`);
+                if (wfcRunner) {
+                    wfcRunner.hasContradiction = true; // Markieren als Fehler
+                    if (wfcRunner.wave && gridMeshes.length > 0) { // Versuche, Fehler in Rot anzuzeigen
+                        updateVisualization(wfcRunner.wave, true);
+                    }
+                }
+            } finally {
+                startButton.disabled = false;
+                console.log("--- Generation Finished ---");
+            }
+
+        });
+
+        // Haupt-Render-Loop
+        engine.runRenderLoop(() => {
+            if (scene && scene.activeCamera) { // Prüfe ob Szene und Kamera bereit sind
+                scene.render();
+            } else if (scene && !scene.activeCamera) {
+                // console.warn("Scene exists but no active camera."); // Kann während Szenerstellung passieren
+            }
+        });
+
+        // Resize-Handler
+        window.addEventListener("resize", () => {
+            engine.resize();
+        });
+
+        // Initialen Zustand anzeigen (leeres Grid) beim Laden der Seite
+        window.addEventListener('DOMContentLoaded', (event) => {
+            try {
+                const initialSize = parseInt(document.getElementById("outputSize").value, 10);
+                scene = createScene(initialSize);
+                setStatus("Status: Ready");
+            } catch (error) {
+                console.error("Error during initial scene creation:", error);
+                setStatus("Status: Initialization Error!");
+            }
+        });
+    </script> <!-- Unser WFC-Code -->
+</body>
+
+</html>
