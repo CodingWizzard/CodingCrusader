@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Audio Test</title>
+</head>
+<body>
+    <h1>Audio Test</h1>
+    
+    <button id="playButton">Play Dog Sound</button>
+    <audio id="dogSound" src="assets/dog.mp3" preload="auto"></audio>
+
+    <script>
+        const button = document.getElementById('playButton');
+        const audio = document.getElementById('dogSound');
+
+        button.addEventListener('click', () => {
+            console.log('Button clicked');
+            audio.play()
+                .then(() => {
+                    console.log('Playing audio');
+                })
+                .catch(error => {
+                    console.error('Error playing audio:', error);
+                });
+        });
+
+        // Log when audio is loaded
+        audio.addEventListener('canplaythrough', () => {
+            console.log('Audio loaded and ready to play');
+        });
+
+        // Log any errors
+        audio.addEventListener('error', (e) => {
+            console.error('Audio error:', e);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Babylon.js Advanced Glass Shader Test</title>
+    <!-- Babylon.js Core Library: Provides the fundamental functionalities of the Babylon.js framework. -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <!-- Add these shader files before your glassShaderMaterial.js -->
+
+    <!-- Include glassShaderMaterial.js, which defines the createGlassMaterial function.
+         This script must be loaded after babylon.js and before it's used in the scene setup. -->
+    <script src="glassShaderMaterial.js"></script>
+    <style>
+        /* Basic CSS to make the canvas fill the entire browser window. */
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            /* Prevents scrollbars if canvas slightly overflows. */
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            /* Removes any potential extra space below the canvas. */
+        }
+    </style>
+</head>
+
+<body>
+    <!-- The canvas element where Babylon.js will render the scene. -->
+    <canvas id="renderCanvas"></canvas>
+    <button id="startButton" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+    padding: 15px 30px; font-size: 18px; cursor: pointer; z-index: 100;">
+        Start Experience
+    </button>
+
+    <audio id="surfSound" src="assets/surf.mp3" preload="auto"></audio>
+    <audio id="dogSound" src="assets/dog.mp3" preload="auto"></audio>
+    <audio id="gullsSound" src="assets/gulls.mp3" preload="auto"></audio>
+    <audio id="underwaterSound" src="assets/underwater.mp3" preload="auto"></audio>
+
+    <script type="x-shader/x-vertex" id="glassVertexShader">
+        precision highp float;
+
+        // Attributes
+        attribute vec3 position;
+        attribute vec3 normal;
+        attribute vec2 uv;
+
+        // Uniforms
+        uniform mat4 world;
+        uniform mat4 worldView;
+        uniform mat4 worldViewProjection;
+
+        // Varying
+        varying vec3 vPositionW;
+        varying vec3 vNormalW;
+        varying vec2 vUV;
+
+        void main(void) {
+            vec4 outPosition = worldViewProjection * vec4(position, 1.0);
+            gl_Position = outPosition;
+
+            vPositionW = vec3(world * vec4(position, 1.0));
+            vNormalW = normalize(vec3(world * vec4(normal, 0.0)));
+            vUV = uv;
+        }
+    </script>
+
+    <script type="x-shader/x-fragment" id="glassFragmentShader">
+        precision highp float;
+
+        // Varying
+        varying vec3 vPositionW;
+        varying vec3 vNormalW;
+        varying vec2 vUV;
+
+        // Uniforms
+        uniform vec3 cameraPosition;
+        uniform sampler2D textureSampler;
+        uniform sampler2D refractionSampler;
+        uniform float refractionStrength;
+        uniform vec3 glassColor;
+
+        // Constants
+        const float R0 = 0.02;
+        const float IOR = 1.52;
+
+        void main(void) {
+            vec3 viewDirectionW = normalize(cameraPosition - vPositionW);
+            vec3 normalW = normalize(vNormalW);
+
+            float fresnelTerm = R0 + (1.0 - R0) * pow(1.0 - dot(viewDirectionW, normalW), 5.0);
+
+            vec3 refractionVector = refract(-viewDirectionW, normalW, 1.0 / IOR);
+            vec2 refractionCoords = vUV + refractionVector.xy * refractionStrength;
+            vec4 refractionColor = texture2D(refractionSampler, refractionCoords);
+
+            vec4 finalColor = mix(refractionColor, vec4(glassColor, 1.0), 0.1);
+            finalColor.rgb += fresnelTerm * 0.5;
+
+            gl_FragColor = finalColor;
+        }
+    </script>
+    <script>
+        // Get a reference to the canvas element.
+        const canvas = document.getElementById('renderCanvas');
+        // Initialize the Babylon.js 3D engine.
+        // `true` for antialiasing.
+        // `{ preserveDrawingBuffer: true, stencil: true }` are engine options.
+        // `preserveDrawingBuffer` can be useful for screenshots, `stencil` for certain advanced effects (though not strictly needed here).
+        const engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true,
+            caps: {
+                maxSimultaneousLights: 6
+            }
+        });
+
+        // Function to encapsulate the creation of the scene and its components.
+        function createScene() {
+
+            if (typeof createGlassMaterial !== 'function') {
+                console.error("createGlassMaterial is not defined! Check if glassShaderMaterial.js is loaded correctly");
+                return null;
+            }
+
+            // Create a new Babylon.js scene.
+            const scene = new BABYLON.Scene(engine);
+            // Set a background color for the scene (RGBA).
+            scene.clearColor = new BABYLON.Color4(0.2, 0.25, 0.3, 1.0);
+
+            // --- Camera Setup ---
+            // ArcRotateCamera provides orbital controls (rotate, pan, zoom) around a target point.
+            const camera = new BABYLON.ArcRotateCamera(
+                "camera",               // A unique name for the camera.
+                -Math.PI / 2.2,         // Initial rotation angle around the Y-axis (alpha), in radians.
+                Math.PI / 2.5,          // Initial rotation angle around the X-axis (beta), in radians.
+                10,                     // Initial distance from the target (radius).
+                new BABYLON.Vector3(0, 1, 0), // The point the camera will orbit around.
+                scene                   // The scene the camera belongs to.
+            );
+            // Initially position camera underwater
+            // camera.position = new BABYLON.Vector3(2, 2, 0); // Below water level
+            // Don't attach camera controls yet
+            // camera.attachControl(canvas, true); <- remove this line
+
+            // --- Lighting Setup ---
+            // HemisphericLight provides ambient lighting from above and below, simulating sky and ground bounce.
+            const light = new BABYLON.HemisphericLight(
+                "light",                      // A unique name for the light.
+                new BABYLON.Vector3(0.5, 1, 0.25), // Direction of the light (from positive Y, slightly offset).
+                scene                         // The scene the light belongs to.
+            );
+            light.intensity = 0.8; // Brightness of the light.
+
+            // First create the ground with more subdivisions
+            const ground = BABYLON.MeshBuilder.CreateGround("ground", {
+                width: 15 * 2,
+                height: 15 * 2,
+                updatable: true,
+                subdivisions: 50 // Add this line for more detail
+            }, scene);
+
+            // Add vertex manipulation for waves
+            const vertices = ground.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+            for (let i = 0; i < vertices.length; i += 3) {
+                const x = vertices[i];
+                const z = vertices[i + 2];
+                // Create a wavy pattern using sine functions
+                vertices[i + 1] = Math.sin(x * 0.5) * 0.2 + Math.sin(z * 0.5) * 0.2;
+            }
+            ground.updateVerticesData(BABYLON.VertexBuffer.PositionKind, vertices);
+
+            // Update normals for correct lighting
+            ground.createNormals(true);
+
+            // Rest of the ground material setup
+            const groundMat = new BABYLON.StandardMaterial("groundMat", scene);
+            groundMat.diffuseTexture = new BABYLON.Texture("assets/ground.jpg", scene);
+            groundMat.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+            // groundMat.diffuseColor = new BABYLON.Color3(0.2, 0.2, 0.2); // Dunkelgrau
+            // groundMat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1); // Weniger spiegelnd
+
+            ground.material = groundMat;
+
+            // Then create the glass mesh
+            const glassMesh = BABYLON.MeshBuilder.CreateTorusKnot("glassKnot",
+                {
+                    radius: 1.5,
+                    tube: 0.4,
+                    radialSegments: 128,
+                    tubularSegments: 64,
+                    p: 2, q: 3
+                }, scene);
+            glassMesh.position = new BABYLON.Vector3(0, 1.5, 0);
+
+            // Now setup shadows
+            scene.shadowsEnabled = true;
+            scene.ambientColor = new BABYLON.Color3(0.3, 0.3, 0.3); // Reduziere das Umgebungslicht
+
+            const dirLight = new BABYLON.DirectionalLight(
+                "dirLight",
+                new BABYLON.Vector3(-1, -1, -1).normalize(), // Normalisiere die Richtung
+                scene
+            );
+            dirLight.position = new BABYLON.Vector3(10, 10, 10); // Näher zur Szene
+            dirLight.intensity = 0.7;
+
+            // Optimiere die Schatten-Einstellungen
+            const shadowGenerator = new BABYLON.ShadowGenerator(1024, dirLight);
+            shadowGenerator.useExponentialShadowMap = true; // Verwende exponential shadow mapping
+            shadowGenerator.useBlurExponentialShadowMap = true;
+            shadowGenerator.blurKernel = 32;
+            shadowGenerator.useKernelBlur = true;
+            shadowGenerator.blurScale = 2;
+            shadowGenerator.setDarkness(0.7); // Dunklere Schatten
+            shadowGenerator.bias = 0.01; // Verhindert Shadow-Acne
+
+            // Now we can safely set up shadows for ground and glass
+            ground.receiveShadows = true;
+            shadowGenerator.addShadowCaster(ground);
+            glassMesh.receiveShadows = true;
+            shadowGenerator.addShadowCaster(glassMesh, true);
+
+            // Add point lights around the scene for dramatic effect
+            const colors = [
+                new BABYLON.Color3(1, 0.3, 0.3),   // Reddish
+                new BABYLON.Color3(0.3, 1, 0.3),   // Greenish
+                new BABYLON.Color3(0.3, 0.3, 1)    // Bluish
+            ];
+
+            for (let i = 0; i < 3; i++) {
+                const angle = (i / 3) * Math.PI * 2;
+                const pointLight = new BABYLON.PointLight(
+                    `pointLight${i}`,
+                    new BABYLON.Vector3(
+                        5 * Math.cos(angle),
+                        3,
+                        5 * Math.sin(angle)
+                    ),
+                    scene
+                );
+                pointLight.intensity = 0.3;
+                pointLight.diffuse = colors[i];
+                pointLight.specular = colors[i];
+            }
+
+            // --- Background Meshes (Objects to be refracted by the glass) ---
+            // These are standard meshes that will be part of the scene.
+            // They are also specifically added to the refraction render target's renderList
+            // so they appear "through" the glass.
+            // const sphere1 = BABYLON.MeshBuilder.CreateSphere("sphere1", { diameter: 1.5, segments: 32 }, scene);
+            // sphere1.position = new BABYLON.Vector3(2.5, 1, 2.5);
+            // const sphere1Mat = new BABYLON.StandardMaterial("s1mat", scene);
+            // sphere1Mat.diffuseColor = new BABYLON.Color3(1, 0.2, 0.2); // Red color
+            // sphere1.material = sphere1Mat;
+
+            // const box1 = BABYLON.MeshBuilder.CreateBox("box1", { size: 1.2 }, scene);
+            // box1.position = new BABYLON.Vector3(-2.5, 0.6, -1.5);
+            // const box1Mat = new BABYLON.StandardMaterial("b1mat", scene);
+            // box1Mat.diffuseColor = new BABYLON.Color3(0.2, 1, 0.2); // Green color
+            // box1.material = box1Mat;
+
+            // Array to hold all meshes that should be rendered by the refraction texture.
+            const backgroundMeshes = []; // sphere1, box1];
+
+            // Ground plane: A large flat surface.
+            // const ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 15, height: 15 }, scene);
+            // const groundMat = new BABYLON.StandardMaterial("groundMat", scene);
+            // // Apply a texture to the ground for more visual interest.
+            // groundMat.diffuseTexture = new BABYLON.Texture("https://www.babylonjs-playground.com/textures/ground.jpg", scene);
+            // groundMat.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2); // Reduce shininess.
+            // ground.material = groundMat;
+            // backgroundMeshes.push(ground); // Add ground to the list of meshes for refraction.
+
+            // --- Glass Mesh Setup ---
+            // This is the mesh that will use our custom glass shader material.
+            // A TorusKnot is a complex shape, good for showcasing refractive and reflective effects.
+            // const glassMesh = BABYLON.MeshBuilder.CreateTorusKnot("glassKnot",
+            //     {
+            //         radius: 1.2,          // Overall radius of the knot.
+            //         tube: 0.35,            // Radius of the tube forming the knot.
+            //         radialSegments: 128,  // Number of segments around the tube's circumference.
+            //         tubularSegments: 64,  // Number of segments along the tube's length.
+            //         p: 2, q: 3            // Parameters affecting the knot's shape.
+            //     }, scene);
+            // glassMesh.position = new BABYLON.Vector3(0, 1.5, 0); // Position the glass mesh in the scene.
+
+            // --- Create and Apply Glass Material ---
+            // This function is defined in `glassShaderMaterial.js`.
+            // It sets up the ShaderMaterial with our custom GLSL shaders and necessary configurations.
+            // NOTE: 'normalmap.png' is used as the path for the normal map texture.
+            // This is likely a placeholder. For the normal mapping to have a visible effect,
+            // 'normalmap.png' must be a valid image file containing normal map data,
+            // and it must be accessible at the specified path relative to the HTML file or on a server.
+            // If the file is missing or not a proper normal map, the surface detail effect will be absent or incorrect.
+            const glassMaterial = createGlassMaterial(scene, "normalMap.jpg");
+            if (!glassMaterial) {
+                console.error("Failed to create glass material!");
+                // Fallback material
+                const fallbackMaterial = new BABYLON.StandardMaterial("fallback", scene);
+                fallbackMaterial.diffuseColor = new BABYLON.Color3(0.5, 0.5, 1.0);
+                fallbackMaterial.alpha = 0.5;
+                glassMesh.material = fallbackMaterial;
+            } else {
+                console.log("Glass material created successfully");
+                glassMesh.material = glassMaterial;
+
+                // ground.material = glassMaterial;
+            }
+
+            // // --- Configure Refraction Render Target Texture (RTT) ---
+            // // The `refractionTexture` (an RTT) is created inside `createGlassMaterial`.
+            // // Its `renderList` determines which meshes are rendered into it.
+            // // For realistic refraction, this list should include all objects visible *through* the glass.
+            // // CRITICALLY, the glassMesh itself should NOT be in this list to prevent visual artifacts (self-refraction).
+            // if (glassMaterial.refractionTexture && glassMaterial.refractionTexture.renderList) {
+            //     backgroundMeshes.forEach(mesh => {
+            //         glassMaterial.refractionTexture.renderList.push(mesh);
+            //     });
+            // } else {
+            //     console.error("Refraction texture or its renderList is not available on the glass material. Refraction may not work.");
+            // }
+
+            // --- Skybox (Optional, but greatly enhances reflections and refractions) ---
+            // A skybox is a large cube surrounding the scene with environment textures on its faces.
+            const skybox = BABYLON.MeshBuilder.CreateBox("skyBox", { size: 100.0 }, scene);
+            const skyboxMaterial = new BABYLON.StandardMaterial("skyBoxMat", scene);
+            skyboxMaterial.backFaceCulling = false; // Render the inside faces of the cube.
+            skyboxMaterial.alpha = 0.7;
+            // Load a cube texture for the skybox.
+            skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture("https://www.babylonjs-playground.com/textures/skybox", scene);
+            skyboxMaterial.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE; // Use skybox projection.
+            skyboxMaterial.diffuseColor = new BABYLON.Color3(0, 0, 0); // Skybox should not be affected by scene lighting.
+            skyboxMaterial.specularColor = new BABYLON.Color3(0, 0, 0); // No specular highlights.
+            skybox.material = skyboxMaterial;
+            // Add the skybox to the refraction RTT's renderList so it appears in refractions.
+            if (glassMaterial.refractionTexture && glassMaterial.refractionTexture.renderList) {
+                glassMaterial.refractionTexture.renderList.push(skybox);
+            }
+
+            // --- Rotating Image Planes Setup ---
+            const numberOfPlanes = 8;  // Number of planes in the circle
+            const radius = 4;         // Distance from center
+            const planeWidth = 2;     // Width of each plane
+            const planeHeight = 3;    // Height of each plane
+            const heightOffset = 1.5;  // Height above ground
+
+            // Create container for all planes
+            const planesContainer = new BABYLON.TransformNode("planesContainer", scene);
+
+            // Image paths from assets (adjust these paths according to your assets folder structure)
+            const imagePaths = [
+                "assets/image1.jpg",
+                "assets/image2.jpg",
+                "assets/image3.jpg",
+                "assets/image4.jpg",
+                "assets/image5.jpg",
+                "assets/image6.jpg",
+                "assets/image7.jpg",
+                "assets/image8.jpg"
+            ];
+
+            const p0 = new BABYLON.Vector3(0, 0, 0);
+
+            // Create planes with images
+            for (let i = 0; i < numberOfPlanes; i++) {
+                const angle = (i / numberOfPlanes) * Math.PI * 2;
+                const plane = BABYLON.MeshBuilder.CreatePlane(
+                    `imagePlane${i}`,
+                    { width: planeWidth, height: planeHeight },
+                    scene
+                );
+
+                // Position the plane in a circle
+                plane.position.x = radius * Math.cos(angle);
+                plane.position.z = radius * Math.sin(angle);
+                plane.position.y = heightOffset;
+
+                // Rotate plane to face center
+                // plane.rotation.y = angle + Math.PI;
+                plane.lookAt(p0);
+
+                // Create material with image texture
+                const planeMat = new BABYLON.StandardMaterial(`planeMat${i}`, scene);
+                planeMat.diffuseTexture = new BABYLON.Texture(
+                    imagePaths[i % imagePaths.length],
+                    scene
+                );
+                planeMat.backFaceCulling = false;
+                planeMat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1); // Reduzierte Spiegelungen
+                planeMat.useSpecularOverAlpha = true;
+                plane.material = planeMat;
+
+                // Parent to container for group rotation
+                plane.parent = planesContainer;
+
+                // Add to background meshes for refraction
+                backgroundMeshes.push(plane);
+
+                // Plane wirft und empfängt Schatten
+                plane.receiveShadows = true;
+                shadowGenerator.addShadowCaster(plane, true);
+            }
+
+            // Add rotation animation
+            scene.registerBeforeRender(() => {
+                planesContainer.rotation.y += 0.005; // Adjust rotation speed here
+            });
+
+            // --- GUI for Shader Parameters (Example for future enhancement) ---
+            // Babylon.GUI can be used to create sliders, buttons, etc., to control shader uniforms interactively.
+            // This is commented out but shows a basic example of how to link a slider to `refractionStrength`.
+            // if (BABYLON.GUI) { // Check if GUI module is loaded
+            //     const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+            //     const slider = new BABYLON.GUI.Slider();
+            //     slider.minimum = 0; slider.maximum = 0.2; // Adjust range as needed
+            //     slider.value = glassMaterial.getFloat("refractionStrength");
+            //     slider.height = "20px"; slider.width = "200px";
+            //     slider.color = "cyan";
+            //     slider.background = "grey";
+            //     slider.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+            //     slider.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+            //     slider.onValueChangedObservable.add((value) => {
+            //         glassMaterial.setFloat("refractionStrength", value);
+            //     });
+            //     advancedTexture.addControl(slider); 
+            // }
+
+
+
+
+
+            // --- Configure Refraction Render Target Texture (RTT) ---
+            // The `refractionTexture` (an RTT) is created inside `createGlassMaterial`.
+            // Its `renderList` determines which meshes are rendered into it.
+            // For realistic refraction, this list should include all objects visible *through* the glass.
+            // CRITICALLY, the glassMesh itself should NOT be in this list to prevent visual artifacts (self-refraction).
+            if (glassMaterial.refractionTexture && glassMaterial.refractionTexture.renderList) {
+                backgroundMeshes.forEach(mesh => {
+                    glassMaterial.refractionTexture.renderList.push(mesh);
+                });
+            } else {
+                console.error("Refraction texture or its renderList is not available on the glass material. Refraction may not work.");
+            }
+
+            // Create water surface
+            const waterPlane = BABYLON.MeshBuilder.CreateGround("waterSurface", {
+                width: 15 * 2,
+                height: 15 * 2,
+                subdivisions: 100,
+                updatable: true  // Korrigierte Schreibweise von updateable -> updatable
+            }, scene);
+
+            waterPlane.position.y = 4.0;
+
+            // Create water material with texture
+            const waterMaterial = new BABYLON.StandardMaterial("waterMat", scene);
+            waterMaterial.diffuseTexture = new BABYLON.Texture("assets/water.jpg", scene);
+            waterMaterial.diffuseTexture.uScale = 4.0;  // Repeat texture 4 times in U direction
+            waterMaterial.diffuseTexture.vScale = 4.0;  // Repeat texture 4 times in V direction
+            waterMaterial.alpha = 0.7;
+            waterMaterial.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+            waterMaterial.backFaceCulling = false;
+
+            // Animate texture for flowing water effect
+            waterMaterial.diffuseTexture.wrapU = BABYLON.Texture.WRAP_ADDRESSMODE;
+            waterMaterial.diffuseTexture.wrapV = BABYLON.Texture.WRAP_ADDRESSMODE;
+
+            waterPlane.material = waterMaterial;
+
+            // Animate water surface and texture
+            let time = 0;
+            scene.registerBeforeRender(() => {
+                time += 0.01;
+
+                // Hole die aktuellen Vertices
+                let vertices = waterPlane.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+                if (!vertices) return;  // Sicherheitscheck
+
+                // Animate vertices for waves
+                for (let i = 0; i < vertices.length; i += 3) {
+                    const x = vertices[i];
+                    const z = vertices[i + 2];
+                    // Y-Position wird modifiziert (vertices[i + 1])
+                    vertices[i + 1] =
+                        2 * Math.sin(x * 0.2 + time) * 0.15 +
+                        Math.sin(z * 0.3 + time * 1.1) * 0.15 +
+                        Math.sin(x * 0.5 + z * 0.5 + time * 0.7) * 0.05;
+                }
+
+                // Update the vertices
+                waterPlane.updateVerticesData(BABYLON.VertexBuffer.PositionKind, vertices);
+                waterPlane.createNormals(true);  // Update normals for correct lighting
+
+                // Animate texture scrolling
+                waterMaterial.diffuseTexture.uOffset += 0.0001;
+                waterMaterial.diffuseTexture.vOffset += 0.0001;
+            });
+
+            waterPlane.receiveShadows = true;
+
+            // Add to refraction render list if glass material is present
+            if (glassMaterial && glassMaterial.refractionTexture && glassMaterial.refractionTexture.renderList) {
+                glassMaterial.refractionTexture.renderList.push(waterPlane);
+            }
+
+            // Create ribbon around ground
+            const groundSize = 15 * 2;
+            const segments = 100;  // Anzahl der Punkte pro Seite
+            const ribbonHeight = 4.0;  // Höhe des Ribbons (gleich wie waterPlane)
+
+            // Funktion zum Abrufen der Ground-Höhe an einer bestimmten Position
+            function getGroundHeightAt(x, z) {
+                return Math.sin(x * 0.5) * 0.2 + Math.sin(z * 0.5) * 0.2;
+            }
+
+            // Erstelle zwei Punktreihen für das Ribbon: eine am Ground, eine in der Höhe
+            const bottomPoints = [];
+            const topPoints = [];
+
+            // Erstelle die Punkte für das Ribbon (im Uhrzeigersinn)
+            for (let i = 0; i <= segments; i++) {
+                // Front edge (x varies, z is max)
+                const x = -groundSize / 2 + (i / segments) * groundSize;
+                const groundHeight = getGroundHeightAt(x, groundSize / 2);
+                bottomPoints.push(new BABYLON.Vector3(x, groundHeight, groundSize / 2));
+                topPoints.push(new BABYLON.Vector3(x, ribbonHeight, groundSize / 2));
+            }
+            for (let i = 0; i <= segments; i++) {
+                // Right edge (x is max, z varies)
+                const z = groundSize / 2 - (i / segments) * groundSize;
+                const groundHeight = getGroundHeightAt(groundSize / 2, z);
+                bottomPoints.push(new BABYLON.Vector3(groundSize / 2, groundHeight, z));
+                topPoints.push(new BABYLON.Vector3(groundSize / 2, ribbonHeight, z));
+            }
+            for (let i = 0; i <= segments; i++) {
+                // Back edge (x varies, z is min)
+                const x = groundSize / 2 - (i / segments) * groundSize;
+                const groundHeight = getGroundHeightAt(x, -groundSize / 2);
+                bottomPoints.push(new BABYLON.Vector3(x, groundHeight, -groundSize / 2));
+                topPoints.push(new BABYLON.Vector3(x, ribbonHeight, -groundSize / 2));
+            }
+            for (let i = 0; i <= segments; i++) {
+                // Left edge (x is min, z varies)
+                const z = -groundSize / 2 + (i / segments) * groundSize;
+                const groundHeight = getGroundHeightAt(-groundSize / 2, z);
+                bottomPoints.push(new BABYLON.Vector3(-groundSize / 2, groundHeight, z));
+                topPoints.push(new BABYLON.Vector3(-groundSize / 2, ribbonHeight, z));
+            }
+            // Schließe das Ribbon
+            bottomPoints.push(bottomPoints[0].clone());
+            topPoints.push(topPoints[0].clone());
+
+            // Erstelle das Ribbon mit zwei Pfaden
+            const ribbon = BABYLON.MeshBuilder.CreateRibbon("ribbon", {
+                pathArray: [bottomPoints, topPoints],
+                closeArray: true,
+                updatable: true
+            }, scene);
+
+            // Material für das Ribbon
+            const ribbonMaterial = new BABYLON.StandardMaterial("ribbonMat", scene);
+            ribbonMaterial.diffuseColor = new BABYLON.Color3(0.4, 0.6, 0.8);
+            ribbonMaterial.alpha = 0.7;
+            ribbon.material = ribbonMaterial;
+
+            // Erweitere die Animation um das Ribbon Update
+            // scene.registerBeforeRender(() => {
+            //     // ...existing water animation code...
+
+            //     // Update ribbon heights based on water wave function
+            //     const ribbonPositions = ribbon.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+            //     if (!ribbonPositions) return;
+
+            //     for (let i = 0; i < ribbonPositions.length; i += 3) {
+            //         const x = ribbonPositions[i];
+            //         const z = ribbonPositions[i + 2];
+
+            //         // Nur die oberen Vertices animieren
+            //         if (ribbonPositions[i + 1] > 0) {
+            //             ribbonPositions[i + 1] = 4.0 + // Basis-Wasserhöhe
+            //                 2 * Math.sin(x * 0.2 + time) * 0.15 +
+            //                 Math.sin(z * 0.3 + time * 1.1) * 0.15 +
+            //                 Math.sin(x * 0.5 + z * 0.5 + time * 0.7) * 0.05;
+            //         }
+            //     }
+
+            //     ribbon.updateVerticesData(BABYLON.VertexBuffer.PositionKind, ribbonPositions);
+            //     ribbon.createNormals(true);
+            // });
+
+            // Füge das Ribbon zum Schattensystem hinzu
+            ribbon.receiveShadows = true;
+            shadowGenerator.addShadowCaster(ribbon, true);
+
+            // Füge das Ribbon zur Refraktionsliste hinzu
+            if (glassMaterial && glassMaterial.refractionTexture && glassMaterial.refractionTexture.renderList) {
+                glassMaterial.refractionTexture.renderList.push(ribbon);
+            }
+
+            // Create default pipeline
+            const pipeline = new BABYLON.DefaultRenderingPipeline(
+                "underwater", // The name of the pipeline
+                true, // HDR not needed
+                scene,
+                [camera] // The list of cameras to be attached to
+            );
+
+            // Configure blur
+            pipeline.bloomEnabled = true;
+            pipeline.bloomThreshold = 0.0;
+            pipeline.bloomWeight = 0.3;
+            pipeline.bloomKernel = 64;
+            pipeline.bloomScale = 0.3;
+
+            // Add chromatic aberration for underwater feel
+            pipeline.chromaticAberrationEnabled = true;
+            pipeline.chromaticAberration.aberrationAmount = 10;
+            pipeline.chromaticAberration.radialIntensity = 0.3;
+
+            // Adjust color grading
+            pipeline.imageProcessing.colorCurves.globalHue = 180;
+            pipeline.imageProcessing.colorCurves.globalSaturation = 1.2;
+            pipeline.imageProcessing.exposure = 0.8;
+
+            // Optional: Depth of Field anpassen
+            pipeline.depthOfFieldEnabled = true;
+            pipeline.depthOfField.focalLength = 50;
+            pipeline.depthOfField.fStop = 1.4;
+            pipeline.depthOfField.focusDistance = 5000;
+            pipeline.depthOfField.lensSize = 20;
+
+            // Wasserhöhe definieren
+            const waterLevel = 4.0;
+            let lastIsUnderwater = false;
+
+            // Sound-Setup
+            let surfSound, dogSound, gullsSound, underwaterSound;
+            let soundsInitialized = false;
+
+            const initSounds = () => {
+                surfSound = document.getElementById('surfSound');
+                dogSound = document.getElementById('dogSound');
+                gullsSound = document.getElementById('gullsSound');
+                underwaterSound = document.getElementById('underwaterSound');
+
+                // Log when sounds are loaded
+                [surfSound, dogSound, gullsSound, underwaterSound].forEach(sound => {
+                    sound.addEventListener('canplaythrough', () => {
+                        console.log(`${sound.id} loaded and ready`);
+                    });
+                    sound.addEventListener('error', (e) => {
+                        console.error(`${sound.id} error:`, e);
+                    });
+                });
+
+                return Promise.all([
+                    surfSound, dogSound, gullsSound, underwaterSound
+                ].map(sound => {
+                    return new Promise((resolve) => {
+                        if (sound.readyState >= 3) {
+                            resolve(sound);
+                        } else {
+                            sound.addEventListener('canplaythrough', () => resolve(sound), { once: true });
+                        }
+                    });
+                }));
+            };
+
+            // Start-Button Event Handler
+            document.getElementById('startButton').addEventListener('click', () => {
+                if (!soundsInitialized) {
+                    initSounds().then(() => {
+                        soundsInitialized = true;
+
+                        // Start with underwater sound
+                        underwaterSound.loop = true;
+                        underwaterSound.volume = 0.7;
+                        underwaterSound.play();
+
+                        // Enable camera controls
+                        camera.attachControl(canvas, true);
+
+                        // Hide start button
+                        document.getElementById('startButton').style.display = 'none';
+                    }).catch(error => {
+                        console.error("Error initializing sounds:", error);
+                    });
+                }
+            });
+
+            // Sound Management im Scene Render Loop
+            scene.registerBeforeRender(() => {
+                if (!soundsInitialized) return;
+
+                const isUnderwater = camera.position.y < waterLevel;
+
+                if (isUnderwater !== lastIsUnderwater) {
+                    if (isUnderwater) {
+                        // Transition to underwater
+                        surfSound.volume = 0;
+                        underwaterSound.volume = 0.7;
+                        if (!underwaterSound.playing) {
+                            underwaterSound.play();
+                        }
+                        if (dogSound.playing) dogSound.pause();
+                        if (gullsSound.playing) gullsSound.pause();
+                    } else {
+                        // Transition to above water
+                        underwaterSound.volume = 0;
+                        surfSound.volume = 0.4;
+                        if (!surfSound.playing) {
+                            surfSound.play();
+                        }
+                    }
+                    lastIsUnderwater = isUnderwater;
+                }
+
+                // Random ambient sounds only when above water
+                if (!isUnderwater && Math.random() < 0.001) {
+                    const sound = Math.random() > 0.5 ? dogSound : gullsSound;
+                    if (!sound.playing) {
+                        sound.play();
+                        setTimeout(() => sound.pause(), (sound === dogSound ? 5000 : 8000));
+                    }
+                }
+            });
+
+            // --- Configure Refraction Render Target Texture (RTT) ---
+            // The `refractionTexture` (an RTT) is created inside `createGlassMaterial`.
+            // Its `renderList` determines which meshes are rendered into it.
+            // For realistic refraction, this list should include all objects visible *through* the glass.
+            // CRITICALLY, the glassMesh itself should NOT be in this list to prevent visual artifacts (self-refraction).
+            if (glassMaterial.refractionTexture && glassMaterial.refractionTexture.renderList) {
+                backgroundMeshes.forEach(mesh => {
+                    glassMaterial.refractionTexture.renderList.push(mesh);
+                });
+            } else {
+                console.error("Refraction texture or its renderList is not available on the glass material. Refraction may not work.");
+            }
+
+            return scene; // Return the created scene.
+        }
+
+        // Create the scene by calling the function.
+        const scene = createScene();
+
+        // Start the engine's render loop.
+        // This will repeatedly call scene.render() to draw frames.
+        engine.runRenderLoop(() => {
+            scene.render();
+        });
+
+        // Add an event listener to handle browser window resizing.
+        // This ensures the Babylon.js render area adjusts to the new window size.
+        window.addEventListener('resize', () => {
+            engine.resize();
+        });
+
+        // --- Start Button Functionality ---
+        // This section adds functionality to the "Start Experience" button.
+        // When clicked, the button will disappear and the scene will become interactive.
+
+        // Get a reference to the start button
+        const startButton = document.getElementById('startButton');
+
+        // Add a click event listener to the button
+        // startButton.addEventListener('click', () => {
+
+
+        //     // Alle Sounds starten (mit angepasster Startlautstärke)
+        //     surfSound.setVolume(0.4);
+        //     surfSound.play();
+
+        //     underwaterSound.setVolume(0);
+        //     underwaterSound.play();
+
+        //     dogSound.setVolume(0);
+        //     dogSound.play();
+
+        //     gullsSound.setVolume(0);
+        //     gullsSound.play();
+
+
+
+        //     // Hide the button
+        //     startButton.style.display = 'none';
+
+        //     // Optionally, you can also disable pointer events on the button
+        //     // to prevent any accidental clicks while the scene is being interacted with.
+        //     startButton.style.pointerEvents = 'none';
+
+        //     // If you have any animations or initial setups that should happen
+        //     // when the scene starts, you can trigger them here.
+        //     // For example, starting a rotation, playing a sound, etc.
+
+        //     // Example: Start rotating the glass mesh slowly
+        //     // glassMesh.rotationAnimation = new BABYLON.Animation("glassRotation", "rotation.y", 30,
+        //     //     BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+        //     // glassMesh.rotationAnimation.setKeys([
+        //     //     { frame: 0, value: 0 },
+        //     //     { frame: 100, value: Math.PI * 2 }
+        //     // ]);
+        //     // scene.beginAnimation(glassMesh, 0, 100, true);
+
+        //     // If you have sounds that should start playing when the scene begins,
+        //     // you can play them here. For example:
+        //     // underwaterSound.play();
+        // });
+    </script>
+</body>
+
+</html>
